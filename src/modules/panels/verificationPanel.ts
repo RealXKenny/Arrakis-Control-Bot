@@ -1,8 +1,8 @@
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
 
-import { createV2Response } from "../../shared/factories/componentFactory";
-import { createDuneBanner } from "../../shared/factories/imageFactory";
-import { findPanelMessage } from "../../shared/utils/findPanelMessage";
+import { createV2Response } from "../../shared/factories/componentFactory.js";
+import { createDuneBanner } from "../../shared/factories/imageFactory.js";
+import { findPanelMessage } from "../../shared/utils/findPanelMessage.js";
 
 const PANEL_MARKER = "## Verify Your Membership";
 const PANEL_IMAGE_NAME = "membership-verification.png";

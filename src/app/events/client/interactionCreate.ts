@@ -1,6 +1,6 @@
 import { Events, Interaction, MessageFlags } from "discord.js";
 
-import { createLogger } from "../../../infrastructure/core/logger";
+import { createLogger } from "../../../infrastructure/core/logger.js";
 
 const logger = createLogger("INTERACTIONS");
 

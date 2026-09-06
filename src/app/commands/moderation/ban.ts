@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
-import { createV2Response } from "../../../shared/factories/componentFactory";
-import { hasStaffRole } from "../../../shared/utils/staffAccess";
+import { createV2Response } from "../../../shared/factories/componentFactory.js";
+import { hasStaffRole } from "../../../shared/utils/staffAccess.js";
 
 const ERROR_COLOR = 0x8f3025;
 

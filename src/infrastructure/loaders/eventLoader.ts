@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { Client } from "discord.js";
-import { findJavaScriptFiles } from "./fileLoader";
-import { createLogger } from "../core/logger";
+import { findJavaScriptFiles } from "./fileLoader.js";
+import { createLogger } from "../core/logger.js";
 
 const logger = createLogger("EVENTS");
 

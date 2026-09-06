@@ -1,8 +1,8 @@
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
 
-import { createDuneBanner } from "../../shared/factories/imageFactory";
-import { createV2Response } from "../../shared/factories/componentFactory";
-import { findPanelMessage } from "../../shared/utils/findPanelMessage";
+import { createDuneBanner } from "../../shared/factories/imageFactory.js";
+import { createV2Response } from "../../shared/factories/componentFactory.js";
+import { findPanelMessage } from "../../shared/utils/findPanelMessage.js";
 
 const PANEL_MARKER = "# 🩸 CRIMSON SKIES";
 const PANEL_IMAGE_NAME = "crimson-skies-info.png";

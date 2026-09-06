@@ -1,7 +1,7 @@
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, ModalSubmitInteraction, SeparatorSpacingSize } from "discord.js";
 
-import { createLogger } from "../../../infrastructure/core/logger";
-import { createActorContext } from "../../../shared/utils/createActorContext";
+import { createLogger } from "../../../infrastructure/core/logger.js";
+import { createActorContext } from "../../../shared/utils/createActorContext.js";
 
 const logger = createLogger("PLAYER LINK");
 

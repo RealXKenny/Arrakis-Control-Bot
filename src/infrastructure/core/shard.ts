@@ -1,6 +1,6 @@
-import { loadEnvironment } from "../config/environment";
-import { createBotApplication } from "./BotApplication";
-import { createLogger, type Logger } from "./logger";
+import { loadEnvironment } from "../config/environment.js";
+import { createBotApplication } from "./BotApplication.js";
+import { createLogger, type Logger } from "./logger.js";
 
 const REQUIRED_ENVIRONMENT = ["TOKEN", "CONSOLE_URL", "CONSOLE_PASSWORD"] as const;
 const config = loadEnvironment([...REQUIRED_ENVIRONMENT]);

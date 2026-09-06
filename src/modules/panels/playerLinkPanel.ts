@@ -2,8 +2,8 @@ import { AttachmentBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MediaG
 
 import { createCanvas } from "canvas";
 
-import { createLogger } from "../../infrastructure/core/logger";
-import { findPanelMessage } from "../../shared/utils/findPanelMessage";
+import { createLogger } from "../../infrastructure/core/logger.js";
+import { findPanelMessage } from "../../shared/utils/findPanelMessage.js";
 
 const logger = createLogger("PLAYER PANEL");
 

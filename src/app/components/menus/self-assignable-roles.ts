@@ -1,6 +1,6 @@
 import { GuildMember, MessageFlags, StringSelectMenuInteraction } from "discord.js";
 
-import { getConfiguredRoleIds } from "../../../shared/constants/selfAssignableRoles";
+import { getConfiguredRoleIds } from "../../../shared/constants/selfAssignableRoles.js";
 
 module.exports = {
   customId: "self-assignable-roles",

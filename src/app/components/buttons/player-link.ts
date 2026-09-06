@@ -1,7 +1,7 @@
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, LabelBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonInteraction } from "discord.js";
 
-import { createActorContext } from "../../../shared/utils/createActorContext";
-import { createV2Response } from "../../../shared/factories/componentFactory";
+import { createActorContext } from "../../../shared/utils/createActorContext.js";
+import { createV2Response } from "../../../shared/factories/componentFactory.js";
 
 module.exports = {
   customId: "player-link",

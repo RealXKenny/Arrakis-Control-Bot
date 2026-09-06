@@ -1,7 +1,7 @@
 import { Events, GuildMember, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags } from "discord.js";
 
-import { createContainer, createV2Response } from "../../../shared/factories/componentFactory";
-import { createMemberBanner } from "../../../shared/factories/imageFactory";
+import { createContainer, createV2Response } from "../../../shared/factories/componentFactory.js";
+import { createMemberBanner } from "../../../shared/factories/imageFactory.js";
 
 module.exports = {
   name: Events.GuildMemberRemove,

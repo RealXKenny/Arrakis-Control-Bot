@@ -1,10 +1,10 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
-import { createLogger } from "../../../infrastructure/core/logger";
-import { formatPlayers } from "../../../modules/formatters/players";
-import type { PlayerResponse } from "../../../modules/formatters/players";
-import { createV2Response } from "../../../shared/factories/componentFactory";
-import { createDuneBanner } from "../../../shared/factories/imageFactory";
+import { createLogger } from "../../../infrastructure/core/logger.js";
+import { formatPlayers } from "../../../modules/formatters/players.js";
+import type { PlayerResponse } from "../../../modules/formatters/players.js";
+import { createV2Response } from "../../../shared/factories/componentFactory.js";
+import { createDuneBanner } from "../../../shared/factories/imageFactory.js";
 
 const logger = createLogger("PLAYERS");
 

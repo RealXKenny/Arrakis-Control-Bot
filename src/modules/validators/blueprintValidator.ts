@@ -1,4 +1,4 @@
-import { BLUEPRINT_LIMITS } from "../../infrastructure/config/limits";
+import { BLUEPRINT_LIMITS } from "../../infrastructure/config/limits.js";
 
 const MAX_BLUEPRINT_BYTES = BLUEPRINT_LIMITS.maxBytes;
 const MAX_TOTAL_RECORDS = BLUEPRINT_LIMITS.maxRecords;

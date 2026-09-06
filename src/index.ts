@@ -1,8 +1,8 @@
 import path from "node:path";
 import { Shard, ShardingManager } from "discord.js";
 
-import { loadEnvironment } from "./infrastructure/config/environment";
-import { createLogger } from "./infrastructure/core/logger";
+import { loadEnvironment } from "./infrastructure/config/environment.js";
+import { createLogger } from "./infrastructure/core/logger.js";
 
 const REQUIRED_ENVIRONMENT = ["TOKEN"];
 const SHARD_ENTRYPOINT = path.join(__dirname, "infrastructure", "core", "shard.js");

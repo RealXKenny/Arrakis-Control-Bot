@@ -1,8 +1,8 @@
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, StringSelectMenuBuilder, type Client } from "discord.js";
 
-import { createDuneBanner } from "../../shared/factories/imageFactory";
-import { getConfiguredRoleOptions } from "../../shared/constants/selfAssignableRoles";
-import { findPanelMessage } from "../../shared/utils/findPanelMessage";
+import { createDuneBanner } from "../../shared/factories/imageFactory.js";
+import { getConfiguredRoleOptions } from "../../shared/constants/selfAssignableRoles.js";
+import { findPanelMessage } from "../../shared/utils/findPanelMessage.js";
 
 const PANEL_MARKER = "## Choose Your Arrakis Roles";
 const PANEL_IMAGE_NAME = "role-selection.png";

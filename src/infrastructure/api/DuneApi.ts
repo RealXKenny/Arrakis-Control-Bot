@@ -1,5 +1,5 @@
-import { DuneConsoleClient, type HttpMethod, type RequestOptions } from "./core/DuneConsoleClient";
-import { loadEndpointCatalog, resolveRoute, type EndpointDefinition } from "./reference/endpointCatalog";
+import { DuneConsoleClient, type HttpMethod, type RequestOptions } from "./core/DuneConsoleClient.js";
+import { loadEndpointCatalog, resolveRoute, type EndpointDefinition } from "./reference/endpointCatalog.js";
 
 interface BlueprintImportResult {
   message?: string;

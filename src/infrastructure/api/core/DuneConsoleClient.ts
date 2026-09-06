@@ -1,6 +1,6 @@
 import { URL } from "node:url";
-import { createLogger } from "../../core/logger";
-import { MAX_BLUEPRINT_BYTES, validateBlueprintUpload } from "../../../modules/validators/blueprintValidator";
+import { createLogger } from "../../core/logger.js";
+import { MAX_BLUEPRINT_BYTES, validateBlueprintUpload } from "../../../modules/validators/blueprintValidator.js";
 
 const logger = createLogger("DUNE API");
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);

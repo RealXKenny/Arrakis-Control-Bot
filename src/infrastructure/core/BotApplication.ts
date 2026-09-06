@@ -1,13 +1,13 @@
 import { Client, Collection, Events, GatewayIntentBits, REST, Routes } from "discord.js";
-import { DuneApi } from "../api/DuneApi";
-import { DiscordAdapterClient } from "../api/DiscordAdapterClient";
-import { ConvoyClient } from "../api/ConvoyClient";
-import { DiscordAuditLogger } from "../../modules/audit/DiscordAuditLogger";
-import { loadCommands } from "../loaders/commandLoader";
-import { loadComponentHandlers } from "../loaders/componentLoader";
-import { loadEvents } from "../loaders/eventLoader";
-import { createLogger } from "./logger";
-import { InMemoryRateLimitStore, RateLimiter } from "../rateLimit/rateLimiter";
+import { DuneApi } from "../api/DuneApi.js";
+import { DiscordAdapterClient } from "../api/DiscordAdapterClient.js";
+import { ConvoyClient } from "../api/ConvoyClient.js";
+import { DiscordAuditLogger } from "../../modules/audit/DiscordAuditLogger.js";
+import { loadCommands } from "../loaders/commandLoader.js";
+import { loadComponentHandlers } from "../loaders/componentLoader.js";
+import { loadEvents } from "../loaders/eventLoader.js";
+import { createLogger } from "./logger.js";
+import { InMemoryRateLimitStore, RateLimiter } from "../rateLimit/rateLimiter.js";
 
 export interface CommandModule {
   data: {

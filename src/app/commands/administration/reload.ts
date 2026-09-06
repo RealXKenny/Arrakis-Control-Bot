@@ -1,8 +1,8 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SlashCommandBuilder } from "discord.js";
 
-import { reloadCommands } from "../../../infrastructure/loaders/commandLoader";
-import { reloadComponentHandlers } from "../../../infrastructure/loaders/componentLoader";
-import { createV2Response } from "../../../shared/factories/componentFactory";
+import { reloadCommands } from "../../../infrastructure/loaders/commandLoader.js";
+import { reloadComponentHandlers } from "../../../infrastructure/loaders/componentLoader.js";
+import { createV2Response } from "../../../shared/factories/componentFactory.js";
 
 interface ReloadResults {
   commands: number;

@@ -1,8 +1,8 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
-import { createLogger } from "../../../infrastructure/core/logger";
-import { createV2Response } from "../../../shared/factories/componentFactory";
-import { hasStaffRole } from "../../../shared/utils/staffAccess";
+import { createLogger } from "../../../infrastructure/core/logger.js";
+import { createV2Response } from "../../../shared/factories/componentFactory.js";
+import { hasStaffRole } from "../../../shared/utils/staffAccess.js";
 
 const logger = createLogger("PURGE");
 

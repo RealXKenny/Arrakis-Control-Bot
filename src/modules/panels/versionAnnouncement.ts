@@ -1,6 +1,6 @@
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type MessageCreateOptions, type SendableChannels } from "discord.js";
 
-import { createDuneBanner } from "../../shared/factories/imageFactory";
+import { createDuneBanner } from "../../shared/factories/imageFactory.js";
 
 const GITHUB_REPO = "RealXKenny/Arrakis-Control-Bot";
 const GITHUB_RELEASES_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=100`;
