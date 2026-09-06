@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "node --watch src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
     "test": "vitest run",
     "lint": "eslint ."
