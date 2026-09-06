@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# npm logs
+npm-debug.log*
+
+# Bot build output
+/dist/

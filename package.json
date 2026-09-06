@@ -1,0 +1,34 @@
+{
+  "name": "Arrakis-Control-Bot",
+  "version": "1.0.0",
+  "description": "A modular Discord.js v14 bot.",
+  "main": "src/index.ts",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --watch src/index.ts",
+    "start": "node dist/src/index.js",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "concurrently": "^10.0.5",
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.4.2"
+  },
+  "allowScripts": {
+    "canvas@3.2.3": true
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3",
+    "vitest": "^3.2.4"
+  }
+}
