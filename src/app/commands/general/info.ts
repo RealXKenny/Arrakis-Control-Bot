@@ -1,8 +1,8 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, SeparatorSpacingSize, SlashCommandBuilder, version as discordJsVersion } from "discord.js";
 
-import { getBotVersion } from "../../../infrastructure/config/version.js";
-import { createDuneBanner } from "../../../shared/factories/imageFactory.js";
-import { createV2Response } from "../../../shared/factories/componentFactory.js";
+import { getBotVersion } from "../../../infrastructure/config/version";
+import { createDuneBanner } from "../../../shared/factories/imageFactory";
+import { createV2Response } from "../../../shared/factories/componentFactory";
 
 const DUNE_COLORS = [0xc58b45, 0xd2a85a, 0xa96832, 0x8f542c, 0x70452c, 0xb87333, 0x9c6b3c] as const;
 

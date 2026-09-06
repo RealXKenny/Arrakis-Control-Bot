@@ -1,5 +1,5 @@
 import { URL } from "node:url";
-import { createLogger } from "../core/logger.js";
+import { createLogger } from "../core/logger";
 
 const logger = createLogger("DISCORD ADAPTER");
 

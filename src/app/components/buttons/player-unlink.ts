@@ -1,6 +1,6 @@
 import { ButtonInteraction, MessageFlags } from "discord.js";
 
-import { createActorContext } from "../../../shared/utils/createActorContext.js";
+import { createActorContext } from "../../../shared/utils/createActorContext";
 
 module.exports = {
   customId: "player-unlink",

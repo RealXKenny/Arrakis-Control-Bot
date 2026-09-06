@@ -1,7 +1,7 @@
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client } from "discord.js";
 
-import { createDuneBanner } from "../../shared/factories/imageFactory.js";
-import { findPanelMessage } from "../../shared/utils/findPanelMessage.js";
+import { createDuneBanner } from "../../shared/factories/imageFactory";
+import { findPanelMessage } from "../../shared/utils/findPanelMessage";
 
 const PANEL_MARKER = "## Arrakis Community Rules";
 const PANEL_IMAGE_NAME = "community-rules.png";

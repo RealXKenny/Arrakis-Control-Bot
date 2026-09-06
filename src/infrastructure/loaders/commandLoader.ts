@@ -1,8 +1,8 @@
 import path from "node:path";
 import { type Client, Collection } from "discord.js";
-import { createLogger } from "../core/logger.js";
-import { findJavaScriptFiles } from "./fileLoader.js";
-import type { CommandModule } from "../core/BotApplication.js";
+import { createLogger } from "../core/logger";
+import { findJavaScriptFiles } from "./fileLoader";
+import type { CommandModule } from "../core/BotApplication";
 
 const logger = createLogger("COMMANDS");
 

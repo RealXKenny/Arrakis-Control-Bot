@@ -1,6 +1,6 @@
 import { ContainerBuilder, FileBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Interaction, type MessageCreateOptions } from "discord.js";
 
-import { createLogger } from "../../infrastructure/core/logger.js";
+import { createLogger } from "../../infrastructure/core/logger";
 
 const logger = createLogger("DISCORD AUDIT");
 

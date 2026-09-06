@@ -1,6 +1,6 @@
 import { MessageFlags, ModalSubmitInteraction } from "discord.js";
 
-import { verifyCaptcha } from "../../../shared/utils/captchaStore.js";
+import { verifyCaptcha } from "../../../shared/utils/captchaStore";
 
 module.exports = {
   customId: "member-captcha-modal",

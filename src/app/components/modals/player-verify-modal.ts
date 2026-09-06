@@ -1,7 +1,7 @@
 import { MessageFlags, ModalSubmitInteraction } from "discord.js";
 
-import { createLogger } from "../../../infrastructure/core/logger.js";
-import { createActorContext } from "../../../shared/utils/createActorContext.js";
+import { createLogger } from "../../../infrastructure/core/logger";
+import { createActorContext } from "../../../shared/utils/createActorContext";
 
 const logger = createLogger("PLAYER LINK");
 const LINKED_ROLE_ID = process.env.LINKED_PLAYER_ROLE_ID;

@@ -1,15 +1,15 @@
 import { ActivityType, Events } from "discord.js";
-import type { BotClient } from "../../../infrastructure/core/BotApplication.js";
+import type { BotClient } from "../../../infrastructure/core/BotApplication";
 
-import { createLogger } from "../../../infrastructure/core/logger.js";
-import { startAuditLogForwarder } from "../../../modules/audit/DiscordAuditLogForwarder.js";
-import { ensureBlueprintUploadPanel } from "../../../modules/panels/blueprintUploadPanel.js";
-import { ensurePlayerLinkPanel } from "../../../modules/panels/playerLinkPanel.js";
-import { ensureRolePanel } from "../../../modules/panels/rolePanel.js";
-import { ensureRulesPanel } from "../../../modules/panels/rulesPanel.js";
-import { ensureServerInfoPanel } from "../../../modules/panels/serverInfoPanel.js";
-import { ensureVerificationPanel } from "../../../modules/panels/verificationPanel.js";
-import { announceCurrentVersion } from "../../../modules/panels/versionAnnouncement.js";
+import { createLogger } from "../../../infrastructure/core/logger";
+import { startAuditLogForwarder } from "../../../modules/audit/DiscordAuditLogForwarder";
+import { ensureBlueprintUploadPanel } from "../../../modules/panels/blueprintUploadPanel";
+import { ensurePlayerLinkPanel } from "../../../modules/panels/playerLinkPanel";
+import { ensureRolePanel } from "../../../modules/panels/rolePanel";
+import { ensureRulesPanel } from "../../../modules/panels/rulesPanel";
+import { ensureServerInfoPanel } from "../../../modules/panels/serverInfoPanel";
+import { ensureVerificationPanel } from "../../../modules/panels/verificationPanel";
+import { announceCurrentVersion } from "../../../modules/panels/versionAnnouncement";
 
 const logger = createLogger("DISCORD");
 

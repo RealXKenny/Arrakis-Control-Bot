@@ -1,8 +1,8 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
-import { createV2Response } from "../../../shared/factories/componentFactory.js";
-import { createDuneBanner } from "../../../shared/factories/imageFactory.js";
-import { createLogger } from "../../../infrastructure/core/logger.js";
+import { createV2Response } from "../../../shared/factories/componentFactory";
+import { createDuneBanner } from "../../../shared/factories/imageFactory";
+import { createLogger } from "../../../infrastructure/core/logger";
 
 const logger = createLogger("SERVERS");
 

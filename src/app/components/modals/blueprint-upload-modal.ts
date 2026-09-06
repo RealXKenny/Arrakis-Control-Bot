@@ -1,7 +1,7 @@
 import { MessageFlags, ModalSubmitInteraction } from "discord.js";
 
-import { BLUEPRINT_LIMITS } from "../../../infrastructure/config/limits.js";
-import { createActorContext } from "../../../shared/utils/createActorContext.js";
+import { BLUEPRINT_LIMITS } from "../../../infrastructure/config/limits";
+import { createActorContext } from "../../../shared/utils/createActorContext";
 
 const MINIMUM_OFFLINE_MS = BLUEPRINT_LIMITS.minimumOfflineMs;
 

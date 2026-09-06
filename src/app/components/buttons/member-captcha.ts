@@ -1,6 +1,6 @@
 import { ButtonInteraction, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 
-import { createCaptcha } from "../../../shared/utils/captchaStore.js";
+import { createCaptcha } from "../../../shared/utils/captchaStore";
 
 module.exports = {
   customId: "member-captcha",
