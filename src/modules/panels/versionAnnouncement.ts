@@ -2,10 +2,13 @@ import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, Medi
 
 import { createDuneBanner } from "../../shared/factories/imageFactory";
 
-const GITHUB_REPO = "RealXKenny/Arrakis-Control-Bot";
-const GITHUB_RELEASES_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=100`;
+const RELEASE_PROJECTS = [
+  { name: "Bot", repo: "RealXKenny/Arrakis-Control-Bot" },
+  { name: "Dashboard", repo: "RealXKenny/Arrakis-Control-Dashboard" },
+] as const;
+type ReleaseProject = (typeof RELEASE_PROJECTS)[number];
 
-const RELEASE_MARKER_REGEX = /^## Arrakis Control v\S+/m;
+const RELEASE_MARKER_REGEX = /^## Arrakis Control(?: Bot| Dashboard)? v\S+/m;
 const ANNOUNCEMENT_COLOR = 0xc58b45;
 const HISTORY_PAGE_SIZE = 100;
 
@@ -21,6 +24,7 @@ interface GitHubRelease {
 }
 
 interface Release {
+  project: ReleaseProject;
   version: string;
   summary: string;
   date: string | null;
@@ -48,9 +52,9 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
   const announcedMarkers = new Set(history.map(findReleaseMarker).filter((marker): marker is string => marker !== null));
 
   for (const release of [...releases].reverse()) {
-    const marker = `## Arrakis Control v${release.version}`;
+    const marker = `## Arrakis Control ${release.project.name} v${release.version}`;
 
-    if (announcedMarkers.has(marker)) {
+    if (announcedMarkers.has(marker) || (release.project.name === "Bot" && announcedMarkers.has(`## Arrakis Control v${release.version}`))) {
       continue;
     }
 
@@ -66,7 +70,7 @@ async function sendReleaseAnnouncement(channel: SendableChannels, release: Relea
   const card = buildReleaseCard(release, marker, roleMention);
   const banner = createDuneBanner({
     filename: `arrakis-control-${release.version}.png`,
-    title: `Version ${release.version}`,
+    title: `${release.project.name} v${release.version}`,
     subtitle: "RELEASE ANNOUNCEMENT",
     detail: "ARRAKIS CONTROL",
   });
@@ -106,7 +110,10 @@ function buildReleaseCard(release: Release, marker: string, roleMention: string 
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent("### What changed"))
     .addTextDisplayComponents((text) => text.setContent(release.body.trim() || "No release notes provided."))
-    .addActionRowComponents((row) => row.addComponents(new ButtonBuilder().setLabel("View full release notes").setStyle(ButtonStyle.Link).setURL(release.url)));
+    .addActionRowComponents((row) => row.addComponents(
+      new ButtonBuilder().setLabel("View full release notes").setStyle(ButtonStyle.Link).setURL(release.url),
+      new ButtonBuilder().setLabel(`${release.project.name} GitHub`).setStyle(ButtonStyle.Link).setURL(`https://github.com/${release.project.repo}`),
+    ));
 
   return card;
 }
@@ -164,7 +171,13 @@ function formatDiscordTimestamp(date: string | null): string {
 }
 
 async function loadReleases(): Promise<Release[]> {
-  const response = await fetch(GITHUB_RELEASES_URL, {
+  const releases = await Promise.all(RELEASE_PROJECTS.map(loadProjectReleases));
+
+  return releases.flat().sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0));
+}
+
+async function loadProjectReleases(project: ReleaseProject): Promise<Release[]> {
+  const response = await fetch(`https://api.github.com/repos/${project.repo}/releases?per_page=100`, {
     headers: {
       Accept: "application/vnd.github+json",
       "User-Agent": "Arrakis-Control",
@@ -172,7 +185,7 @@ async function loadReleases(): Promise<Release[]> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch GitHub releases: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to fetch ${project.name} GitHub releases: ${response.status} ${response.statusText}`);
   }
 
   const releases = (await response.json()) as GitHubRelease[];
@@ -180,8 +193,9 @@ async function loadReleases(): Promise<Release[]> {
   return releases
     .filter(({ draft, prerelease }) => !draft && !prerelease)
     .map((release) => ({
+      project,
       version: release.tag_name.replace(/^v/, ""),
-      summary: release.name || "A new bot version is available.",
+      summary: release.name || `A new ${project.name.toLowerCase()} version is available.`,
       date: release.published_at || release.created_at,
       body: release.body || "",
       url: release.html_url,
