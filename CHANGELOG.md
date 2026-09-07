@@ -2,6 +2,20 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.1] - 2026-09-07
+
+### Added
+
+- Release announcements for both Arrakis Control Bot and Arrakis Control Dashboard from their GitHub repositories.
+- Project labels in announcement cards and banners, with links to the project repository and full release notes.
+- Regression tests for matching project versions and announcement deduplication.
+
+### Fixed
+
+- Track bot and dashboard versions independently so matching version numbers can both be announced.
+- Recognize existing bot announcements to avoid reposting releases after the upgrade.
+- Publish combined release history in chronological order.
+
 ## [1.0.0] - 2026-09-06
 
 Initial production release.
@@ -40,4 +54,5 @@ Initial production release.
 - `npm test` passes with 9 tests across 4 test files.
 - `npm audit --audit-level=high` reports 0 vulnerabilities.
 
+[1.0.1]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.1
 [1.0.0]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.0
