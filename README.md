@@ -4,6 +4,8 @@ Production-oriented TypeScript Discord.js bot for Dune: Awakening community admi
 
 See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase and [docs/](docs/) for upstream API references.
 
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current release is [1.0.0](https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.0).
+
 ## Requirements
 
 - Node.js 24 or newer
