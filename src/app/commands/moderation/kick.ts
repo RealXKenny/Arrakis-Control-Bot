@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
 import { createV2Response } from "../../../shared/factories/componentFactory";
-import { hasStaffRole } from "../../../shared/utils/staffAccess";
+import { canModerateMember, hasStaffRole } from "../../../shared/utils/staffAccess";
 
 const COLORS = {
   error: 0x8f3025,
@@ -23,7 +23,7 @@ const createCard = (title: string, content: string, accentColor: number, footer?
 };
 
 const replyWithCard = async (interaction: ChatInputCommandInteraction, card: ContainerBuilder): Promise<void> => {
-  await interaction.reply({
+  await interaction.editReply({
     ...createV2Response([card]),
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: {
@@ -32,41 +32,50 @@ const replyWithCard = async (interaction: ChatInputCommandInteraction, card: Con
   });
 };
 
+const data = new SlashCommandBuilder()
+  .setName("kick")
+  .setDescription("Kick a member from the server.")
+  .addUserOption((option) => option.setName("user").setDescription("Member to kick.").setRequired(true))
+  .addStringOption((option) => option.setName("reason").setDescription("Reason for the kick.").setMaxLength(512));
+
+async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+
+  if (!interaction.inGuild() || !interaction.guild) {
+    await deny(interaction);
+    return;
+  }
+
+  const { guild } = interaction;
+  const staffMember = await guild.members.fetch(interaction.user.id).catch(() => null);
+
+  if (!hasStaffRole(staffMember)) {
+    await deny(interaction);
+    return;
+  }
+
+  const user = interaction.options.getUser("user", true);
+  const member = await guild.members.fetch(user.id).catch(() => null);
+
+  if (!member || !canModerateMember(staffMember, member, guild.ownerId) || !member.kickable) {
+    await replyWithCard(interaction, createCard("## ❌ Unable to Kick", `I can't kick **${user.tag}**. You or the bot may not have a high enough role, or the member cannot be kicked.`, COLORS.error));
+    return;
+  }
+
+  const reason = interaction.options.getString("reason") ?? `Kicked by ${interaction.user.tag}`;
+
+  await member.kick(reason);
+
+  await replyWithCard(interaction, createCard("## 👢 Member Kicked", ["### 📋 Kick Summary", `**User:** ${user.tag}`, `**Reason:** ${reason}`].join("\n"), COLORS.success, `Kicked by ${interaction.user.tag}`));
+}
+
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("kick")
-    .setDescription("Kick a member from the server.")
-    .addUserOption((option) => option.setName("user").setDescription("Member to kick.").setRequired(true))
-    .addStringOption((option) => option.setName("reason").setDescription("Reason for the kick.")),
-
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-    if (!interaction.inGuild() || !interaction.guild) {
-      await deny(interaction);
-      return;
-    }
-
-    const { guild } = interaction;
-    const user = interaction.options.getUser("user", true);
-    const member = await guild.members.fetch(user.id).catch(() => null);
-
-    if (!hasStaffRole(member)) {
-      await deny(interaction);
-      return;
-    }
-
-    if (!member?.kickable) {
-      await replyWithCard(interaction, createCard("## ❌ Unable to Kick", `I can't kick **${user.tag}**. They may have a higher role than the bot or cannot be kicked.`, COLORS.error));
-      return;
-    }
-
-    const reason = interaction.options.getString("reason") ?? `Kicked by ${interaction.user.tag}`;
-
-    await member.kick(reason);
-
-    await replyWithCard(interaction, createCard("## 👢 Member Kicked", ["### 📋 Kick Summary", `**User:** ${user.tag}`, `**Reason:** ${reason}`].join("\n"), COLORS.success, `Kicked by ${interaction.user.tag}`));
-  },
+  data,
+  execute,
 };
 
 async function deny(interaction: ChatInputCommandInteraction): Promise<void> {
   await replyWithCard(interaction, createCard("## 🔒 Permission Denied", "You need a configured staff role to use this command.", COLORS.error));
 }
+
+export { execute };

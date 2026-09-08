@@ -85,29 +85,29 @@ module.exports = {
 
     client.auditLogInterval = startAuditLogForwarder(client);
 
-    try {
-      await ensurePanels(client);
-      await setupVersionAnnouncements(client);
-    } catch (error: unknown) {
-      logger.error("Unable to publish Discord panels.", error);
-    }
+    await ensurePanels(client);
+    await runReadyTask("configure version announcements", () => setupVersionAnnouncements(client));
   },
 };
 
 async function ensurePanels(client: BotClient): Promise<void> {
   if (client.discordAdapter) {
-    await ensurePlayerLinkPanel(client, client.discordAdapterLinkPanelChannelId);
-
-    await ensureBlueprintUploadPanel(client, client.discordAdapterBlueprintPanelChannelId);
+    await runReadyTask("publish the player link panel", () => ensurePlayerLinkPanel(client, client.discordAdapterLinkPanelChannelId));
+    await runReadyTask("publish the blueprint upload panel", () => ensureBlueprintUploadPanel(client, client.discordAdapterBlueprintPanelChannelId));
   }
 
-  await ensureRolePanel(client, client.discordRolePanelChannelId);
+  await runReadyTask("publish the role panel", () => ensureRolePanel(client, client.discordRolePanelChannelId));
+  await runReadyTask("publish the verification panel", () => ensureVerificationPanel(client, client.discordVerifyChannelId));
+  await runReadyTask("publish the rules panel", () => ensureRulesPanel(client, client.discordRulesChannelId));
+  await runReadyTask("publish the server info panel", () => ensureServerInfoPanel(client, client.discordServerInfoChannelId));
+}
 
-  await ensureVerificationPanel(client, client.discordVerifyChannelId);
-
-  await ensureRulesPanel(client, client.discordRulesChannelId);
-
-  await ensureServerInfoPanel(client, client.discordServerInfoChannelId);
+async function runReadyTask(label: string, task: () => Promise<unknown>): Promise<void> {
+  try {
+    await task();
+  } catch (error: unknown) {
+    logger.error(`Unable to ${label}.`, error);
+  }
 }
 
 async function setupVersionAnnouncements(client: BotClient): Promise<void> {

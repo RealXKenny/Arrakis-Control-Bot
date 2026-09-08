@@ -26,7 +26,7 @@ const createCard = (title: string, content: string | string[], accentColor: numb
 };
 
 const replyWithCard = async (interaction: ChatInputCommandInteraction, card: ContainerBuilder): Promise<void> => {
-  await interaction.reply({
+  await interaction.editReply({
     ...createV2Response([card]),
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: {
@@ -42,6 +42,8 @@ module.exports = {
     .addIntegerOption((option) => option.setName("amount").setDescription("Number of messages to delete (1–100).").setMinValue(1).setMaxValue(100).setRequired(true)),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.deferReply();
+
     if (!interaction.inGuild() || !interaction.guild) {
       await replyWithCard(interaction, createCard("## ⚠️ Server Only", "This command can only be used inside a server.", COLORS.error));
 

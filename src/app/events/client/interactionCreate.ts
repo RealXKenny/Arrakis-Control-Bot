@@ -128,10 +128,22 @@ async function handleComponent(interaction: Interaction, collectionName: "button
 
   if (!handler) {
     logger.warn(`No ${label} handler registered for ${interaction.customId}.`);
+    await respondWithUnavailableComponent(interaction);
     return;
   }
 
   await handler.execute(interaction);
+}
+
+async function respondWithUnavailableComponent(interaction: Interaction): Promise<void> {
+  if (!interaction.isButton() && !interaction.isAnySelectMenu() && !interaction.isModalSubmit()) {
+    return;
+  }
+
+  await interaction.reply({
+    content: "This control is no longer available. Please use the latest bot panel and try again.",
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
 async function respondWithError(interaction: Interaction): Promise<void> {

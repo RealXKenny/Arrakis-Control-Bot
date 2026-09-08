@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+
 interface CaptchaChallenge {
   code: string;
   expiresAt: number;
@@ -6,9 +8,11 @@ interface CaptchaChallenge {
 const challenges = new Map<string, CaptchaChallenge>();
 const CAPTCHA_TTL_MS = 5 * 60_000;
 const MAX_CHALLENGES = 10_000;
+const CAPTCHA_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const CAPTCHA_LENGTH = 6;
 
 function createCaptcha(userId: string): string {
-  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const code = Array.from({ length: CAPTCHA_LENGTH }, () => CAPTCHA_ALPHABET[randomInt(CAPTCHA_ALPHABET.length)]).join("");
   const now = Date.now();
 
   removeExpired(now);

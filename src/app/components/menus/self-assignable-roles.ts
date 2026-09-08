@@ -6,8 +6,11 @@ module.exports = {
   customId: "self-assignable-roles",
 
   async execute(interaction: StringSelectMenuInteraction): Promise<void> {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     if (!interaction.guild) {
-      throw new Error("Self-assignable roles can only be used inside a guild.");
+      await interaction.editReply("Self-assignable roles can only be used inside a server.");
+      return;
     }
 
     const allowedRoleIds = getConfiguredRoleIds();
@@ -20,21 +23,20 @@ module.exports = {
     }
 
     const currentRoleIds = [...allowedRoleIds].filter((id) => member.roles.cache.has(id));
+    const rolesToAdd = selectedRoleIds.filter((id) => !member.roles.cache.has(id));
+    const rolesToRemove = currentRoleIds.filter((id) => !selectedRoleIds.includes(id));
 
-    if (currentRoleIds.length > 0) {
-      await member.roles.remove(currentRoleIds, "Self-assignable role update");
+    if (rolesToAdd.length > 0) {
+      await member.roles.add(rolesToAdd, "Self-assignable role selection");
     }
 
-    if (selectedRoleIds.length > 0) {
-      await member.roles.add(selectedRoleIds, "Self-assignable role selection");
+    if (rolesToRemove.length > 0) {
+      await member.roles.remove(rolesToRemove, "Self-assignable role update");
     }
 
     const roleCount = selectedRoleIds.length;
     const message = roleCount ? `Your roles were updated. Selected ${roleCount} role${roleCount === 1 ? "" : "s"}.` : "Your self-assignable roles were cleared.";
 
-    await interaction.reply({
-      content: message,
-      flags: MessageFlags.Ephemeral,
-    });
+    await interaction.editReply({ content: message });
   },
 };

@@ -11,6 +11,7 @@ interface LinkedPlayer {
   characterName?: string | null;
   controllerId?: string | number | null;
   onlineStatus?: string | boolean | null;
+  online?: boolean | null;
 
   lastLogoutTime?: string | number | Date | null;
   last_logout_time?: string | number | Date | null;
@@ -32,6 +33,12 @@ interface PlayerProfile {
 
   player_controller_id?: string | number | null;
   playerControllerId?: string | number | null;
+  controller_id?: string | number | null;
+  controllerId?: string | number | null;
+  player_id?: string | number | null;
+  playerId?: string | number | null;
+  pawn_id?: string | number | null;
+  pawnId?: string | number | null;
 
   character_name?: string | null;
   characterName?: string | null;
@@ -55,10 +62,7 @@ interface PlayerListResponse {
   items?: PlayerProfile[];
 }
 
-module.exports = {
-  customId: "blueprint-upload-modal",
-
-  async execute(interaction: ModalSubmitInteraction): Promise<void> {
+async function execute(interaction: ModalSubmitInteraction): Promise<void> {
     const { discordAdapter, duneApi, auditLogger } = interaction.client;
 
     if (!discordAdapter) {
@@ -80,7 +84,8 @@ module.exports = {
     const playerId = linked.pawnId;
 
     if (!playerId) {
-      throw new Error("The linked character did not provide a player pawn ID.");
+      await interaction.editReply("Your linked Dune character does not have a valid player pawn ID. " + "Please unlink and link your account again.");
+      return;
     }
 
     const playerList = (await duneApi.call("GET", "/api/players", {
@@ -138,12 +143,16 @@ module.exports = {
 
     await interaction.editReply(result.message ?? `Blueprint imported for ${linked.characterName ?? "your linked character"}.`);
 
-    await auditLogger?.blueprintImported(interaction, linked, result, file);
-  },
+  await auditLogger?.blueprintImported(interaction, linked, result, file);
+}
+
+module.exports = {
+  customId: "blueprint-upload-modal",
+  execute,
 };
 
 function isOnline(linked: LinkedPlayer, profile: PlayerProfile): boolean {
-  if (String(linked.onlineStatus).toLowerCase() === "online") {
+  if (linked.online === true || String(linked.onlineStatus).toLowerCase() === "online") {
     return true;
   }
 
@@ -159,22 +168,25 @@ function findLinkedPlayer(response: PlayerListResponse | PlayerProfile[] | null 
     return null;
   }
 
-  const linkedName = String(linked.characterName ?? "")
-    .trim()
-    .toLowerCase();
+  const linkedName = normalize(linked.characterName);
+  const pawnId = normalize(linked.pawnId);
+  const controllerId = normalize(linked.controllerId);
 
-  const controllerId = String(linked.controllerId ?? "");
+  if (pawnId) {
+    const pawnMatch = rows.find((player) => [player.player_id, player.playerId, player.pawn_id, player.pawnId].some((value) => normalize(value) === pawnId));
 
-  return (
-    rows.find((player) => String(player.player_controller_id ?? player.playerControllerId ?? "") === controllerId) ??
-    rows.find(
-      (player) =>
-        String(player.character_name ?? player.characterName ?? "")
-          .trim()
-          .toLowerCase() === linkedName,
-    ) ??
-    null
-  );
+    if (pawnMatch) return pawnMatch;
+  }
+
+  if (controllerId) {
+    const controllerMatch = rows.find((player) =>
+      [player.player_controller_id, player.playerControllerId, player.controller_id, player.controllerId].some((value) => normalize(value) === controllerId),
+    );
+
+    if (controllerMatch) return controllerMatch;
+  }
+
+  return linkedName ? rows.find((player) => normalize(player.character_name ?? player.characterName) === linkedName) ?? null : null;
 }
 
 function getPlayerRows(response: PlayerListResponse | PlayerProfile[] | null | undefined): PlayerProfile[] {
@@ -210,13 +222,21 @@ function getOfflineTimestamp(linked: LinkedPlayer, profile: PlayerProfile): Date
     profile.updated_at,
   ];
 
-  const value = values.find(Boolean);
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
 
-  if (!value) {
-    return null;
+    const timestamp = new Date(value);
+
+    if (!Number.isNaN(timestamp.getTime())) return timestamp;
   }
 
-  const timestamp = new Date(value);
-
-  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+  return null;
 }
+
+function normalize(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+export { execute };

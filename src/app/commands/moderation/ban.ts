@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
 import { createV2Response } from "../../../shared/factories/componentFactory";
-import { hasStaffRole } from "../../../shared/utils/staffAccess";
+import { canModerateMember, hasStaffRole } from "../../../shared/utils/staffAccess";
 
 const ERROR_COLOR = 0x8f3025;
 
@@ -20,7 +20,7 @@ const createCard = (title: string, content: string | string[], footer?: string):
 };
 
 const replyWithCard = async (interaction: ChatInputCommandInteraction, card: ContainerBuilder): Promise<void> => {
-  await interaction.reply({
+  await interaction.editReply({
     ...createV2Response([card]),
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: {
@@ -38,9 +38,11 @@ module.exports = {
     .setName("ban")
     .setDescription("Ban a member from the server.")
     .addUserOption((option) => option.setName("user").setDescription("Member to ban.").setRequired(true))
-    .addStringOption((option) => option.setName("reason").setDescription("Reason for the ban.")),
+    .addStringOption((option) => option.setName("reason").setDescription("Reason for the ban.").setMaxLength(512)),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.deferReply();
+
     if (!interaction.inGuild() || !interaction.guild) {
       await deny(interaction);
       return;
@@ -59,8 +61,8 @@ module.exports = {
 
     const member = await guild.members.fetch(user.id).catch(() => null);
 
-    if (!member?.bannable) {
-      await replyWithCard(interaction, createCard("## ❌ Unable to Ban", `I can't ban **${user.tag}**. They may have a higher role than the bot or cannot be banned.`));
+    if (!member || !canModerateMember(staffMember, member, guild.ownerId) || !member.bannable) {
+      await replyWithCard(interaction, createCard("## ❌ Unable to Ban", `I can't ban **${user.tag}**. You or the bot may not have a high enough role, or the member cannot be banned.`));
 
       return;
     }

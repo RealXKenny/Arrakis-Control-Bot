@@ -132,11 +132,7 @@ class DuneConsoleClient {
       throw new Error("Blueprint files must be 32 MB or smaller.");
     }
 
-    const fileBuffer = Buffer.from(await fileResponse.arrayBuffer());
-
-    if (fileBuffer.byteLength > MAX_BLUEPRINT_BYTES) {
-      throw new Error("Blueprint files must be 32 MB or smaller.");
-    }
+    const fileBuffer = await readBoundedBody(fileResponse, MAX_BLUEPRINT_BYTES);
 
     validateBlueprintUpload(attachment, fileBuffer);
 
@@ -146,7 +142,7 @@ class DuneConsoleClient {
 
     form.set(
       "file",
-      new Blob([fileBuffer], {
+      new Blob([Uint8Array.from(fileBuffer)], {
         type: "application/json",
       }),
       attachment.name,
@@ -206,8 +202,9 @@ class DuneConsoleClient {
         }
 
         logger.warn(`${method} ${route} returned temporary HTTP ${response.status}; retrying (${attempt}/3).`);
+        await response.body?.cancel();
       } catch (error: unknown) {
-        if (attempt === 3) {
+        if (!isSafeToRetry(method) || attempt === 3) {
           logger.error(`${method} ${route} network request failed after ${Date.now() - startedAt}ms.`, error);
 
           throw new DuneConsoleApiError(`Console API network request failed: ${getErrorMessage(error)}`, 0, {
@@ -379,6 +376,37 @@ function validateDiscordAttachmentUrl(value: string): URL {
   }
 
   return url;
+}
+
+async function readBoundedBody(response: Response, maximumBytes: number): Promise<Buffer> {
+  if (!response.body) {
+    return Buffer.alloc(0);
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > maximumBytes) {
+        await reader.cancel();
+        throw new Error("Blueprint files must be 32 MB or smaller.");
+      }
+
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks, totalBytes);
 }
 
 function isSafeToRetry(method: HttpMethod): boolean {

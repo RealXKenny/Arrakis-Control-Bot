@@ -5,7 +5,7 @@ import { loadEnvironment } from "./infrastructure/config/environment";
 import { createLogger } from "./infrastructure/core/logger";
 
 const REQUIRED_ENVIRONMENT = ["TOKEN"];
-const SHARD_ENTRYPOINT = path.join(__dirname, "infrastructure", "core", "shard.js");
+const SHARD_ENTRYPOINT = path.join(__dirname, "infrastructure", "core", `shard${path.extname(__filename)}`);
 const SHUTDOWN_TIMEOUT_MS = 1_000;
 
 const environment = loadEnvironment(REQUIRED_ENVIRONMENT);

@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
 import { createV2Response } from "../../../shared/factories/componentFactory";
-import { hasStaffRole } from "../../../shared/utils/staffAccess";
+import { canModerateMember, hasStaffRole } from "../../../shared/utils/staffAccess";
 
 const COLORS = {
   error: 0x8f3025,
@@ -13,7 +13,7 @@ const data = new SlashCommandBuilder()
   .setDescription("Timeout a member.")
   .addUserOption((option) => option.setName("user").setDescription("Member to timeout.").setRequired(true))
   .addIntegerOption((option) => option.setName("minutes").setDescription("Timeout duration in minutes.").setMinValue(1).setMaxValue(40320).setRequired(true))
-  .addStringOption((option) => option.setName("reason").setDescription("Reason for the timeout."));
+  .addStringOption((option) => option.setName("reason").setDescription("Reason for the timeout.").setMaxLength(512));
 
 const createCard = (title: string, content: string, accentColor: number, footer?: string): ContainerBuilder => {
   const card = new ContainerBuilder()
@@ -30,7 +30,7 @@ const createCard = (title: string, content: string, accentColor: number, footer?
 };
 
 const replyWithCard = async (interaction: ChatInputCommandInteraction, card: ContainerBuilder): Promise<void> => {
-  await interaction.reply({
+  await interaction.editReply({
     ...createV2Response([card]),
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: {
@@ -51,6 +51,8 @@ module.exports = {
   data,
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.deferReply();
+
     if (!interaction.inGuild() || !interaction.guild) {
       await denyServerOnly(interaction);
       return;
@@ -68,8 +70,8 @@ module.exports = {
     const user = interaction.options.getUser("user", true);
     const targetMember = await guild.members.fetch(user.id).catch(() => null);
 
-    if (!targetMember?.moderatable) {
-      await replyWithCard(interaction, createCard("## ❌ Unable to Timeout", `I can't timeout **${user.tag}**. They may have a higher role than the bot or cannot be moderated.`, COLORS.error));
+    if (!targetMember || !canModerateMember(staffMember, targetMember, guild.ownerId) || !targetMember.moderatable) {
+      await replyWithCard(interaction, createCard("## ❌ Unable to Timeout", `I can't timeout **${user.tag}**. You or the bot may not have a high enough role, or the member cannot be moderated.`, COLORS.error));
       return;
     }
 

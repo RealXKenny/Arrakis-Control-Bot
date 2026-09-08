@@ -17,7 +17,7 @@ function findJavaScriptFiles(directory: string): string[] {
         return findJavaScriptFiles(itemPath);
       }
 
-      return itemPath.endsWith(".js") ? [itemPath] : [];
+      return /\.(?:js|ts)$/.test(itemPath) ? [itemPath] : [];
     });
 }
 

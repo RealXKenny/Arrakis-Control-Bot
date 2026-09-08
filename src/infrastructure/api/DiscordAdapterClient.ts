@@ -17,12 +17,24 @@ interface DiscordAdapterRequestBody {
 
 interface DiscordAdapterPlayerState {
   linked?: boolean;
+  message?: string | null;
+  pawnId?: string | number | null;
+  controllerId?: string | number | null;
   characterName?: string | null;
+  onlineStatus?: string | null;
+  online?: boolean;
 }
 
 interface DiscordAdapterMutationResult {
   ok?: boolean;
-  message?: string;
+  message?: string | null;
+  error?: string | null;
+  characterName?: string | null;
+  character_name?: string | null;
+  onlineStatus?: string | boolean | null;
+  online_status?: string | boolean | null;
+  expiresInSeconds?: number | null;
+  controllerId?: string | number | null;
 }
 
 interface DiscordAdapterErrorDetails {
@@ -177,7 +189,14 @@ function toMutationResult(value: unknown): DiscordAdapterMutationResult {
 
   return {
     ok: typeof record.ok === "boolean" ? record.ok : undefined,
-    message: typeof record.message === "string" ? record.message : undefined,
+    message: toNullableString(record.message),
+    error: toNullableString(record.error),
+    characterName: toNullableString(record.characterName),
+    character_name: toNullableString(record.character_name),
+    onlineStatus: toNullableStatus(record.onlineStatus),
+    online_status: toNullableStatus(record.online_status),
+    expiresInSeconds: toNullableNumber(record.expiresInSeconds),
+    controllerId: toPlayerId(record.controllerId),
   };
 }
 
@@ -190,8 +209,29 @@ function toPlayerState(value: unknown): DiscordAdapterPlayerState | null {
 
   return {
     linked: typeof record.linked === "boolean" ? record.linked : undefined,
+    message: toNullableString(record.message),
+    pawnId: toPlayerId(record.pawnId),
+    controllerId: toPlayerId(record.controllerId),
     characterName: typeof record.characterName === "string" ? record.characterName : null,
+    onlineStatus: typeof record.onlineStatus === "string" ? record.onlineStatus : null,
+    online: typeof record.online === "boolean" ? record.online : undefined,
   };
+}
+
+function toPlayerId(value: unknown): string | number | null {
+  return typeof value === "string" || typeof value === "number" ? value : null;
+}
+
+function toNullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function toNullableStatus(value: unknown): string | boolean | null {
+  return typeof value === "string" || typeof value === "boolean" ? value : null;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function toRecord(value: unknown): Record<string, unknown> {

@@ -182,6 +182,7 @@ async function loadProjectReleases(project: ReleaseProject): Promise<Release[]> 
       Accept: "application/vnd.github+json",
       "User-Agent": "Arrakis-Control",
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {

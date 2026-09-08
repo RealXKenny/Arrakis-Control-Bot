@@ -100,7 +100,7 @@ class DiscordAuditLogger {
 
   async sendTo(channelId: string | undefined, title: string, lines: string[], files: AuditFile[] = []): Promise<void> {
     if (!channelId) {
-      logger.warn(`Skipped Discord log '${title}': no destination channel is configured.`);
+      logger.debug(`Skipped Discord log '${title}': no destination channel is configured.`);
 
       return;
     }
