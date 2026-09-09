@@ -3,12 +3,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConvoyClient } from "../../src/infrastructure/api/ConvoyClient";
 import { DuneConsoleClient } from "../../src/infrastructure/api/core/DuneConsoleClient";
 import { DiscordAdapterClient } from "../../src/infrastructure/api/DiscordAdapterClient";
+import { ENDPOINT_CATALOG, loadEndpointCatalog } from "../../src/infrastructure/api/reference/endpointCatalog";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("external API clients", () => {
+  it("ships the complete Dune endpoint catalog without external reference files", () => {
+    const loadedCatalog = loadEndpointCatalog();
+
+    expect(ENDPOINT_CATALOG).toHaveLength(354);
+    expect(Object.isFrozen(ENDPOINT_CATALOG)).toBe(true);
+    expect(loadedCatalog).toEqual(ENDPOINT_CATALOG);
+    expect(loadedCatalog).not.toBe(ENDPOINT_CATALOG);
+    expect(ENDPOINT_CATALOG).toContainEqual({
+      method: "GET",
+      route: "/api/server/status",
+      description: "Server status command",
+    });
+  });
+
   it("preserves linked player identifiers returned by the Discord Adapter", async () => {
     vi.stubGlobal(
       "fetch",

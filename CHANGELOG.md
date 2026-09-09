@@ -2,6 +2,25 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.6] - In-Progress
+
+### Added
+
+- Sapphire-compatible logger adapter that applies the Arrakis timestamp, level, and scope format to framework and `container.logger` output.
+- Typed, immutable source catalog containing all 354 Dune Console API endpoints.
+- Regression coverage for Sapphire logger formatting, log-level thresholds, endpoint catalog completeness, and catalog immutability.
+
+### Changed
+
+- Route Sapphire framework logs through the central `[BOT]` logger so application-command registration, readiness, commands, handlers, listeners, and preconditions share one output format.
+- Load the Dune Console endpoint catalog directly from compiled source instead of parsing Markdown from the working directory at startup.
+- Updated architecture and setup documentation to describe the compiled endpoint catalog.
+
+### Removed
+
+- Runtime dependency on external API reference documents.
+- The obsolete `docs/` and `scripts/` directories.
+
 ## [1.0.5] - 2026-09-09
 
 ### Added
@@ -184,6 +203,7 @@ Initial production release.
 - `npm test` passes with 9 tests across 4 test files.
 - `npm audit --audit-level=high` reports 0 vulnerabilities.
 
+[1.0.6]: https://github.com/RealXKenny/Arrakis-Control-Bot/compare/v1.0.5...HEAD
 [1.0.5]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.5
 [1.0.4]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.4
 [1.0.3]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.3

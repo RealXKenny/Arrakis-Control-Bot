@@ -1,3 +1,5 @@
+import { LogLevel as SapphireLogLevel, type ILogger } from "@sapphire/framework";
+
 const LEVELS = Object.freeze({
   DEBUG: 10,
   INFO: 20,
@@ -136,6 +138,68 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
   });
 }
 
+function createSapphireLogger(scope: string, minimumLevel: string = process.env.LOG_LEVEL ?? "INFO"): ILogger {
+  const logger = createLogger(scope, minimumLevel);
+  const normalizedLevel = minimumLevel.toUpperCase() as LogLevel;
+  const threshold = LEVELS[normalizedLevel] ?? LEVELS.INFO;
+
+  function resolveLevel(level: SapphireLogLevel): LogLevel | null {
+    switch (level) {
+      case SapphireLogLevel.Trace:
+      case SapphireLogLevel.Debug:
+        return "DEBUG";
+      case SapphireLogLevel.Info:
+        return "INFO";
+      case SapphireLogLevel.Warn:
+        return "WARN";
+      case SapphireLogLevel.Error:
+        return "ERROR";
+      case SapphireLogLevel.Fatal:
+        return "FATAL";
+      default:
+        return null;
+    }
+  }
+
+  function forward(level: LogLevel, values: readonly unknown[]): void {
+    const [firstValue, ...remainingValues] = values;
+    let message = typeof firstValue === "string" ? firstValue : String(firstValue ?? "");
+    let details: unknown;
+
+    if (remainingValues.every((value) => typeof value === "string")) {
+      message = [message, ...remainingValues].filter(Boolean).join(" ");
+    } else if (remainingValues.length === 1) {
+      [details] = remainingValues;
+    } else if (remainingValues.length > 1) {
+      details = remainingValues;
+    }
+
+    logger[level.toLowerCase() as Lowercase<LogLevel>](message, details);
+  }
+
+  function write(level: SapphireLogLevel, ...values: readonly unknown[]): void {
+    const resolvedLevel = resolveLevel(level);
+
+    if (resolvedLevel) {
+      forward(resolvedLevel, values);
+    }
+  }
+
+  return Object.freeze({
+    has(level: SapphireLogLevel): boolean {
+      const resolvedLevel = resolveLevel(level);
+      return resolvedLevel !== null && LEVELS[resolvedLevel] >= threshold;
+    },
+    trace: (...values: readonly unknown[]) => forward("DEBUG", values),
+    debug: (...values: readonly unknown[]) => forward("DEBUG", values),
+    info: (...values: readonly unknown[]) => forward("INFO", values),
+    warn: (...values: readonly unknown[]) => forward("WARN", values),
+    error: (...values: readonly unknown[]) => forward("ERROR", values),
+    fatal: (...values: readonly unknown[]) => forward("FATAL", values),
+    write,
+  });
+}
+
 function formatTimestamp(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -153,6 +217,6 @@ function formatTimestamp(date: Date): string {
   return `${values.month}/${values.day}/${values.year} ` + `${values.hour}:${values.minute}:${values.second} ` + `${values.dayPeriod}`;
 }
 
-export { createLogger, formatTimestamp };
+export { createLogger, createSapphireLogger, formatTimestamp };
 
 export type { LogLevel, Logger };

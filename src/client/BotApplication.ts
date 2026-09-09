@@ -1,10 +1,9 @@
 import { GatewayIntentBits } from "discord.js";
-import { LogLevel } from "@sapphire/framework";
 import { DuneApi } from "../infrastructure/api/DuneApi";
 import { DiscordAdapterClient } from "../infrastructure/api/DiscordAdapterClient";
 import { ConvoyClient } from "../infrastructure/api/ConvoyClient";
 import { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
-import { createLogger } from "./logger";
+import { createLogger, createSapphireLogger } from "./logger";
 import { InMemoryRateLimitStore, RateLimiter } from "../infrastructure/rateLimit/rateLimiter";
 import { TicketRepository } from "../infrastructure/database/TicketRepository";
 import { ArrakisClient } from "./ArrakisClient";
@@ -131,20 +130,8 @@ function createBotApplication(config: BotConfig) {
 function createClient(logLevel?: string): BotClient {
   return new ArrakisClient({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-    logger: { level: toSapphireLogLevel(logLevel) },
+    logger: { instance: createSapphireLogger("BOT", logLevel) },
   });
-}
-
-function toSapphireLogLevel(level = "INFO"): LogLevel {
-  const levels: Readonly<Record<string, LogLevel>> = {
-    DEBUG: LogLevel.Debug,
-    INFO: LogLevel.Info,
-    WARN: LogLevel.Warn,
-    ERROR: LogLevel.Error,
-    FATAL: LogLevel.Fatal,
-  };
-
-  return levels[level.toUpperCase()] ?? LogLevel.Info;
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {

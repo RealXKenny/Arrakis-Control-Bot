@@ -2,7 +2,7 @@
 
 Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: Awakening community administration, player linking, moderation, server operations, panels, and external service integrations.
 
-See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase and [docs/](docs/) for upstream API references.
+See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/api/reference/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
 Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.5.
 

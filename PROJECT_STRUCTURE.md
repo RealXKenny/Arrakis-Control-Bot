@@ -9,7 +9,6 @@ Arrakis Control Bot uses top-level Sapphire stores, a dedicated client compositi
 ├── .env.example                         Runtime configuration template
 ├── README.md                            Setup, operation, and deployment guide
 ├── PROJECT_STRUCTURE.md                 Architecture and ownership guide
-├── docs/                                External API reference material
 ├── package.json                         Scripts and dependency declarations
 ├── package-lock.json                    Reproducible dependency resolution
 ├── tsconfig.json                        Strict TypeScript configuration
@@ -37,7 +36,7 @@ Arrakis Control Bot uses top-level Sapphire stores, a dedicated client compositi
 │   ├── preconditions/                   Top-level Sapphire Precondition store
 │   ├── support/                         Framework routing helpers and base pieces
 │   ├── infrastructure/                  Low-level technical adapters and I/O drivers
-│   │   ├── api/                         Dune, Convoy, and Discord Adapter clients
+│   │   ├── api/                         API clients and compiled endpoint catalog
 │   │   ├── config/                      Environment, limits, and version parsing
 │   │   ├── database/                    PostgreSQL repositories and schema setup
 │   │   └── rateLimit/                   Replaceable rate-limit storage and policy
@@ -72,7 +71,7 @@ Arrakis Control Bot uses top-level Sapphire stores, a dedicated client compositi
 | `src/listeners/` | Handles Discord gateway events and Sapphire framework denial/error events. |
 | `src/preconditions/` | Enforces reusable owner, staff, and rate-limit policies. |
 | `src/support/` | Contains framework-specific bases and routing helpers shared by Sapphire pieces. |
-| `src/infrastructure/` | Owns HTTP transport, environment parsing, persistence, and replaceable state drivers. |
+| `src/infrastructure/` | Owns HTTP transport, the hardcoded Dune endpoint catalog, environment parsing, persistence, and replaceable state drivers. |
 | `src/modules/` | Owns reusable Arrakis business behavior, including tickets, panels, audit forwarding, formatting, and validation. |
 | `src/shared/` | Provides small reusable factories, constants, and utilities without startup side effects. |
 | `tests/` | Verifies behavior and compiled Sapphire discovery without live credentials or a gateway connection. |
