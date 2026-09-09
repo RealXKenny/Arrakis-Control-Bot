@@ -1,6 +1,6 @@
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, StringSelectMenuBuilder, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
 
-import { createLogger } from "../../infrastructure/core/logger";
+import { createLogger } from "../../client/logger";
 import { createTicketSupportBanner } from "../../shared/factories/imageFactory";
 import { findPanelMessage } from "../../shared/utils/findPanelMessage";
 import { TICKET_CATEGORIES } from "../tickets/ticketCategories";

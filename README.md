@@ -1,10 +1,10 @@
 # Arrakis Control Bot
 
-Production-oriented TypeScript Discord.js bot for Dune: Awakening community administration, player linking, moderation, server operations, panels, and external service integrations.
+Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: Awakening community administration, player linking, moderation, server operations, panels, and external service integrations.
 
 See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase and [docs/](docs/) for upstream API references.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.4.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.5.
 
 ## Requirements
 
@@ -57,7 +57,7 @@ npm start
 
 `npm start` uses the shard manager and therefore runs a manager plus one or more shard child processes. `npm run start:single` runs one compiled shard directly when Discord sharding is not needed. Both manager and shard processes monitor their parent and shut down if that parent disappears, including when a Windows npm host process is terminated.
 
-The manager deploys application commands globally when `CLIENT_ID` is configured. It spawns Discord shards, logs shard failures, and exits on fatal process errors so an external process manager can restart it. `SIGINT` and `SIGTERM` trigger bounded graceful shutdown, including scheduled task cleanup, PostgreSQL pool closure, and Discord client destruction. Keep exactly one manager instance for a deployment unless shared coordination is added.
+Sapphire discovers application commands from its command store and synchronizes their global registrations with overwrite behavior from shard zero. The manager spawns Discord shards, logs shard failures, and exits on fatal process errors so an external process manager can restart it. `SIGINT` and `SIGTERM` trigger bounded graceful shutdown, including scheduled task cleanup, PostgreSQL pool closure, and Discord client destruction. Keep exactly one manager instance for a deployment unless shared coordination is added.
 
 Keep command deployment credentials and API secrets in the runtime environment. Use a process manager or container supervisor for restart policy, and configure its health/readiness checks around shard readiness and application logs.
 
@@ -80,12 +80,12 @@ The production start path was previously verified with configured live services.
 - Missing or blank `CONSOLE_API_KEY` fails startup before Discord login. `CONSOLE_PASSWORD` is no longer read.
 - An API-key-authenticated request returning HTTP 403 usually means the key is valid but lacks the scope required by that command.
 - The first command that reaches the Dune Console will expose an invalid key or missing scope through its safe API error response.
-- `CLIENT_ID` may be omitted when commands are managed externally; the bot will skip deployment and still start.
+- `CLIENT_ID` remains optional configuration; Sapphire uses the authenticated application when synchronizing registered commands.
 - Use `LOG_LEVEL=DEBUG` temporarily when diagnosing integration or interaction failures. Logs do not intentionally include tokens or authorization headers.
 
 ## Architecture
 
-The application is intentionally modular. Discord event modules translate gateway events into application actions, infrastructure clients own external I/O, and shared utilities contain reusable validation and state primitives. Keep new external integrations under `src/infrastructure/api/`, domain behavior under `src/modules/`, and Discord presentation/interaction wiring under `src/app/`.
+The application is intentionally modular. `ArrakisClient` maps Sapphire's command, interaction-handler, listener, and precondition stores directly to the top-level directories under `src/`; there are no custom dynamic loaders. Client composition lives in `src/client/`, infrastructure clients own external I/O, domain behavior lives under `src/modules/`, and reusable primitives remain under `src/shared/`.
 
 ## Security notes
 

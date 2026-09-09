@@ -116,4 +116,4 @@ Power, reinstall, firewall, address, and storage-write routes can interrupt or d
 
 ## Source implementation
 
-The authenticated client is implemented in [`src/infrastructure/api/ConvoyClient.js`](../src/infrastructure/api/ConvoyClient.js). The current read-only command is [`/servers`](../src/app/commands/server/servers.js).
+The authenticated client is implemented in [`src/infrastructure/api/ConvoyClient.ts`](../src/infrastructure/api/ConvoyClient.ts). The current read-only command is [`/servers`](../src/commands/server/servers.ts).

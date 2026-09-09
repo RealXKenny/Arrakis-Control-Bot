@@ -1,6 +1,6 @@
 import { AuditLogEvent, type Client } from "discord.js";
 
-import { createLogger } from "../../infrastructure/core/logger";
+import { createLogger } from "../../client/logger";
 
 const logger = createLogger("DISCORD AUDIT LOG");
 

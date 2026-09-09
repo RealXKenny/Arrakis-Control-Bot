@@ -1,21 +1,23 @@
 {
   "name": "Arrakis-Control-Bot",
-  "version": "1.0.4",
-  "description": "A modular Discord.js v14 bot.",
+  "version": "1.0.5",
+  "description": "A modular Sapphire Framework and Discord.js v14 bot.",
   "main": "src/index.ts",
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsx src/infrastructure/core/shard.ts",
-    "dev:watch": "tsx watch src/infrastructure/core/shard.ts",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
+    "dev": "tsx src/client/shard.ts",
+    "dev:watch": "tsx watch src/client/shard.ts",
     "start": "node dist/src/index.js",
-    "start:single": "node dist/src/infrastructure/core/shard.js",
-    "test": "vitest run",
+    "start:single": "node dist/src/client/shard.js",
+    "test": "npm run build && vitest run",
     "lint": "eslint ."
   },
   "dependencies": {
+    "@sapphire/framework": "^5.5.1",
+    "@sapphire/plugin-subcommands": "^7.0.1",
     "canvas": "^3.2.3",
     "concurrently": "^10.0.5",
     "discord.js": "^14.25.1",

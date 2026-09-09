@@ -2,7 +2,7 @@ import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, Medi
 
 import { createDuneBanner } from "../../shared/factories/imageFactory";
 import { DISCORD_LIMITS, sanitizeAttachmentName, truncateDiscordText } from "../../shared/utils/discordLimits";
-import { createLogger } from "../../infrastructure/core/logger";
+import { createLogger } from "../../client/logger";
 
 const RELEASE_PROJECTS = [
   { name: "Bot", repo: "RealXKenny/Arrakis-Control-Bot" },

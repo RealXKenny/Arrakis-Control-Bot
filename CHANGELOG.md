@@ -2,6 +2,29 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.5] - 2026-09-09
+
+### Added
+
+- Native `@sapphire/framework` integration, adopting top-level stores (`commands`, `interaction-handlers`, `listeners`, `preconditions`).
+- Centralized `ArrakisClient` subclass under `src/client/` for unified client composition and lifecycle management.
+- Credential-free store discovery and interaction routing tests under `tests/stores/`.
+- Typed fallback handlers for stale message controls and modal submissions.
+- Modular framework error boundaries and precondition denial listeners.
+
+### Changed
+
+- Flattened presentation directory structure by removing `src/app/` and placing store directories directly under `src/`.
+- Lifted client orchestration (`ArrakisClient`, `BotApplication`, `shard.ts`, `logger.ts`) from `infrastructure/core/` to top-level `src/client/`.
+- Reorganized `tests/` to mirror `src/` 1:1 (`tests/client/`, `tests/stores/`, `tests/infrastructure/`, `tests/modules/`, `tests/shared/`).
+- Rewrote `PROJECT_STRUCTURE.md` to reflect Clean Architecture domain boundaries and top-level store mappings.
+
+### Removed
+
+- Legacy custom dynamic loaders (`commandLoader.ts`, `componentLoader.ts`, `eventLoader.ts`, `fileLoader.ts`).
+- Obsolete manual store path overrides in client composition.
+- Redundant and outdated test files in `tests/`.
+
 ## [1.0.4] - 2026-09-09
 
 ### Changed
@@ -161,6 +184,7 @@ Initial production release.
 - `npm test` passes with 9 tests across 4 test files.
 - `npm audit --audit-level=high` reports 0 vulnerabilities.
 
+[1.0.5]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.5
 [1.0.4]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.4
 [1.0.3]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.3
 [1.0.2]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.2

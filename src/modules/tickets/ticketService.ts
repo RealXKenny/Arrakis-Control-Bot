@@ -14,7 +14,7 @@ import {
 
 import type { DiscordAdapterPlayerState } from "../../infrastructure/api/DiscordAdapterClient";
 import type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord } from "../../infrastructure/database/TicketRepository";
-import { createLogger } from "../../infrastructure/core/logger";
+import { createLogger } from "../../client/logger";
 import { createV2Response } from "../../shared/factories/componentFactory";
 import { createActorContext } from "../../shared/utils/createActorContext";
 import { getConfiguredStaffRoleIds, hasStaffRole } from "../../shared/utils/staffAccess";

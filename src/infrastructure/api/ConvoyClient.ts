@@ -1,5 +1,5 @@
 import { URL } from "node:url";
-import { createLogger } from "../core/logger";
+import { createLogger } from "../../client/logger";
 
 const logger = createLogger("CONVOY API");
 
