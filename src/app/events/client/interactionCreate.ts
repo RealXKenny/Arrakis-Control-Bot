@@ -124,7 +124,8 @@ async function handleComponent(interaction: Interaction, collectionName: "button
     return;
   }
 
-  const handler = interaction.client[collectionName].get(interaction.customId);
+  const handlers = interaction.client[collectionName];
+  const handler = handlers.get(interaction.customId) ?? [...handlers.values()].find((candidate) => candidate.customIdPrefix && interaction.customId.startsWith(candidate.customIdPrefix));
 
   if (!handler) {
     logger.warn(`No ${label} handler registered for ${interaction.customId}.`);

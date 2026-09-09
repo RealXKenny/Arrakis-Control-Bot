@@ -2,7 +2,7 @@
 
 **Status:** Current | **Last Updated:** August 2026
 
-Complete reference for all HTTP API endpoints in the Dune Docker Console. All endpoints require authentication (session cookie + CSRF token) unless otherwise noted.
+Complete reference for all HTTP API endpoints in the Dune Docker Console. All endpoints require authentication unless otherwise noted — either a browser session (session cookie + CSRF token) or a scoped API key sent as `Authorization: Bearer <key>`. See [api-keys.md](api-keys.md) for how key scopes are granted and what they can never reach.
 
 **Format:** HTTP Method | Route | Description | Parameters
 
@@ -27,6 +27,7 @@ Complete reference for all HTTP API endpoints in the Dune Docker Console. All en
 - [Addons](#addons)
 - [Logs & Monitoring](#logs--monitoring)
 - [Settings & Public Directory](#settings--public-directory)
+- [API Keys](#api-keys)
 - [Discord Adapter (Experimental)](#discord-adapter-experimental)
 - [Implementation Details](#implementation-details)
 
@@ -256,6 +257,8 @@ Player rows include `total_playtime_seconds`. The console samples `player_state.
 | DELETE | `/api/bases/{baseId}/queued-refill` | Cancel a base's queued generator refill | `baseId` |
 | GET | `/api/bases/auto-refill` | Get per-base auto-refill enrollment state | None |
 | POST | `/api/bases/{baseId}/auto-refill` | Enable/disable auto-refill for a base | `baseId`, `enabled` |
+| GET | `/api/bases/auto-refill/settings` | Get the threshold and scan interval for both auto-refill subsystems, with the source (`console`/`env`/`default`), reset value, and range of each | None |
+| POST | `/api/bases/auto-refill/settings` | Save auto-refill thresholds/intervals. A number sets, `null` resets to the env/default layer, an omitted key is unchanged. Rate limited; requires `bases:write-config`, not `bases:mutate` | `thresholdPercent?`, `intervalHours?`, `waterThresholdPercent?`, `waterIntervalHours?` |
 | GET | `/api/bases/{baseId}/water` | Get a base's water storage containers (count, volume, fill %; blood volume/fill for Blood Purifiers) | `baseId` |
 | POST | `/api/bases/{baseId}/refill-water` | Refill all base water storage (queued instead if the map isn't safely writable right now). Water only -- blood is never touched | `baseId` |
 | GET | `/api/bases/pending-water-refills` | List queued water refills, grouped by restart target | None |
@@ -270,6 +273,10 @@ Player rows include `total_playtime_seconds`. The console samples `player_state.
 | POST | `/api/bases/{baseId}/system-custodian` | Transfer ownership to the Server or detected GM system custodian while preserving the roster; provisions Server when no custodian exists | `baseId` |
 | PUT | `/api/bases/{baseId}/permissions` | Replace a base's permission roster | `baseId`, `entries[]` (`playerId`, `rank`) |
 | GET | `/api/bases/permission-candidates` | Search players eligible to be added to a roster | `q?`, `limit?` |
+| GET | `/api/bases/{baseId}/child-access` | Every child piece (door, device) on a base plus its own root totem (`is_child=false`), each with its access level — a different 5-tier scale from the roster rank above; Sub-Fief is Associate (3) | `baseId` |
+| POST | `/api/bases/{baseId}/child-access` | Set specific pieces to specific access levels (1-5); queued for the next map restart instead if the base's map is live (`result.queued`). Requires `{ updates: [{ actorId, accessLevel }], confirmation: "SET CHILD ACCESS" }` | `baseId`, `updates[]` |
+| GET | `/api/bases/pending-child-access` | List queued permission changes, grouped by restart target. Each entry carries its own `updates[]` payload | None |
+| DELETE | `/api/bases/{baseId}/queued-child-access` | Discard a base's queued permission changes | `baseId` |
 | DELETE | `/api/bases/{baseId}` | Permanently delete a base and everything on it (queued instead if the map isn't safely writable right now); takes a full-database safety backup first. Requires `{ confirmation: "DELETE BASE" }` | `baseId` |
 | GET | `/api/bases/pending-deletes` | List queued base deletes, grouped by restart target | None |
 | DELETE | `/api/bases/{baseId}/queued-delete` | Cancel a base's queued delete | `baseId` |
@@ -303,6 +310,15 @@ delete route is unavailable when `baseDelete` is false; without `baseDeleteQueue
 a delete against a live map is written straight away rather than queued, matching
 the refill routes' behavior on a schema without `world_partition`. See
 [Base deletion](base-deletion.md).
+
+`GET /api/bases` also reports `capabilities.baseChildAccessQueue` (child access
+plus `dune.world_partition`). Without it a child-access write against a live map
+is applied straight away rather than queued, matching how the refill and delete
+queues degrade on an older schema. Unlike those queues this one is not about an
+autosave race — the write would stick — but a running map never applies an
+access level change, so queuing keeps the console from showing a level the game
+does not enforce. See
+[base-child-permissions.md](base-child-permissions.md).
 
 `PUT` takes the whole roster rather than a delta — the server diffs it against
 current state and applies only the difference. `rank` is `1` Owner, `2` Co-Owner,
@@ -369,24 +385,46 @@ tab can offer a retry only where retrying could actually help.
 |--------|-------|-------------|------------|
 | GET | `/api/vehicles` | List all player vehicles (paginated), each with owner, shared-with roster, lowest-component condition %, fuel %, map/partition, coordinates, and per-component durability | `q?`, `page?`, `pageSize?`, `sortColumn?`, `sortDirection?` |
 | GET | `/api/players/{playerId}/vehicles` | List the selected player's owned and shared vehicles using the same vehicle details | `playerId` |
-| GET | `/api/vehicles/{vehicleId}/permissions` | Get a vehicle's permission roster (Owner, Co-Owners, Associates) | `vehicleId` |
+| GET | `/api/vehicles/{vehicleId}/permissions` | Get a vehicle's permission roster (Owner, Co-Owners, Associates) plus the detected system custodian | `vehicleId` |
 | PUT | `/api/vehicles/{vehicleId}/permissions` | Replace a vehicle's permission roster | `vehicleId`, `entries[]` (`playerId`, `rank`) |
+| POST | `/api/vehicles/{vehicleId}/system-custodian` | Transfer ownership to the Server or detected GM system custodian while preserving the roster; provisions Server when no custodian exists | `vehicleId` |
 | GET | `/api/vehicles/permission-candidates` | Search players eligible to be added to a vehicle roster | `q?`, `limit?` |
+| GET | `/api/vehicles/{vehicleId}/storage` | Read a vehicle's cargo hold slot by slot (read-only): capacity, per-slot item, quantity, grade, durability and augments | `vehicleId` |
+| DELETE | `/api/vehicles/{vehicleId}/storage/items/{itemId}` | Delete one stack from a vehicle's cargo hold, or part of it with `count`. Requires `{ confirmation: "DELETE ITEM" }` | `vehicleId`, `itemId`, `count?` |
+| DELETE | `/api/vehicles/{vehicleId}/storage/items` | Delete a chosen set of whole stacks (max 200). Requires `{ confirmation: "DELETE ITEMS" }` | `vehicleId`, `itemIds[]` |
+| DELETE | `/api/vehicles/{vehicleId}/storage/all-items` | Empty a vehicle's cargo hold. Requires `{ confirmation: "DELETE ALL ITEMS" }` | `vehicleId` |
+| DELETE | `/api/vehicles/{vehicleId}` | Permanently delete a vehicle and everything on it (queued instead if the map isn't safely writable right now); takes a full-database safety backup first. Requires `{ confirmation: "DELETE VEHICLE" }` | `vehicleId` |
+| GET | `/api/vehicles/pending-deletes` | List queued vehicle deletes, grouped by restart target | None |
+| DELETE | `/api/vehicles/{vehicleId}/queued-delete` | Cancel a vehicle's queued delete | `vehicleId` |
 
-`GET /api/vehicles` and the player-scoped list are read-only; the three
-permission routes above are the only vehicle mutations, and they share their
-implementation with the base permission routes -- see
-[vehicle-permissions.md](vehicle-permissions.md). Unlike bases, there is no
-vehicle transfer/system-custodian route by design.
+`GET /api/vehicles` and the player-scoped list are read-only; the permission
+routes share their implementation with the base permission routes -- see
+[vehicle-permissions.md](vehicle-permissions.md). The system-custodian route
+mirrors the base one exactly, minus the backed-up guard, since a vehicle has
+no picked-up state. The delete route mirrors `DELETE /api/bases/{baseId}` --
+see [vehicle-deletion.md](vehicle-deletion.md). The storage routes read and
+delete the vehicle's single cargo hold -- reached through
+`dune.inventories.actor_id`, not `vehicle_module_id`, which is empty in
+production. Deletion needs no stopped map but refuses while the vehicle is in
+`Travel`/`VehicleBackup`/`VehicleRecovery`, and is gated on `vehicles:delete-item`
+/ `vehicles:bulk-delete-items` rather than `vehicles:mutate` -- see
+[vehicle-storage.md](vehicle-storage.md).
 
 `GET /api/vehicles` reports `capabilities.vehicles`; it is false (with a
 `reason`) when the schema lacks the required tables (`vehicles`, `vehicle_modules`,
 `actors`, `permission_actor`, `permission_actor_rank`, `player_state`,
 `actor_fgl_entities`, `fgl_entities`). It also reports
-`capabilities.vehiclePermissions` (the schema additionally has `dune.map_names`
+`capabilities.vehicleStorage` (the schema additionally has `dune.inventories`
+and `dune.items`, which is what gates the Components tab's View Contents
+button), and `capabilities.vehiclePermissions` (the schema additionally has `dune.map_names`
 and the game's `permission_set_player_rank` / `permission_remove_player_rank`
 procedures) -- the permission routes and the Permissions tab are unavailable
-when it is false. Sortable `sortColumn` values: `id`, `name`,
+when it is false. `capabilities.vehicleDelete` similarly gates the Delete
+Vehicle action (`dune.vehicles`/`vehicle_modules`/`actors` plus
+`permission_actor_destroy`/`delete_actors`), and `capabilities.vehicleDeleteQueue`
+additionally requires `dune.world_partition` -- without it, deletes are
+always immediate rather than queued when the map is live. See
+[vehicle-deletion.md](vehicle-deletion.md). Sortable `sortColumn` values: `id`, `name`,
 `type`, `owner`, `condition_percent`, `fuel_percent`, `map`; `q` matches vehicle
 name, type, owner, map, and exact id. Response fields mirror the paginated-list
 convention (`rows`, `totalCount`, unfiltered `totalVehicles`). Owner resolves from
@@ -410,7 +448,12 @@ Each row also carries a `region` sub-region name where the map has a region tabl
 (`runtime/data/hagga-regions.json`, extracted from the game paks; Hagga Basin is
 covered). It is resolved from the nearest `dune.markers.area_id` and is best-effort
 — absent when marker data is unavailable. Deep Desert instead exposes its A–I/1–9
-sector grid, derived client-side from coordinates.
+sector grid as the `sector` field, derived from each row's coordinates.
+`partition_id` remains null when Funcom has not deployed the vehicle into a
+current world partition; it is never rewritten as the nonexistent partition 0.
+When available, `lifecycle_state` explains these records (`Travel`,
+`VehicleBackup`, or `VehicleRecovery`) so clients can label them as in transit
+or stored rather than spawned.
 
 The separate `/api/admin/vehicles*` routes under [Admin Tools](#admin-tools) are a
 different, CLI-backed surface (blueprint catalog and spawning), not this Postgres
@@ -632,12 +675,26 @@ See [blueprints.md](blueprints.md) for the full import/export design.
 
 ## Live Map
 
+See [live-map.md](live-map.md) for how the panel uses these endpoints --
+partition display-name resolution, the spice/POI data model, the
+Layers legend's default-settings mechanism, and what `coriolisLayout`
+drives: the WebGL renderer that draws the Deep Desert's own cartography
+meshes, and the conditions under which it falls back to the flat image.
+
+Coordinate-bearing Deep Desert marker rows include a `sector` field such as
+`"F6"`. It is `null` when a coordinate lies outside the A1–I9 grid. This applies
+to the combined marker response and the dedicated player, base, storage, spice,
+and POI responses, so announcement tools and bots do not need to duplicate the
+coordinate conversion.
+
 | Method | Route | Description | Parameters |
 |--------|-------|-------------|------------|
 | GET | `/api/map/capabilities` | Get map feature capabilities | None |
-| GET | `/api/map/markers` | Get map markers & configuration | `map?` (query param) |
-| POST | `/api/map/teleport-player` | Teleport player to map coords | `playerId`, `x`, `y`, `z`, `yaw?`, `partitionId?`, `online?` |
-| GET | `/api/map/partitions` | List map partitions | None |
+| GET | `/api/map/markers` | Get map markers & configuration (actors, merged with spice/POI rows; response also includes `coriolisSeed`, `coriolisNextCycleAt`, `coriolisSeedStaleSince`, and `coriolisLayout`) | `map?`, `partitionId?`, `static?` (`0` omits static archive/POI rows for lightweight live refreshes) |
+| GET | `/api/map/spice` | Get spice/flour-sand layers (static pool, active blows, flour sand) for a map/partition | `map?`, `partitionId?` (query params) |
+| GET | `/api/map/poi` | Get registry-driven POI layers (ore, scrap, flora, poi, house_representative, trainer, fortress, hazard, enemy) for a map | `map?` (query param) |
+| POST | `/api/map/teleport-player` | Teleport a player to coordinates in the player's current ready partition; this never starts a dynamic map or crosses partitions | `playerId`, `x`, `y`, `z`, `yaw?`, `partitionId?`, `online?` |
+| GET | `/api/map/partitions` | List live-map partitions, including `alive` and `ready` runtime state for stopped dynamic maps | None |
 | GET | `/api/map/players` | Get player positions | `map?` (query param) |
 | GET | `/api/map/bases` | Get base locations | `map?` (query param) |
 | GET | `/api/map/storage` | Get storage locations | `map?` (query param) |
@@ -657,10 +714,31 @@ See [blueprints.md](blueprints.md) for the full import/export design.
 | GET | `/api/database/tables/{schema}/{table}/count` | Get row count | `schema`, `table`, `filter?` |
 | PATCH | `/api/database/tables/{schema}/{table}/row` | Update table row | `rowId`, `values` (object) |
 | GET | `/api/database/search` | Search database | `q` or `term` (query param) |
-| POST | `/api/database/query` | Execute SQL query | `query` (read or write) |
+| POST | `/api/database/query` | Execute SQL query | `query` (read or write) — see note below |
 | POST | `/api/database/export` | Export query results | `query` (read-only SELECT/WITH/SHOW/EXPLAIN) |
 | POST | `/api/database/password` | Change database password | `password` |
 | GET | `/api/database/table/{table}` | Preview table | `table`, `limit?`, `offset?` |
+
+**`/api/database/query` authorizes on the SQL, not just the route.** The route
+resolves to `database:query`, which covers read-only SQL (`SELECT`, `WITH`,
+`SHOW`, `EXPLAIN`). SQL the classifier reads as a write additionally requires
+`database:execute`, checked inside the handler once the body is parsed; a caller
+without it gets `403` before the rate-limit tick and before the pre-write backup.
+
+**The permission is not the enforcement.** `database:execute` is selected by a
+classifier that a mutating `select dune.<fn>(...)` passes — so a write can be
+routed down the read path. That path executes inside a `set transaction read
+only` transaction, and Postgres refuses the write whatever the classifier
+concluded. The transaction is the guarantee; the action decides which path is
+taken and whether a backup is made.
+
+The default `admin` policy grants `database:query` and denies `database:execute`;
+`owner` holds both. Use `/api/database/export` for read-only result export.
+
+A body with nothing to execute — empty, whitespace, `;`, or entirely
+commented-out SQL — returns `400` first. Such input does not start with a read
+keyword, so without that check it classifies as a write and triggers a full
+pre-write backup before the query is rejected.
 
 ---
 
@@ -714,6 +792,10 @@ See [blueprints.md](blueprints.md) for the full import/export design.
 
 ## Care Package System
 
+Automatic scans return skipped-player results without adding routine skips to grant history. When history reaches 8 MiB, background maintenance compacts it to the latest 500 non-skip records within a 4 MiB budget. Existing oversized files are streamed rather than loaded into memory in full. Older display records are removed, not rotated into additional archives.
+
+Successful and partially delivered grants are preserved as compact eligibility receipts independently of display history. These receipts and first-online claims are included in self-update backups; history cleanup does not reset eligibility or authorize duplicate rewards.
+
 | Method | Route | Description | Parameters |
 |--------|-------|-------------|------------|
 | GET | `/api/care-package/capabilities` | Get care package capabilities | None |
@@ -746,6 +828,10 @@ See [blueprints.md](blueprints.md) for the full import/export design.
 | POST | `/api/addons/installed/{id}/bridge` | Addon bridge API | `id`, `action`, payload varies |
 | GET | `/api/addons/installed/{id}/content/{path}` | Get addon content file | `id`, `path` |
 
+### Player Identity Bridge
+
+`players.identity.list` requires an approved `players:read` addon permission. It returns the minimal player identity data needed to correlate addon events: `name`, `actorId`, `controllerId`, `accountId`, `funcomId`, `flsId`, `platformId`, `platformName`, `status`, and `map`. Addons do not need direct access to the Console player REST endpoints.
+
 ### Hardware Status Bridge
 
 `server.hardware.status` requires approved `server:status` addon permission and returns the core-owned hardware snapshot documented in [Addon Hardware Status Bridge](../addons/hardware-status.md). Addon packages are never permitted to execute their own telemetry scripts.
@@ -774,6 +860,60 @@ See [blueprints.md](blueprints.md) for the full import/export design.
 | GET | `/api/public-directory/status` | Get public directory status | None |
 | POST | `/api/settings/public-directory` | Save public directory and anonymous-count settings | `enabled?`, `anonymousCountEnabled?`, `discordInvite?` |
 | POST | `/api/settings/public-directory/claim` | Claim server listing | `code` |
+
+---
+
+## IAM Policies
+
+Per-tier Allow/Deny documents for the action catalog. Architecture and evaluation order: [../console-iam.md](../console-iam.md).
+
+| Method | Route | Description | Parameters |
+|--------|-------|-------------|------------|
+| GET | `/api/settings/iam/policies` | Active policy store, plus `actions`: the full sorted catalog of valid action names | None |
+| PUT | `/api/settings/iam/policy` | Validate and atomically save the complete policy store | Policy store object (every tier) |
+| POST | `/api/settings/iam/policy/test` | Evaluate one action for one tier without changing policy | `action`, `tier` |
+
+`PUT` refuses two kinds of bad action name, each with its own `400` payload:
+
+- **`unknownActions`** — the name matches nothing in the catalog. The test is
+  whether a pattern matches at least one catalogued action, so wildcards remain
+  legal (`players:*`, `bases:delete-*`) while near-misses that match nothing
+  (`player:*`, `players:reset-*`) are rejected. This matters because the failure
+  is asymmetric: a misspelled action in an `Allow` grants nothing, but in a
+  `Deny` it withholds nothing while reading exactly like a restriction.
+- **`deprecatedActions`** — the name is one the catalog used to have
+  (`players:mutate`, `guilds:mutate`, `blueprints:mutate`, `addons:mutate`). Each
+  entry carries `successors`, so the edit is mechanical. These still evaluate
+  with their original meaning, so a stored policy keeps working; only saving is
+  refused. See [../console-iam.md](../console-iam.md#upgrading-a-policy-that-names-a-removed-action).
+
+`POST .../test` returns `known` alongside `allowed`. A misspelled action answers
+`allowed: false`, which reads as a working `Deny`; `known: false` is what separates a
+real denial from a typo.
+
+---
+
+## API Keys
+
+Named, revocable bearer credentials for calling this API from outside the browser. Full feature documentation: [api-keys.md](api-keys.md).
+
+| Method | Route | Description | Parameters |
+|--------|-------|-------------|------------|
+| GET | `/api/settings/api-keys` | List API keys, without any secret or hash | None |
+| GET | `/api/settings/api-keys/catalog` | List the namespaces a key can be scoped to, and whether each supports writes | None |
+| POST | `/api/settings/api-keys` | Create a key. Returns the full key once, in `secret` | `name`, `scopes?` (map of namespace to `"read"` \| `"write"`), `expiresAt?` (ISO date or null), `rateLimitPerMinute?` (1-10000, default 60) |
+| PUT | `/api/settings/api-keys/{id}` | Update a key. `scopes` replaces wholesale | `id`, `name?`, `scopes?`, `enabled?`, `expiresAt?`, `rateLimitPerMinute?` |
+| DELETE | `/api/settings/api-keys/{id}` | Revoke a key permanently | `id` |
+
+These five routes map to `settings:read` and `settings:write`, and the `settings` namespace is permanently denied to API keys — so a key can never list, create, or revoke keys, including itself. Key management is a browser-session operation only.
+
+`POST` returns `{ key, secret }`. `secret` is the only time the full key exists outside the server; only its SHA-256 hash is stored, so a lost key must be revoked and replaced rather than recovered.
+
+A key omitting `scopes` is created with no access at all. Unrecognised namespaces, unrecognised levels, and the permanently denied `settings`, `database` and `setup` namespaces are dropped rather than coerced — nothing falls back to `"read"`. A `"write"` level on `updates` or `addons`, whose writes are denied to keys, is stored as `"read"`.
+
+Invalid input to the create and update routes — a blank or over-long name, or an expiry that is not a future date string — returns `400` with the reason.
+
+Requests authenticated by a key return `401` when the credential is invalid, disabled or expired, `403` when the key's scopes do not cover the route's action, and `429` with a `retry-after` header when the key exceeds its per-minute limit. A request carrying no `Authorization` header is unaffected and uses the browser session as before.
 
 ---
 

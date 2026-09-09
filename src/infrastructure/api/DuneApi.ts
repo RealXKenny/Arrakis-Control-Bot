@@ -13,8 +13,8 @@ interface BlueprintImportResult {
 class DuneApi extends DuneConsoleClient {
   public readonly endpoints: EndpointDefinition[];
 
-  constructor(baseUrl: string) {
-    super(baseUrl);
+  constructor(baseUrl: string, apiKey: string) {
+    super(baseUrl, apiKey);
 
     this.endpoints = loadEndpointCatalog();
   }

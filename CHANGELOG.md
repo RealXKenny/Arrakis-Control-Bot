@@ -2,6 +2,51 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.3] - 2026-09-09
+
+### Added
+
+- PostgreSQL-backed ticket storage with automatic schema upgrades, active-ticket uniqueness, and lifecycle metadata.
+- Exclusive scoped Dune Console API-key authentication.
+- Persistent Dune-styled support panel with category-first private ticket creation for account linking, technical support, player reports, guild and community help, gameplay and server help, and general requests.
+- Detailed ticket intake for support type, description, prior troubleshooting, and impact or urgency.
+- Automatic linked Dune character enrichment, including character name, online status, pawn ID, and controller ID when available.
+- Durable ticket transcripts stored in PostgreSQL, with an optional `.txt` copy posted to a configured Discord archive channel.
+- Private ticket-closure receipts containing the full request, linked Dune details, closure metadata, transcript attachment, and review prompt.
+- PostgreSQL-backed ticket reviews with a 1-5 rating, resolution status, optional comments, submission timestamp, and in-place staff archive updates.
+- Staff ticket claiming and release controls with durable handler identity, claim time, and protection against another staff member closing an assigned ticket.
+- One persistent archive container per ticket with complete lifecycle, intake, linked Dune account, handler, transcript, and review information plus `.txt` and structured `.json` attachments.
+- Regression coverage for ticket channel names, linked-account presentation, transcript content, and PostgreSQL environment validation.
+
+### Changed
+
+- Console startup now requires `CONSOLE_API_KEY`; password login and all browser-session, cookie, CSRF, reauthentication, and logout code have been removed.
+- Ticket categories are selected from the panel and carried into the modal, PostgreSQL record, and private channel name instead of relying on a free-form category answer.
+- The ticket panel now uses a larger purpose-built support banner, balanced category artwork, shorter guidance, and cleaner privacy/status callouts.
+- Closing a ticket now captures its conversation and attachment references, archives the transcript, and automatically deletes the private Discord channel.
+- Member reviews now edit the ticket's original archive container and replace its JSON record instead of posting a separate review message.
+- Ticket closure now attempts the creator's DM receipt before deleting the channel and reports blocked DMs to the closer without interrupting archival.
+- The bot now requests the `GuildMessages` and privileged `MessageContent` intents required for complete ticket transcripts.
+- Runtime configuration and architecture documentation now cover PostgreSQL, ticket channels, transcript archives, and hosted-database TLS.
+- Local development now runs a single shard directly by default, with explicit watch and single-process production scripts available when sharding is unnecessary.
+
+### Fixed
+
+- Detect parent-process and shard-manager IPC loss so Windows development and managed shutdowns do not leave orphaned Node.js shard processes behind.
+- Wait for shard children during manager shutdown, force only after a bounded timeout, and prevent cleanup failures from blocking process exit.
+
+### Security
+
+- Console API requests reject cross-origin routes before attaching bearer credentials.
+- Console URLs containing embedded username or password credentials are rejected so bearer API keys remain the only Console authentication path.
+- Ticket channels are visible only to the creator, the bot, and configured staff roles.
+- PostgreSQL enforces one active ticket per member and server, including concurrent creation attempts.
+- Ticket creation rolls back both the database reservation and Discord channel when provisioning fails.
+
+### Verification
+
+- `npm run build`, `npm run lint`, `npm test`, `npm audit --omit=dev`, and `git diff --check` pass for the in-progress 1.0.3 changes.
+
 ## [1.0.2] - 2026-09-08
 
 ### Added
@@ -97,5 +142,7 @@ Initial production release.
 - `npm test` passes with 9 tests across 4 test files.
 - `npm audit --audit-level=high` reports 0 vulnerabilities.
 
+[1.0.3]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.3
+[1.0.2]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.1
 [1.0.0]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.0

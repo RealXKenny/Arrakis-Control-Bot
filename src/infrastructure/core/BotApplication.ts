@@ -8,6 +8,7 @@ import { loadComponentHandlers } from "../loaders/componentLoader";
 import { loadEvents } from "../loaders/eventLoader";
 import { createLogger } from "./logger";
 import { InMemoryRateLimitStore, RateLimiter } from "../rateLimit/rateLimiter";
+import { TicketRepository } from "../database/TicketRepository";
 
 export interface CommandModule {
   data: {
@@ -20,6 +21,7 @@ export interface CommandModule {
 
 export interface ComponentHandler {
   customId: string;
+  customIdPrefix?: string;
   execute: (interaction: import("discord.js").Interaction) => Promise<void>;
 }
 
@@ -38,17 +40,21 @@ export interface BotClient extends Client {
   discordRulesChannelId?: string;
   discordServerInfoChannelId?: string;
   discordAnnouncementChannelId?: string;
+  discordTicketPanelChannelId?: string;
+  discordTicketCategoryId?: string;
+  discordTicketTranscriptChannelId?: string;
   versionAnnouncementIntervalMinutes?: number;
   auditLogger: DiscordAuditLogger;
   auditLogInterval?: NodeJS.Timeout;
   versionAnnouncementInterval?: NodeJS.Timeout;
   presenceInterval?: NodeJS.Timeout;
   interactionRateLimiter: RateLimiter;
+  tickets: TicketRepository | null;
 }
 
 interface BotConfig {
   logLevel?: string;
-  duneConsolePassword: string;
+  duneConsoleApiKey: string;
   duneConsoleUrl: string;
   discordToken: string;
   clientId?: string | null;
@@ -62,6 +68,11 @@ interface BotConfig {
   discordRulesChannelId?: string | null;
   discordServerInfoChannelId?: string | null;
   discordAnnouncementChannelId?: string | null;
+  discordTicketPanelChannelId?: string | null;
+  discordTicketCategoryId?: string | null;
+  discordTicketTranscriptChannelId?: string | null;
+  databaseUrl?: string | null;
+  databaseSsl: boolean;
   versionAnnouncementIntervalMinutes?: number;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
@@ -100,9 +111,12 @@ function createBotApplication(config: BotConfig) {
   let isShuttingDown = false;
 
   async function start(): Promise<void> {
-    await client.duneApi.login(config.duneConsolePassword);
+    if (client.tickets) {
+      await client.tickets.initialize();
+      logger.info("PostgreSQL ticket storage is ready.");
+    }
 
-    logger.info(`Logged in to the Dune Console; ${client.duneApi.endpoints.length} API endpoints are available.`);
+    logger.info(`Dune Console API key authentication enabled; ${client.duneApi.endpoints.length} API endpoints are catalogued and access is controlled by key scopes.`);
 
     await deployCommands();
 
@@ -148,7 +162,7 @@ function createBotApplication(config: BotConfig) {
 
     isShuttingDown = true;
 
-    logger.debug(`Received ${signal}; signing out of the Dune Console.`);
+    logger.debug(`Received ${signal}; starting graceful shutdown.`);
 
     if (client.auditLogInterval) clearInterval(client.auditLogInterval);
     if (client.presenceInterval) clearInterval(client.presenceInterval);
@@ -156,13 +170,19 @@ function createBotApplication(config: BotConfig) {
 
     const cleanup = (async (): Promise<void> => {
       try {
-        await client.duneApi.logout();
-        logger.debug("Logged out of the Dune Console.");
-      } catch (error) {
-        logger.error("Unable to log out of the Dune Console.", error);
-      } finally {
         client.destroy();
         logger.debug("Discord client closed.");
+      } catch (error) {
+        logger.error("Unable to close the Discord client cleanly.", error);
+      }
+
+      if (client.tickets) {
+        try {
+          await client.tickets.close();
+          logger.debug("PostgreSQL connection pool closed.");
+        } catch (error) {
+          logger.error("Unable to close the PostgreSQL connection pool cleanly.", error);
+        }
       }
     })();
 
@@ -188,7 +208,7 @@ function createBotApplication(config: BotConfig) {
 
 function createClient(): BotClient {
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   }) as BotClient;
 
   client.commands = new Collection();
@@ -200,7 +220,7 @@ function createClient(): BotClient {
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {
-  client.duneApi = new DuneApi(config.duneConsoleUrl);
+  client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   client.convoyApi = config.advinApiKey ? new ConvoyClient(config.advinApiUrl, config.advinApiKey) : null;
   client.discordAdapter = config.duneDiscordAdapterToken ? new DiscordAdapterClient(config.duneConsoleUrl, config.duneDiscordAdapterToken) : null;
   client.discordAdapterLinkPanelChannelId = config.duneDiscordLinkPanelChannelId ?? undefined;
@@ -210,6 +230,10 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordRulesChannelId = config.discordRulesChannelId ?? undefined;
   client.discordServerInfoChannelId = config.discordServerInfoChannelId ?? undefined;
   client.discordAnnouncementChannelId = config.discordAnnouncementChannelId ?? undefined;
+  client.discordTicketPanelChannelId = config.discordTicketPanelChannelId ?? undefined;
+  client.discordTicketCategoryId = config.discordTicketCategoryId ?? undefined;
+  client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
+  client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl) : null;
   client.versionAnnouncementIntervalMinutes = config.versionAnnouncementIntervalMinutes;
   client.interactionRateLimiter = new RateLimiter({
     durationMs: config.interactionCooldownMs,

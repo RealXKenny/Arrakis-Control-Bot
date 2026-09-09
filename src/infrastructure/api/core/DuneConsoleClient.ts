@@ -8,16 +8,11 @@ const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 
 interface RequestOptions {
-  authenticate?: boolean;
-  includeCsrf?: boolean;
-
   routeParams?: Record<string, string | number | boolean>;
 
   query?: Record<string, string | number | boolean | null | undefined>;
 
   body?: unknown;
-  captureSession?: boolean;
-  retryAuth?: boolean;
 }
 
 interface ApiResponseObject {
@@ -33,75 +28,25 @@ interface BlueprintAttachment {
 class DuneConsoleClient {
   public readonly baseUrl: string;
 
-  private sessionCookie: string | null;
-  private csrfToken: string | null;
-  private password: string | null;
-  private reauthPromise: Promise<unknown> | null;
+  private readonly apiKey: string;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, apiKey: string) {
     if (!baseUrl) {
       throw new Error("CONSOLE_URL is required to create a Dune console client.");
     }
 
-    this.baseUrl = new URL(baseUrl).toString();
-    this.sessionCookie = null;
-    this.csrfToken = null;
-    this.password = null;
-    this.reauthPromise = null;
-  }
-
-  async getAuthState(): Promise<unknown> {
-    const response = await this.request("GET", "/api/auth/state");
-
-    if (isRecord(response)) {
-      const token = getString(response.csrfToken) ?? getString(response.csrf) ?? getString(response.token);
-
-      if (token) {
-        this.csrfToken = token;
-      }
+    const normalizedApiKey = apiKey?.trim();
+    if (!normalizedApiKey) {
+      throw new Error("CONSOLE_API_KEY is required to create a Dune Console client.");
     }
 
-    return response;
-  }
-
-  async login(password: string): Promise<unknown> {
-    if (!password) {
-      throw new Error("A Dune console password is required to log in.");
+    const parsedBaseUrl = new URL(baseUrl);
+    if (parsedBaseUrl.username || parsedBaseUrl.password) {
+      throw new Error("CONSOLE_URL must not contain embedded credentials.");
     }
 
-    this.password = password;
-
-    const response = await this.request("POST", "/api/auth/login", {
-      authenticate: false,
-      body: { password },
-      includeCsrf: false,
-      captureSession: true,
-      retryAuth: false,
-    });
-
-    if (!this.sessionCookie) {
-      throw new Error("Login succeeded without returning an asc_session cookie.");
-    }
-
-    await this.getAuthState();
-
-    if (!this.csrfToken) {
-      throw new Error("The console did not provide a CSRF token after login.");
-    }
-
-    return response;
-  }
-
-  async logout(): Promise<unknown> {
-    try {
-      return await this.request("POST", "/api/auth/logout", {
-        body: {},
-        retryAuth: false,
-      });
-    } finally {
-      this.sessionCookie = null;
-      this.csrfToken = null;
-    }
+    this.baseUrl = parsedBaseUrl.toString();
+    this.apiKey = normalizedApiKey;
   }
 
   async uploadBlueprint(playerId: string | number, attachment: BlueprintAttachment): Promise<unknown> {
@@ -152,9 +97,9 @@ class DuneConsoleClient {
   }
 
   async request(method: HttpMethod, route: string, options: RequestOptions = {}): Promise<unknown> {
-    const { authenticate = true, includeCsrf = method !== "GET" && method !== "HEAD", query, body, captureSession = false, retryAuth = true } = options;
+    const { query, body } = options;
 
-    const url = new URL(route, this.baseUrl);
+    const url = resolveConsoleUrl(route, this.baseUrl);
 
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined && value !== null) {
@@ -164,18 +109,11 @@ class DuneConsoleClient {
 
     const headers: Record<string, string> = {
       Accept: "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
     };
 
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
-    }
-
-    if (authenticate && this.sessionCookie) {
-      headers.Cookie = this.sessionCookie;
-    }
-
-    if (includeCsrf && this.csrfToken) {
-      headers["x-csrf-token"] = this.csrfToken;
     }
 
     const startedAt = Date.now();
@@ -183,7 +121,7 @@ class DuneConsoleClient {
     logger.debug(`${method} ${route} requested.`, {
       query: query ? Object.keys(query) : [],
       hasBody: body !== undefined,
-      authenticated: authenticate,
+      authenticationMode: "api-key",
     });
 
     let response: Response | undefined;
@@ -222,22 +160,7 @@ class DuneConsoleClient {
       throw new DuneConsoleApiError(`Console API request failed without a response: ${method} ${route}`, 0);
     }
 
-    if (captureSession) {
-      this.captureSessionCookie(response);
-    }
-
     const data = await this.readResponse(response);
-
-    if ((response.status === 401 || response.status === 403) && authenticate && retryAuth && this.password) {
-      logger.warn(`${method} ${route} lost its Console session; re-authenticating and retrying once.`);
-
-      await this.reauthenticate();
-
-      return this.request(method, route, {
-        ...options,
-        retryAuth: false,
-      });
-    }
 
     if (!response.ok) {
       const message = getResponseMessage(data) ?? `Request failed with HTTP ${response.status}.`;
@@ -252,34 +175,13 @@ class DuneConsoleClient {
     return data;
   }
 
-  async reauthenticate(): Promise<unknown> {
-    if (!this.password) {
-      throw new Error("Cannot re-authenticate without the configured console password.");
-    }
-
-    if (!this.reauthPromise) {
-      this.reauthPromise = this.login(this.password).finally(() => {
-        this.reauthPromise = null;
-      });
-    }
-
-    return this.reauthPromise;
-  }
-
-  async requestMultipart(method: HttpMethod, route: string, form: FormData, retryAuth = true): Promise<unknown> {
-    const url = new URL(route, this.baseUrl);
+  async requestMultipart(method: HttpMethod, route: string, form: FormData): Promise<unknown> {
+    const url = resolveConsoleUrl(route, this.baseUrl);
 
     const headers: Record<string, string> = {
       Accept: "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
     };
-
-    if (this.sessionCookie) {
-      headers.Cookie = this.sessionCookie;
-    }
-
-    if (this.csrfToken) {
-      headers["x-csrf-token"] = this.csrfToken;
-    }
 
     const startedAt = Date.now();
 
@@ -304,14 +206,6 @@ class DuneConsoleClient {
 
     const data = await this.readResponse(response);
 
-    if ((response.status === 401 || response.status === 403) && retryAuth && this.password) {
-      logger.warn(`${method} ${route} lost its Console session during multipart upload; re-authenticating and retrying once.`);
-
-      await this.reauthenticate();
-
-      return this.requestMultipart(method, route, form, false);
-    }
-
     if (!response.ok || isFailedResponse(data)) {
       const message = getResponseMessage(data) ?? `Request failed with HTTP ${response.status}.`;
 
@@ -323,22 +217,6 @@ class DuneConsoleClient {
     logger.debug(`${method} ${route} completed with HTTP ${response.status} in ${Date.now() - startedAt}ms.`);
 
     return data;
-  }
-
-  captureSessionCookie(response: Response): void {
-    const getSetCookie = (
-      response.headers as Headers & {
-        getSetCookie?: () => string[];
-      }
-    ).getSetCookie;
-
-    const cookies = typeof getSetCookie === "function" ? getSetCookie.call(response.headers) : [response.headers.get("set-cookie")].filter((cookie): cookie is string => Boolean(cookie));
-
-    const session = cookies.find((cookie) => cookie.startsWith("asc_session="));
-
-    if (session) {
-      this.sessionCookie = session.split(";", 1)[0];
-    }
   }
 
   async readResponse(response: Response): Promise<unknown> {
@@ -373,6 +251,17 @@ function validateDiscordAttachmentUrl(value: string): URL {
 
   if (url.protocol !== "https:" || !allowedHosts.has(url.hostname.toLowerCase())) {
     throw new Error("Blueprint attachments must be hosted by Discord.");
+  }
+
+  return url;
+}
+
+function resolveConsoleUrl(route: string, baseUrl: string): URL {
+  const url = new URL(route, baseUrl);
+  const expectedOrigin = new URL(baseUrl).origin;
+
+  if (url.origin !== expectedOrigin) {
+    throw new Error("Dune Console API routes must use the configured Console origin.");
   }
 
   return url;
@@ -427,10 +316,6 @@ class DuneConsoleApiError extends Error {
 
 function isRecord(value: unknown): value is ApiResponseObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function getString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
 }
 
 function getResponseMessage(value: unknown): string | undefined {

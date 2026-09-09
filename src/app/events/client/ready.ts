@@ -9,6 +9,7 @@ import { ensureRolePanel } from "../../../modules/panels/rolePanel";
 import { ensureRulesPanel } from "../../../modules/panels/rulesPanel";
 import { ensureServerInfoPanel } from "../../../modules/panels/serverInfoPanel";
 import { ensureVerificationPanel } from "../../../modules/panels/verificationPanel";
+import { ensureTicketPanel } from "../../../modules/panels/ticketPanel";
 import { announceCurrentVersion } from "../../../modules/panels/versionAnnouncement";
 
 const logger = createLogger("DISCORD");
@@ -100,6 +101,7 @@ async function ensurePanels(client: BotClient): Promise<void> {
   await runReadyTask("publish the verification panel", () => ensureVerificationPanel(client, client.discordVerifyChannelId));
   await runReadyTask("publish the rules panel", () => ensureRulesPanel(client, client.discordRulesChannelId));
   await runReadyTask("publish the server info panel", () => ensureServerInfoPanel(client, client.discordServerInfoChannelId));
+  await runReadyTask("publish the ticket panel", () => ensureTicketPanel(client, client.discordTicketPanelChannelId));
 }
 
 async function runReadyTask(label: string, task: () => Promise<unknown>): Promise<void> {

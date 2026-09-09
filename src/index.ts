@@ -3,10 +3,11 @@ import { Shard, ShardingManager } from "discord.js";
 
 import { loadEnvironment } from "./infrastructure/config/environment";
 import { createLogger } from "./infrastructure/core/logger";
+import { monitorParentProcess } from "./shared/utils/parentProcessMonitor";
 
-const REQUIRED_ENVIRONMENT = ["TOKEN"];
+const REQUIRED_ENVIRONMENT = ["TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY"];
 const SHARD_ENTRYPOINT = path.join(__dirname, "infrastructure", "core", `shard${path.extname(__filename)}`);
-const SHUTDOWN_TIMEOUT_MS = 1_000;
+const SHUTDOWN_TIMEOUT_MS = 12_000;
 
 const environment = loadEnvironment(REQUIRED_ENVIRONMENT);
 const logger = createLogger("SHARD MANAGER", environment.logLevel);
@@ -17,6 +18,7 @@ let isStopping = false;
 registerShutdownHandlers();
 registerShardEvents(manager);
 registerProcessSafety();
+monitorParentProcess(() => stopAll("parent process exit", 0));
 startShardManager(manager);
 
 function createShardManager(config: typeof environment): ShardingManager {
@@ -50,7 +52,7 @@ function registerShardEvents(shardManager: ShardingManager): void {
   });
 }
 
-function stopAll(signal: NodeJS.Signals | "SIGBREAK", exitCode: number): void {
+function stopAll(signal: NodeJS.Signals | "SIGBREAK" | "parent process exit", exitCode: number): void {
   if (isStopping) {
     return;
   }
@@ -58,13 +60,35 @@ function stopAll(signal: NodeJS.Signals | "SIGBREAK", exitCode: number): void {
   isStopping = true;
   logger.info(`Received ${signal}; stopping Discord shards.`);
 
-  for (const shard of manager.shards.values()) {
-    shard.kill();
-  }
+  const shards = [...manager.shards.values()];
+  const shardDeaths = shards.map(
+    (shard) =>
+      new Promise<void>((resolve) => {
+        if (!shard.process) {
+          resolve();
+          return;
+        }
 
-  setTimeout(() => {
+        shard.once("death", () => resolve());
+        shard.kill();
+      }),
+  );
+
+  const timeout = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      logger.warn("Shard shutdown timed out; forcing remaining child processes to exit.");
+
+      for (const shard of shards) {
+        shard.process?.kill("SIGKILL");
+      }
+
+      resolve();
+    }, SHUTDOWN_TIMEOUT_MS);
+  });
+
+  void Promise.race([Promise.all(shardDeaths), timeout]).finally(() => {
     process.exit(exitCode);
-  }, SHUTDOWN_TIMEOUT_MS).unref();
+  });
 }
 
 function startShardManager(shardManager: ShardingManager): void {

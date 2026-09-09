@@ -92,7 +92,7 @@ describe("external API clients", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const client = new DuneConsoleClient("https://console.example.com");
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
 
     await expect(
       client.uploadBlueprint(42, {
@@ -114,7 +114,7 @@ describe("external API clients", () => {
       ),
     );
 
-    const client = new DuneConsoleClient("https://console.example.com");
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
 
     await expect(
       client.uploadBlueprint(42, {
@@ -128,9 +128,9 @@ describe("external API clients", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("temporary failure", { status: 503 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const client = new DuneConsoleClient("https://console.example.com");
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
 
-    await expect(client.request("POST", "/api/test", { authenticate: false, body: { value: 1 } })).rejects.toMatchObject({
+    await expect(client.request("POST", "/api/test", { body: { value: 1 } })).rejects.toMatchObject({
       name: "DuneConsoleApiError",
       status: 503,
     });
@@ -141,12 +141,70 @@ describe("external API clients", () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("socket closed"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const client = new DuneConsoleClient("https://console.example.com");
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
 
-    await expect(client.request("POST", "/api/test", { authenticate: false, body: { value: 1 } })).rejects.toMatchObject({
+    await expect(client.request("POST", "/api/test", { body: { value: 1 } })).rejects.toMatchObject({
       name: "DuneConsoleApiError",
       status: 0,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("authenticates JSON Console requests with a scoped bearer key", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
+
+    await client.request("POST", "/api/server/start", { body: {} });
+
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = new Headers(request.headers);
+
+    expect(headers.get("authorization")).toBe("Bearer scoped-key");
+    expect(headers.has("cookie")).toBe(false);
+    expect(headers.has("x-csrf-token")).toBe(false);
+  });
+
+  it("uses bearer authentication for multipart Console uploads", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
+    await client.requestMultipart("POST", "/api/blueprints/import", new FormData());
+
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = new Headers(request.headers);
+
+    expect(headers.get("authorization")).toBe("Bearer scoped-key");
+    expect(headers.has("x-csrf-token")).toBe(false);
+  });
+
+  it("does not retry rejected API-key credentials", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("unauthorized", { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
+
+    await expect(client.request("GET", "/api/server/status")).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to create a Console client without an API key", () => {
+    expect(() => new DuneConsoleClient("https://console.example.com", " ")).toThrow("CONSOLE_API_KEY is required");
+  });
+
+  it("refuses Console URLs containing embedded credentials", () => {
+    expect(() => new DuneConsoleClient("https://user:secret@console.example.com", "scoped-key")).toThrow("must not contain embedded credentials");
+  });
+
+  it("never sends Console credentials to a different origin", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new DuneConsoleClient("https://console.example.com", "scoped-key");
+
+    await expect(client.request("GET", "https://untrusted.example.com/api/players")).rejects.toThrow("must use the configured Console origin");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

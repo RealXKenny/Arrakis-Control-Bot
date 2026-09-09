@@ -22,12 +22,14 @@ This document describes where production behavior belongs in Arrakis Control Bot
 │   │   ├── api/                 Dune, Convoy, and Discord Adapter clients
 │   │   ├── config/              Environment parsing and application limits
 │   │   ├── core/                Bot composition, shard process, and logger
+│   │   ├── database/            PostgreSQL repositories and schema setup
 │   │   ├── loaders/             Dynamic command, component, and event loading
 │   │   └── rateLimit/            Replaceable rate-limit storage and policy
 │   ├── modules/
 │   │   ├── audit/               Discord audit forwarding and audit messages
 │   │   ├── formatters/           External data to Discord presentation mapping
 │   │   ├── panels/               Persistent Discord panel publishing
+│   │   ├── tickets/              Ticket lifecycle and channel orchestration
 │   │   └── validators/           File and payload validation
 │   ├── shared/
 │   │   ├── constants/            Application constants and configured role options
@@ -65,8 +67,8 @@ Tests should target application logic and infrastructure boundaries with mocks/s
 2. Each shard runs `src/infrastructure/core/shard.ts`.
 3. `BotApplication` creates the typed Discord client, integrations, loaders, and lifecycle hooks.
 4. Commands, components, and events are loaded from `src/app/`.
-5. The `ready` event starts presence, panels, announcements, and audit forwarding.
-6. Shutdown clears scheduled jobs, logs out of the Dune Console, destroys Discord connections, and exits within a bounded timeout.
+5. The `ready` event starts presence, panels, announcements, and audit forwarding. When configured, startup also initializes PostgreSQL ticket storage.
+6. Shutdown clears scheduled jobs, closes PostgreSQL, destroys Discord connections, and exits within a bounded timeout. Dune Console API keys require no logout lifecycle.
 
 ## Adding Features
 

@@ -6,6 +6,7 @@ import type { DiscordAdapterClient } from "../infrastructure/api/DiscordAdapterC
 import type { ConvoyClient } from "../infrastructure/api/ConvoyClient";
 import type { DuneApi } from "../infrastructure/api/DuneApi";
 import type { RateLimiter } from "../infrastructure/rateLimit/rateLimiter";
+import type { TicketRepository } from "../infrastructure/database/TicketRepository";
 
 declare module "discord.js" {
   interface Client {
@@ -25,9 +26,13 @@ declare module "discord.js" {
     discordRulesChannelId?: string;
     discordServerInfoChannelId?: string;
     discordAnnouncementChannelId?: string;
+    discordTicketPanelChannelId?: string;
+    discordTicketCategoryId?: string;
+    discordTicketTranscriptChannelId?: string;
     duneApi: DuneApi;
     convoyApi: ConvoyClient | null;
     versionAnnouncementIntervalMinutes?: number;
     interactionRateLimiter: RateLimiter;
+    tickets: TicketRepository | null;
   }
 }

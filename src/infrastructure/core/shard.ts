@@ -1,8 +1,9 @@
 import { loadEnvironment } from "../config/environment";
 import { createBotApplication } from "./BotApplication";
 import { createLogger, type Logger } from "./logger";
+import { monitorParentProcess } from "../../shared/utils/parentProcessMonitor";
 
-const REQUIRED_ENVIRONMENT = ["TOKEN", "CONSOLE_URL", "CONSOLE_PASSWORD"] as const;
+const REQUIRED_ENVIRONMENT = ["TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY"] as const;
 const config = loadEnvironment([...REQUIRED_ENVIRONMENT]);
 const shardId = process.env.DISCORD_SHARD_ID ?? "0";
 const logger = createLogger(`SHARD ${shardId}`, config.logLevel);
@@ -12,11 +13,17 @@ registerProcessHandlers(application, logger);
 startApplication(application, logger);
 
 function registerProcessHandlers(app: ReturnType<typeof createBotApplication>, appLogger: Logger): void {
+  let isShuttingDown = false;
+
   process.once("SIGINT", () => void shutdownAndExit("SIGINT"));
 
   process.once("SIGTERM", () => void shutdownAndExit("SIGTERM"));
 
   process.once("SIGBREAK", () => void shutdownAndExit("SIGBREAK"));
+
+  process.once("disconnect", () => void shutdownAndExit("parent IPC disconnect"));
+
+  monitorParentProcess(() => void shutdownAndExit("parent process exit"));
 
   process.on("unhandledRejection", (error: unknown) => {
     appLogger.fatal("Unhandled promise rejection; shutting down.", error);
@@ -29,6 +36,9 @@ function registerProcessHandlers(app: ReturnType<typeof createBotApplication>, a
   });
 
   async function shutdownAndExit(signal: string, exitCode = 0): Promise<void> {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
     await app.shutdown(signal, exitCode);
     process.exit(exitCode);
   }

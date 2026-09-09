@@ -13,7 +13,7 @@ interface EnvironmentConfig {
   duneConsoleUrl: string;
   advinApiKey?: string;
   advinApiUrl: string;
-  duneConsolePassword: string;
+  duneConsoleApiKey: string;
   duneDiscordAdapterToken?: string;
   duneDiscordLinkPanelChannelId?: string;
   duneDiscordBlueprintPanelChannelId?: string;
@@ -24,6 +24,11 @@ interface EnvironmentConfig {
   discordRulesChannelId?: string;
   discordServerInfoChannelId?: string;
   discordAnnouncementChannelId?: string;
+  discordTicketPanelChannelId?: string;
+  discordTicketCategoryId?: string;
+  discordTicketTranscriptChannelId?: string;
+  databaseUrl?: string;
+  databaseSsl: boolean;
   versionAnnouncementIntervalMinutes: number;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
@@ -39,13 +44,18 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
 
   const discordToken = process.env.TOKEN;
   const duneConsoleUrl = process.env.CONSOLE_URL;
-  const duneConsolePassword = process.env.CONSOLE_PASSWORD;
+  const duneConsoleApiKey = process.env.CONSOLE_API_KEY?.trim() || undefined;
 
-  if (!discordToken || !duneConsoleUrl || !duneConsolePassword) {
+  if (!discordToken || !duneConsoleUrl) {
     throw new Error("Required environment variables are missing.");
   }
 
+  if (!duneConsoleApiKey) {
+    throw new Error("CONSOLE_API_KEY is required.");
+  }
+
   validateUrl(duneConsoleUrl, "CONSOLE_URL");
+  validateNoUrlCredentials(duneConsoleUrl, "CONSOLE_URL");
 
   validateOptionalSnowflake(process.env.CLIENT_ID, "CLIENT_ID");
   validateOptionalSnowflake(process.env.GUILD_ID, "GUILD_ID");
@@ -71,6 +81,12 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     validateUrl(process.env.API_URL, "API_URL");
   }
 
+  if (process.env.DATABASE_URL) {
+    validateDatabaseUrl(process.env.DATABASE_URL);
+  }
+
+  const databaseSsl = parseBoolean(process.env.DATABASE_SSL, false, "DATABASE_SSL");
+
   const logLevel = (process.env.LOG_LEVEL ?? "INFO").toUpperCase();
 
   if (!(["DEBUG", "INFO", "WARN", "ERROR", "FATAL"] as const).includes(logLevel as never)) {
@@ -85,7 +101,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     duneConsoleUrl,
     advinApiKey: process.env.API_KEY,
     advinApiUrl: process.env.API_URL ?? "https://vps.example.com",
-    duneConsolePassword,
+    duneConsoleApiKey,
     duneDiscordAdapterToken: process.env.ADAPTER_TOKEN,
     duneDiscordLinkPanelChannelId: process.env.LINK_PANEL_CHANNEL_ID,
     duneDiscordBlueprintPanelChannelId: process.env.BLUEPRINT_PANEL_CHANNEL_ID,
@@ -96,11 +112,29 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     discordRulesChannelId: process.env.RULES_CHANNEL_ID,
     discordServerInfoChannelId: process.env.SERVER_INFO_CHANNEL_ID,
     discordAnnouncementChannelId: process.env.ANNOUNCEMENT_CHANNEL_ID,
+    discordTicketPanelChannelId: process.env.TICKET_PANEL_CHANNEL_ID,
+    discordTicketCategoryId: process.env.TICKET_CATEGORY_ID,
+    discordTicketTranscriptChannelId: process.env.TICKET_TRANSCRIPT_CHANNEL_ID,
+    databaseUrl: process.env.DATABASE_URL,
+    databaseSsl,
     versionAnnouncementIntervalMinutes,
     interactionCooldownMs,
     rateLimitMaxEntries,
     logLevel,
   });
+}
+
+function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {
+  if (value === undefined || value.trim() === "") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off"].includes(normalized)) return false;
+
+  throw new Error(`${name} must be true or false.`);
 }
 
 function parseShardCount(value: string | undefined): number | "auto" {
@@ -152,6 +186,30 @@ function validateUrl(value: string, name: string): void {
     }
 
     throw new Error(`${name} must be a valid URL.`);
+  }
+}
+
+function validateNoUrlCredentials(value: string, name: string): void {
+  const url = new URL(value);
+
+  if (url.username || url.password) {
+    throw new Error(`${name} must not contain embedded credentials.`);
+  }
+}
+
+function validateDatabaseUrl(value: string): void {
+  try {
+    const url = new URL(value);
+
+    if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+      throw new Error("DATABASE_URL must use the postgres or postgresql protocol.");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("must use the postgres")) {
+      throw error;
+    }
+
+    throw new Error("DATABASE_URL must be a valid PostgreSQL connection URL.");
   }
 }
 
