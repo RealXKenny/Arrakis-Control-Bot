@@ -1,6 +1,7 @@
 import { ButtonInteraction, MessageFlags } from "discord.js";
 
 import { createActorContext } from "../../../shared/utils/createActorContext";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 
 module.exports = {
   customId: "player-unlink",
@@ -19,7 +20,7 @@ module.exports = {
     const actorContext = createActorContext(interaction, "player-unlink");
     const result = await discordAdapter.unlinkPlayer(actorContext);
 
-    await interaction.editReply(result?.message ?? "Your Dune character has been unlinked.");
+    await interaction.editReply(truncateDiscordText(result?.message ?? "Your Dune character has been unlinked.", 1_900, "…"));
 
     if (result?.ok) {
       await auditLogger?.playerUnlinked(interaction);

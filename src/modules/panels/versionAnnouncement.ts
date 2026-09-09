@@ -1,6 +1,8 @@
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type MessageCreateOptions, type SendableChannels } from "discord.js";
 
 import { createDuneBanner } from "../../shared/factories/imageFactory";
+import { DISCORD_LIMITS, sanitizeAttachmentName, truncateDiscordText } from "../../shared/utils/discordLimits";
+import { createLogger } from "../../infrastructure/core/logger";
 
 const RELEASE_PROJECTS = [
   { name: "Bot", repo: "RealXKenny/Arrakis-Control-Bot" },
@@ -11,6 +13,10 @@ type ReleaseProject = (typeof RELEASE_PROJECTS)[number];
 const RELEASE_MARKER_REGEX = /^## Arrakis Control(?: Bot| Dashboard)? v\S+/m;
 const ANNOUNCEMENT_COLOR = 0xc58b45;
 const HISTORY_PAGE_SIZE = 100;
+const DISPLAYABLE_TEXT_SAFETY_MARGIN = 200;
+const MAX_RELEASE_SUMMARY_TEXT = 500;
+const RELEASE_NOTES_TRUNCATED_NOTICE = "\n\n_Release notes shortened for Discord. Use **View full release notes** below._";
+const logger = createLogger("VERSION ANNOUNCEMENTS");
 
 interface GitHubRelease {
   tag_name: string;
@@ -68,14 +74,13 @@ async function sendReleaseAnnouncement(channel: SendableChannels, release: Relea
   const roleMention = roleId ? `<@&${roleId}>` : null;
 
   const card = buildReleaseCard(release, marker, roleMention);
+  const filename = sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png");
   const banner = createDuneBanner({
-    filename: `arrakis-control-${release.version}.png`,
+    filename,
     title: `${release.project.name} v${release.version}`,
     subtitle: "RELEASE ANNOUNCEMENT",
     detail: "ARRAKIS CONTROL",
   });
-
-  const filename = `arrakis-control-${release.version}.png`;
 
   const payload: MessageCreateOptions = {
     components: [card],
@@ -92,15 +97,27 @@ async function sendReleaseAnnouncement(channel: SendableChannels, release: Relea
     },
   };
 
-  await channel.send(payload);
+  const message = await channel.send(payload);
+
+  if (message.crosspostable) {
+    await message.crosspost().catch((error: unknown) => {
+      logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
 }
 
 function buildReleaseCard(release: Release, marker: string, roleMention: string | null): ContainerBuilder {
+  const summary = truncateDiscordText(release.summary, MAX_RELEASE_SUMMARY_TEXT, "…");
+  const releaseMetadata = `${summary}\n\n**Released:** ${formatDiscordTimestamp(release.date)}`;
+  const changeHeading = "### What changed";
+  const fixedDisplayableText = marker.length + releaseMetadata.length + changeHeading.length + (roleMention?.length ?? 0);
+  const releaseNotesBudget = Math.max(0, DISCORD_LIMITS.componentDisplayableText - DISPLAYABLE_TEXT_SAFETY_MARGIN - fixedDisplayableText);
+  const releaseNotes = truncateDiscordText(release.body.trim() || "No release notes provided.", releaseNotesBudget, RELEASE_NOTES_TRUNCATED_NOTICE);
   const card = new ContainerBuilder()
     .setAccentColor(ANNOUNCEMENT_COLOR)
-    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://arrakis-control-${release.version}.png`)))
+    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png")}`)))
     .addTextDisplayComponents((text) => text.setContent(marker))
-    .addTextDisplayComponents((text) => text.setContent(`${release.summary}\n\n**Released:** ${formatDiscordTimestamp(release.date)}`));
+    .addTextDisplayComponents((text) => text.setContent(releaseMetadata));
 
   if (roleMention) {
     card.addTextDisplayComponents((text) => text.setContent(roleMention));
@@ -108,8 +125,8 @@ function buildReleaseCard(release: Release, marker: string, roleMention: string 
 
   card
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent("### What changed"))
-    .addTextDisplayComponents((text) => text.setContent(release.body.trim() || "No release notes provided."))
+    .addTextDisplayComponents((text) => text.setContent(changeHeading))
+    .addTextDisplayComponents((text) => text.setContent(releaseNotes))
     .addActionRowComponents((row) => row.addComponents(
       new ButtonBuilder().setLabel("View full release notes").setStyle(ButtonStyle.Link).setURL(release.url),
       new ButtonBuilder().setLabel(`${release.project.name} GitHub`).setStyle(ButtonStyle.Link).setURL(`https://github.com/${release.project.repo}`),
@@ -231,4 +248,4 @@ async function readChannelHistory(channel: SendableChannels): Promise<Message[]>
   return messages;
 }
 
-export { announceCurrentVersion };
+export { announceCurrentVersion, buildReleaseCard };

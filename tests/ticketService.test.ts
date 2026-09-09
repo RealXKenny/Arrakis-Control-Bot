@@ -6,6 +6,7 @@ import { TICKET_CATEGORIES, buildTicketModal, getTicketCategory } from "../src/m
 import { TicketReviewValidationError, parseTicketId, parseTicketReview } from "../src/modules/tickets/ticketReview";
 import { buildTicketArchiveContainer, buildTicketJson } from "../src/modules/tickets/ticketArchive";
 import { buildTicketCard, buildTicketChannelName, buildTicketTranscript, formatDuneAccount } from "../src/modules/tickets/ticketService";
+import { DISCORD_LIMITS, countDisplayableText } from "../src/shared/utils/discordLimits";
 
 describe("ticket channel names", () => {
   it("creates safe, readable Discord channel names", () => {
@@ -118,7 +119,31 @@ describe("ticket assignment and archive", () => {
     expect(archive).toContain("ticket-1.json");
     expect(record.ticket.claimedBy).toBe("staff");
     expect(record.ticket.review.rating).toBe(5);
-    expect(record.ticket.transcript).toBe("complete transcript");
+    expect(record.ticket.transcript).toEqual({
+      filename: "ticket-1-transcript.txt",
+      messageCount: 4,
+      createdAt: null,
+      storedInPostgreSQL: true,
+    });
+    expect(buildTicketJson(ticket)).not.toContain("complete transcript");
+  });
+
+  it("keeps escaped intake and review text within Discord's container limit", () => {
+    const oversized = "@*_`>|\\".repeat(1_000);
+    const ticket = createTicketRecord({
+      subject: oversized,
+      category: oversized,
+      description: oversized,
+      stepsTried: oversized,
+      impact: oversized,
+      reviewRating: 1,
+      reviewResolved: false,
+      reviewComment: oversized,
+      reviewedAt: new Date("2026-09-09T14:00:00.000Z"),
+    });
+
+    expect(countDisplayableText(buildTicketCard(ticket).toJSON())).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
+    expect(countDisplayableText(buildTicketArchiveContainer(ticket).toJSON())).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
   });
 });
 

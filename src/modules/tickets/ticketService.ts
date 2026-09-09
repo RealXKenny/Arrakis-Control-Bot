@@ -18,6 +18,7 @@ import { createLogger } from "../../infrastructure/core/logger";
 import { createV2Response } from "../../shared/factories/componentFactory";
 import { createActorContext } from "../../shared/utils/createActorContext";
 import { getConfiguredStaffRoleIds, hasStaffRole } from "../../shared/utils/staffAccess";
+import { truncateDiscordText } from "../../shared/utils/discordLimits";
 import { publishTicketArchive } from "./ticketArchive";
 
 const logger = createLogger("TICKETS");
@@ -159,21 +160,21 @@ async function sendClosureDm(ticketChannel: TextChannel, ticket: TicketRecord, t
       .addTextDisplayComponents((text) => text.setContent(`## Ticket #${ticket.id} has been closed`))
       .addTextDisplayComponents((text) =>
         text.setContent(
-          `Your **${escapeDiscordText(ticket.category)}** ticket in **${escapeDiscordText(ticketChannel.guild.name)}** was opened on ${ticket.createdAt.toISOString()} and closed by **${escapeDiscordText(closedBy.user.tag)}** on ${closedAt}. ${ticket.claimedBy ? `It was handled by <@${ticket.claimedBy}>. ` : ""}A complete transcript is attached for your records.`,
+          truncateDiscordText(`Your **${escapeDiscordText(ticket.category)}** ticket in **${escapeDiscordText(ticketChannel.guild.name)}** was opened on ${ticket.createdAt.toISOString()} and closed by **${escapeDiscordText(closedBy.user.tag)}** on ${closedAt}. ${ticket.claimedBy ? `It was handled by <@${ticket.claimedBy}>. ` : ""}A complete transcript is attached for your records.`, 450),
         ),
       )
       .addTextDisplayComponents((text) =>
         text.setContent(
-          [
+          truncateDiscordText([
             "### Your request",
             `**Subject:** ${escapeDiscordText(ticket.subject)}`,
             `**Description:**\n${escapeDiscordText(ticket.description)}`,
             `**Steps already tried:**\n${escapeDiscordText(ticket.stepsTried || "None provided")}`,
             `**Impact and urgency:**\n${escapeDiscordText(ticket.impact)}`,
-          ].join("\n\n"),
+          ].join("\n\n"), 2_200),
         ),
       )
-      .addTextDisplayComponents((text) => text.setContent(formatDuneAccount(ticket)))
+      .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(formatDuneAccount(ticket), 450)))
       .addTextDisplayComponents((text) => text.setContent("### How did we do?\nPlease leave a quick review. Your rating and comments help the staff team improve future support."))
       .addActionRowComponents((row) => row.setComponents(new ButtonBuilder().setCustomId(`ticket-review:${ticket.id}`).setLabel("Leave a Review").setEmoji("⭐").setStyle(ButtonStyle.Primary)));
 
@@ -317,20 +318,21 @@ function buildPermissionOverwrites(guild: Guild, openerId: string, botId: string
 function buildTicketCard(ticket: TicketRecord): ContainerBuilder {
   const card = new ContainerBuilder()
     .setAccentColor(0xc58b45)
-    .addTextDisplayComponents((text) => text.setContent(`## Ticket #${ticket.id}: ${escapeDiscordText(ticket.subject)}`))
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`## Ticket #${ticket.id}: ${escapeDiscordText(ticket.subject)}`, 250)))
     .addTextDisplayComponents((text) => text.setContent(`<@${ticket.openerId}> opened this ticket. Staff will respond here as soon as possible.`))
     .addTextDisplayComponents((text) =>
       text.setContent(
+        truncateDiscordText(
         [
           `### Request details`,
           `**Type:** ${escapeDiscordText(ticket.category)}`,
           `**Description:**\n${escapeDiscordText(ticket.description)}`,
           `**Steps already tried:**\n${escapeDiscordText(ticket.stepsTried || "None provided")}`,
           `**Impact and urgency:**\n${escapeDiscordText(ticket.impact)}`,
-        ].join("\n\n"),
+        ].join("\n\n"), 2_400),
       ),
     )
-    .addTextDisplayComponents((text) => text.setContent(formatDuneAccount(ticket)))
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(formatDuneAccount(ticket), 450)))
     .addTextDisplayComponents((text) => text.setContent(ticket.claimedBy ? `### Staff assignment\nClaimed by <@${ticket.claimedBy}>${ticket.claimedAt ? ` on ${ticket.claimedAt.toISOString()}` : ""}.` : "### Staff assignment\nUnclaimed — a staff member can take ownership below."));
 
   return card.addActionRowComponents((row) =>

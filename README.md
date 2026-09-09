@@ -4,7 +4,7 @@ Production-oriented TypeScript Discord.js bot for Dune: Awakening community admi
 
 See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase and [docs/](docs/) for upstream API references.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.3.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.4.
 
 ## Requirements
 

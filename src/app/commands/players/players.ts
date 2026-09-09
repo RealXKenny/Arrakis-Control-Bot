@@ -5,6 +5,7 @@ import { formatPlayers } from "../../../modules/formatters/players";
 import type { PlayerResponse } from "../../../modules/formatters/players";
 import { createV2Response } from "../../../shared/factories/componentFactory";
 import { createDuneBanner } from "../../../shared/factories/imageFactory";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 
 const logger = createLogger("PLAYERS");
 
@@ -63,14 +64,14 @@ const createCard = (serverName: string, online: ReturnType<typeof formatPlayers>
     .setAccentColor(COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-players.png")))
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Players"))
-    .addTextDisplayComponents((text) => text.setContent(`-# ${serverName}`))
+    .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small));
 
-  card.addTextDisplayComponents((text) => text.setContent([`### 🟢 ${online.heading}`, online.content, online.truncated ? `_${online.truncated}_` : null].filter(Boolean).join("\n")));
+  card.addTextDisplayComponents((text) => text.setContent(truncateDiscordText([`### 🟢 ${online.heading}`, online.content, online.truncated ? `_${online.truncated}_` : null].filter(Boolean).join("\n"), 1_550)));
 
   card
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent([`### 🔴 ${offline.heading}`, offline.content, offline.truncated ? `_${offline.truncated}_` : null].filter(Boolean).join("\n")))
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText([`### 🔴 ${offline.heading}`, offline.content, offline.truncated ? `_${offline.truncated}_` : null].filter(Boolean).join("\n"), 1_550)))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(`-# Spice flows through Arrakis • Requested by ${requestedBy}`));
 

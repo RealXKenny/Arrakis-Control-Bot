@@ -3,6 +3,7 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 import { createLogger } from "../../../infrastructure/core/logger";
 import { createV2Response } from "../../../shared/factories/componentFactory";
 import { createDuneBanner } from "../../../shared/factories/imageFactory";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 import { createActorContext } from "../../../shared/utils/createActorContext";
 
 const logger = createLogger("PROFILE");
@@ -313,7 +314,7 @@ module.exports = {
 
     if (player?.linked !== true) {
       await interaction.editReply({
-        content: player?.message ?? "You do not have a linked Dune character yet.",
+        content: truncateDiscordText(player?.message ?? "You do not have a linked Dune character yet.", 1_900, "…"),
       });
       return;
     }
@@ -351,7 +352,7 @@ module.exports = {
         .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`).setDescription("Dune character profile")))
         .addTextDisplayComponents((text) => text.setContent("## Your Dune Player"))
         .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-        .addTextDisplayComponents((text) => text.setContent(formatProfile(player, data, guild)));
+        .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(formatProfile(player, data, guild), 3_300)));
 
       const banner = createDuneBanner({
         filename: IMAGE_NAME,

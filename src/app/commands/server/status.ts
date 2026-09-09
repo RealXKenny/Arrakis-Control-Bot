@@ -3,6 +3,7 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 import { createLogger } from "../../../infrastructure/core/logger";
 import { createV2Response } from "../../../shared/factories/componentFactory";
 import { createDuneBanner } from "../../../shared/factories/imageFactory";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 
 const logger = createLogger("SERVER STATUS");
 
@@ -221,7 +222,7 @@ function createStatusCard({
     .setAccentColor(accentColor)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`)))
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Status"))
-    .addTextDisplayComponents((text) => text.setContent(`-# ${serverName}`));
+    .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`));
 
   addSection(card, [
     `### ${healthy ? "🟢" : "🔴"} ${healthy ? "Server Operational" : "Server Attention Required"}`,
@@ -287,7 +288,7 @@ function createStatusCard({
     `**Gateway DB monitoring:** ${status.funcom.gatewayDb || "UNKNOWN"}`,
   ]);
 
-  card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(`-# Spice flows through Arrakis • Requested by ${requester}`));
+  card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Spice flows through Arrakis • Requested by ${requester}`, 180, "…")));
 
   return card;
 }
@@ -296,15 +297,15 @@ function createErrorCard(serverName: string, requester: string): ContainerBuilde
   return new ContainerBuilder()
     .setAccentColor(COLORS.error)
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Status"))
-    .addTextDisplayComponents((text) => text.setContent(`-# ${serverName}`))
+    .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(["### 🔴 Server Status Unavailable", "The Arrakis server status could not be retrieved.", "Please try again later."].join("\n")))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(`-# Spice flows through Arrakis • Requested by ${requester}`));
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Spice flows through Arrakis • Requested by ${requester}`, 180, "…")));
 }
 
 function addSection(card: ContainerBuilder, lines: string[]): void {
-  card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(lines.filter(Boolean).join("\n")));
+  card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(truncateDiscordText(lines.filter(Boolean).join("\n"), 280)));
 }
 
 function parseServerStatus(stdout: string): ServerStatusData {

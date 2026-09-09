@@ -1,6 +1,7 @@
 import { ContainerBuilder, FileBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Interaction, type MessageCreateOptions } from "discord.js";
 
 import { createLogger } from "../../infrastructure/core/logger";
+import { DISCORD_LIMITS, sanitizeAttachmentName, truncateDiscordText } from "../../shared/utils/discordLimits";
 
 const logger = createLogger("DISCORD AUDIT");
 
@@ -112,21 +113,20 @@ class DiscordAuditLogger {
         throw new Error(`Audit channel ${channelId} is not a sendable channel.`);
       }
 
+      const safeFiles = files.slice(0, 3).map((file) => ({ ...file, name: sanitizeAttachmentName(file.name) }));
       const card = new ContainerBuilder()
         .setAccentColor(0xc58b45)
-        .addTextDisplayComponents((text) => text.setContent(`## ${title}`))
+        .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`## ${title}`, 250)))
         .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-        .addTextDisplayComponents((text) => text.setContent(lines.join("\n")));
+        .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(lines.join("\n"), 3_300)));
 
-      for (const file of files) {
-        const filename = file.name ?? "attachment";
-
-        card.addFileComponents(new FileBuilder().setURL(`attachment://${filename}`));
+      for (const file of safeFiles) {
+        card.addFileComponents(new FileBuilder().setURL(`attachment://${file.name}`));
       }
 
       const message: MessageCreateOptions = {
         components: [card],
-        files,
+        files: safeFiles,
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: {
           parse: [],
@@ -147,6 +147,11 @@ async function downloadBlueprintAttachment(attachment?: AuditAttachment | null):
     return null;
   }
 
+  if (attachment.size && attachment.size > DISCORD_LIMITS.defaultAttachmentBytes) {
+    logger.warn(`Skipped blueprint audit attachment larger than ${DISCORD_LIMITS.defaultAttachmentBytes} bytes.`);
+    return null;
+  }
+
   try {
     const response = await fetch(attachment.url);
 
@@ -154,9 +159,14 @@ async function downloadBlueprintAttachment(attachment?: AuditAttachment | null):
       throw new Error(`Discord upload download returned HTTP ${response.status}.`);
     }
 
+    const contentLength = Number(response.headers.get("content-length"));
+    if (Number.isFinite(contentLength) && contentLength > DISCORD_LIMITS.defaultAttachmentBytes) {
+      throw new Error("Blueprint attachment exceeds the Discord audit upload limit.");
+    }
+
     return {
-      attachment: Buffer.from(await response.arrayBuffer()),
-      name: attachment.name,
+      attachment: await readBoundedResponse(response, DISCORD_LIMITS.defaultAttachmentBytes),
+      name: sanitizeAttachmentName(attachment.name, "blueprint.json"),
       description: "Original uploaded blueprint",
     };
   } catch (error: unknown) {
@@ -164,6 +174,28 @@ async function downloadBlueprintAttachment(attachment?: AuditAttachment | null):
 
     return null;
   }
+}
+
+async function readBoundedResponse(response: Response, maximumBytes: number): Promise<Buffer> {
+  if (!response.body) return Buffer.alloc(0);
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maximumBytes) throw new Error("Blueprint attachment exceeded the bounded download limit.");
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), total);
 }
 
 export { DiscordAuditLogger };

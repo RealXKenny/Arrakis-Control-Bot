@@ -1,6 +1,6 @@
 {
   "name": "Arrakis-Control-Bot",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A modular Discord.js v14 bot.",
   "main": "src/index.ts",
   "engines": {

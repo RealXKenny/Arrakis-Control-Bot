@@ -2,6 +2,7 @@ import { ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, ModalSubmit
 
 import { createLogger } from "../../../infrastructure/core/logger";
 import { createActorContext } from "../../../shared/utils/createActorContext";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 
 const logger = createLogger("PLAYER LINK");
 
@@ -45,7 +46,7 @@ module.exports = {
     });
 
     if (!result?.ok) {
-      await interaction.editReply(result?.error ?? "Unable to start character linking.");
+      await interaction.editReply(truncateDiscordText(result?.error ?? "Unable to start character linking.", 1_900, "…"));
       return;
     }
 
@@ -56,7 +57,7 @@ module.exports = {
     const verificationCard = new ContainerBuilder()
       .setAccentColor(0x57f287)
       .addTextDisplayComponents((text) => text.setContent("## Verification code sent"))
-      .addTextDisplayComponents((text) => text.setContent(result.message ?? "A private verification code was sent to your character in-game."))
+      .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(result.message ?? "A private verification code was sent to your character in-game.", 3_500)))
       .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
       .addActionRowComponents((row) => row.setComponents(verifyButton));
 

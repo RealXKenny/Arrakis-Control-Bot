@@ -1,4 +1,5 @@
 import { AttachmentBuilder, ContainerBuilder, MessageFlags, SeparatorSpacingSize, type AttachmentPayload, type APIMessageTopLevelComponent } from "discord.js";
+import { truncateDiscordText } from "../utils/discordLimits";
 
 type ContainerChild = (container: ContainerBuilder) => void;
 
@@ -13,11 +14,11 @@ function createContainer({ title, body, color = 0xc58b45, children = [] }: Creat
   const container = new ContainerBuilder().setAccentColor(color);
 
   if (title) {
-    container.addTextDisplayComponents((text) => text.setContent(title));
+    container.addTextDisplayComponents((text) => text.setContent(truncateDiscordText(title, 500)));
   }
 
   if (body) {
-    container.addTextDisplayComponents((text) => text.setContent(body));
+    container.addTextDisplayComponents((text) => text.setContent(truncateDiscordText(body, 3_200)));
   }
 
   if (children.length) {

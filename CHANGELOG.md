@@ -2,6 +2,25 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.4] - 2026-09-09
+
+### Changed
+
+- Release changelog messages sent to Discord Announcement channels are now published automatically after posting.
+- Ticket archive JSON now references transcript metadata instead of duplicating the full transcript that is already stored in PostgreSQL and attached as a `.txt` file.
+
+### Fixed
+
+- Bound combined Components V2 display text for release announcements, ticket cards, ticket archives, closure receipts, audit logs, server status, VPS server lists, backups, player lists, and profiles.
+- Bound API-provided traditional reply content to Discord's 2,000-character message limit.
+- Normalize release and audit attachment filenames and preserve their extensions within a safe length.
+- Skip oversized blueprint audit re-uploads and stream accepted attachments through a 10 MiB bounded reader.
+- Keep ticket archive and closure payloads below Discord's per-file and total request-size limits without discarding the authoritative PostgreSQL transcript.
+
+### Verification
+
+- `npm run build`, `npm run lint`, `npm test`, `npm audit --omit=dev`, and `git diff --check` pass for version 1.0.4.
+
 ## [1.0.3] - 2026-09-09
 
 ### Added
@@ -142,6 +161,7 @@ Initial production release.
 - `npm test` passes with 9 tests across 4 test files.
 - `npm audit --audit-level=high` reports 0 vulnerabilities.
 
+[1.0.4]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.4
 [1.0.3]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.3
 [1.0.2]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.1

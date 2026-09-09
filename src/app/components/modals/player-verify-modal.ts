@@ -2,6 +2,7 @@ import { MessageFlags, ModalSubmitInteraction } from "discord.js";
 
 import { createLogger } from "../../../infrastructure/core/logger";
 import { createActorContext } from "../../../shared/utils/createActorContext";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 
 const logger = createLogger("PLAYER LINK");
 const LINKED_ROLE_ID = process.env.LINKED_PLAYER_ROLE_ID;
@@ -38,7 +39,7 @@ module.exports = {
       await applyLinkedMemberProfile(interaction, result);
     }
 
-    await interaction.editReply(result?.message ?? "Your Dune character has been linked.");
+    await interaction.editReply(truncateDiscordText(result?.message ?? "Your Dune character has been linked.", 1_900, "…"));
 
     if (result?.ok) {
       await auditLogger?.playerLinked(interaction, result);

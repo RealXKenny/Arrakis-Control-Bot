@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
 import { createV2Response } from "../../../shared/factories/componentFactory";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 import { createDuneBanner } from "../../../shared/factories/imageFactory";
 import { createLogger } from "../../../infrastructure/core/logger";
 
@@ -180,7 +181,7 @@ function createServersCard(servers: ServerRecord[]): ContainerBuilder {
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Advin VPS Servers"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${servers.length} server${servers.length === 1 ? "" : "s"} found`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(lines.join("\n\n")));
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(lines.join("\n\n"), 3_200)));
 
   if (servers.length > MAX_SERVERS_DISPLAYED) {
     card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(`-# Showing ${MAX_SERVERS_DISPLAYED} of ${servers.length} servers.`));
@@ -196,11 +197,10 @@ function createErrorCard(error: ErrorDetails): ContainerBuilder {
     .addTextDisplayComponents((text) => text.setContent("-# Convoy Control Panel"))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
-      text.setContent(
+      text.setContent(truncateDiscordText(
         ["### 🔴 Servers Unavailable", "The Advin VPS server information could not be retrieved.", "", `**Error:** \`${escapeCode(error.message)}\``, error.status !== null ? `**HTTP Status:** \`${error.status}\`` : null]
           .filter((value): value is string => value !== null)
-          .join("\n"),
-      ),
+          .join("\n"), 1_000)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent("-# Spice flows through Arrakis • Convoy Control"));

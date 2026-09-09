@@ -3,6 +3,7 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 import { createLogger } from "../../../infrastructure/core/logger";
 import { createV2Response } from "../../../shared/factories/componentFactory";
 import { createDuneBanner } from "../../../shared/factories/imageFactory";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 
 const logger = createLogger("BACKUPS");
 
@@ -70,16 +71,16 @@ const createBackupCard = (serverName: string, backups: BackupDisplay, autoBackup
     .setAccentColor(getRandomAccentColor())
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`)))
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Backups"))
-    .addTextDisplayComponents((text) => text.setContent(`-# ${serverName}`))
+    .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(["### 📦 Database Backups", backups.content].join("\n")))
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(["### 📦 Database Backups", backups.content].join("\n"), 1_700)))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
-      text.setContent([`### ${autoBackup.enabled ? "🟢" : "🔴"} Auto-Backups`, `**Status:** ${autoBackup.enabled ? "🟢 ENABLED" : "🔴 DISABLED"}`, `**Directory:** \`${autoBackup.directory || UNAVAILABLE}\``].join("\n")),
+      text.setContent(truncateDiscordText([`### ${autoBackup.enabled ? "🟢" : "🔴"} Auto-Backups`, `**Status:** ${autoBackup.enabled ? "🟢 ENABLED" : "🔴 DISABLED"}`, `**Directory:** \`${autoBackup.directory || UNAVAILABLE}\``].join("\n"), 450)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
-      text.setContent(
+      text.setContent(truncateDiscordText(
         [
           "### 🕒 Schedule",
           `**Backup time:** \`${autoBackup.backupTime || UNAVAILABLE} UTC\``,
@@ -87,15 +88,14 @@ const createBackupCard = (serverName: string, backups: BackupDisplay, autoBackup
           `**Retention:** \`${autoBackup.retentionDays ?? UNAVAILABLE} days\``,
           `**Next backup:** ${autoBackup.nextBackup}`,
           `**Last backup:** ${autoBackup.lastBackup}`,
-        ].join("\n"),
-      ),
+        ].join("\n"), 650)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
-      text.setContent(["### ⚙️ Systemd Timer", `**Status:** \`${autoBackup.timerStatus || UNAVAILABLE}\``, `**Unit:** \`${autoBackup.timerUnit || UNAVAILABLE}\``, `**Activates:** \`${autoBackup.serviceUnit || UNAVAILABLE}\``].join("\n")),
+      text.setContent(truncateDiscordText(["### ⚙️ Systemd Timer", `**Status:** \`${autoBackup.timerStatus || UNAVAILABLE}\``, `**Unit:** \`${autoBackup.timerUnit || UNAVAILABLE}\``, `**Activates:** \`${autoBackup.serviceUnit || UNAVAILABLE}\``].join("\n"), 450)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(`-# ${backups.count} backup${backups.count === 1 ? "" : "s"} available • Spice flows through Arrakis • Requested by ${requestedBy}`));
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# ${backups.count} backup${backups.count === 1 ? "" : "s"} available • Spice flows through Arrakis • Requested by ${requestedBy}`, 200, "…")));
 };
 
 const createErrorCard = (
@@ -109,13 +109,13 @@ const createErrorCard = (
   return new ContainerBuilder()
     .setAccentColor(COLORS.error)
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Backups"))
-    .addTextDisplayComponents((text) => text.setContent(`-# ${serverName}`))
+    .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
-      text.setContent(["### 🔴 Backups Unavailable", "The server backup information could not be retrieved.", "", `**Error:** \`${error.message}\``, error.status !== null ? `**HTTP Status:** \`${error.status}\`` : null].filter(Boolean).join("\n")),
+      text.setContent(truncateDiscordText(["### 🔴 Backups Unavailable", "The server backup information could not be retrieved.", "", `**Error:** \`${error.message}\``, error.status !== null ? `**HTTP Status:** \`${error.status}\`` : null].filter(Boolean).join("\n"), 1_000)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(`-# Spice flows through Arrakis • Requested by ${requestedBy}`));
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Spice flows through Arrakis • Requested by ${requestedBy}`, 180, "…")));
 };
 
 module.exports = {

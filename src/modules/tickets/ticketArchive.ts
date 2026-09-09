@@ -2,6 +2,7 @@ import { AttachmentBuilder, ContainerBuilder, FileBuilder, MessageFlags, Separat
 
 import type { TicketRecord } from "../../infrastructure/database/TicketRepository";
 import { createLogger } from "../../infrastructure/core/logger";
+import { truncateDiscordText } from "../../shared/utils/discordLimits";
 
 const logger = createLogger("TICKET ARCHIVE");
 
@@ -13,7 +14,7 @@ function buildTicketArchiveContainer(ticket: TicketRecord): ContainerBuilder {
     : [
         `**Rating:** ${"⭐".repeat(ticket.reviewRating)} (${ticket.reviewRating}/5)`,
         `**Resolved:** ${ticket.reviewResolved ? "Yes" : "No"}`,
-        `**Comments:** ${escapeDiscordText(ticket.reviewComment || "No comments provided")}`,
+        `**Comments:** ${truncateDiscordText(escapeDiscordText(ticket.reviewComment || "No comments provided"), 700)}`,
         `**Reviewed:** ${ticket.reviewedAt?.toISOString() ?? "Unknown"}`,
       ].join("\n");
 
@@ -21,7 +22,7 @@ function buildTicketArchiveContainer(ticket: TicketRecord): ContainerBuilder {
     .setAccentColor(ticket.reviewRating === null ? 0xc58b45 : ticket.reviewRating >= 4 ? 0x57f287 : ticket.reviewRating >= 3 ? 0xd2a85a : 0xed4245)
     .addTextDisplayComponents((text) => text.setContent(`## Ticket #${ticket.id} archive`))
     .addTextDisplayComponents((text) =>
-      text.setContent(
+      text.setContent(truncateDiscordText(
         [
           `**Status:** Closed`,
           `**Opened by:** <@${ticket.openerId}>`,
@@ -30,12 +31,11 @@ function buildTicketArchiveContainer(ticket: TicketRecord): ContainerBuilder {
           `**Opened:** ${ticket.createdAt.toISOString()}`,
           `**Claimed:** ${ticket.claimedAt?.toISOString() ?? "Not claimed"}`,
           `**Closed:** ${ticket.closedAt?.toISOString() ?? "Unknown"}`,
-        ].join("\n"),
-      ),
+        ].join("\n"), 500)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
-      text.setContent(
+      text.setContent(truncateDiscordText(
         [
           "### Request",
           `**Category:** ${escapeDiscordText(ticket.category)}`,
@@ -43,12 +43,11 @@ function buildTicketArchiveContainer(ticket: TicketRecord): ContainerBuilder {
           `**Description:** ${escapeDiscordText(ticket.description)}`,
           `**Steps tried:** ${escapeDiscordText(ticket.stepsTried || "None provided")}`,
           `**Impact:** ${escapeDiscordText(ticket.impact)}`,
-        ].join("\n"),
-      ),
+        ].join("\n"), 1_800)),
     )
-    .addTextDisplayComponents((text) => text.setContent(formatDuneSummary(ticket)))
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(formatDuneSummary(ticket), 500)))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(`### Member review\n${review}`))
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`### Member review\n${review}`, 850)))
     .addFileComponents(new FileBuilder().setURL(`attachment://ticket-${ticket.id}-transcript.txt`), new FileBuilder().setURL(`attachment://ticket-${ticket.id}.json`));
 }
 
@@ -77,7 +76,12 @@ function buildTicketJson(ticket: TicketRecord): string {
         closedAt: ticket.closedAt?.toISOString() ?? null,
         transcriptCreatedAt: ticket.transcriptCreatedAt?.toISOString() ?? null,
         transcriptMessageCount: ticket.transcriptMessageCount,
-        transcript: ticket.transcript,
+        transcript: {
+          filename: `ticket-${ticket.id}-transcript.txt`,
+          messageCount: ticket.transcriptMessageCount,
+          createdAt: ticket.transcriptCreatedAt?.toISOString() ?? null,
+          storedInPostgreSQL: true,
+        },
         review: ticket.reviewedAt
           ? {
               rating: ticket.reviewRating,

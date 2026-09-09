@@ -2,6 +2,7 @@ import { MessageFlags, ModalSubmitInteraction } from "discord.js";
 
 import { BLUEPRINT_LIMITS } from "../../../infrastructure/config/limits";
 import { createActorContext } from "../../../shared/utils/createActorContext";
+import { truncateDiscordText } from "../../../shared/utils/discordLimits";
 
 const MINIMUM_OFFLINE_MS = BLUEPRINT_LIMITS.minimumOfflineMs;
 
@@ -141,7 +142,7 @@ async function execute(interaction: ModalSubmitInteraction): Promise<void> {
 
     const result = await duneApi.importBlueprint(String(playerId), file);
 
-    await interaction.editReply(result.message ?? `Blueprint imported for ${linked.characterName ?? "your linked character"}.`);
+    await interaction.editReply(truncateDiscordText(result.message ?? `Blueprint imported for ${linked.characterName ?? "your linked character"}.`, 1_900, "…"));
 
   await auditLogger?.blueprintImported(interaction, linked, result, file);
 }
