@@ -11,6 +11,7 @@ declare module "discord.js" {
     auditLogInterval?: NodeJS.Timeout;
     presenceInterval?: NodeJS.Timeout;
     versionAnnouncementInterval?: NodeJS.Timeout;
+    stormAnnouncementInterval?: NodeJS.Timeout;
     discordAdapter: DiscordAdapterClient | null;
     discordAdapterLinkPanelChannelId?: string;
     discordAdapterBlueprintPanelChannelId?: string;
@@ -18,6 +19,7 @@ declare module "discord.js" {
     discordVerifyChannelId?: string;
     discordRulesChannelId?: string;
     discordServerInfoChannelId?: string;
+    discordFaqPanelChannelId?: string;
     discordAnnouncementChannelId?: string;
     discordTicketPanelChannelId?: string;
     discordTicketCategoryId?: string;

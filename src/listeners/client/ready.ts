@@ -7,9 +7,11 @@ import { ensurePlayerLinkPanel } from "../../modules/panels/playerLinkPanel";
 import { ensureRolePanel } from "../../modules/panels/rolePanel";
 import { ensureRulesPanel } from "../../modules/panels/rulesPanel";
 import { ensureServerInfoPanel } from "../../modules/panels/serverInfoPanel";
+import { ensureFaqPanel } from "../../modules/panels/faqPanel";
 import { ensureVerificationPanel } from "../../modules/panels/verificationPanel";
 import { ensureTicketPanel } from "../../modules/panels/ticketPanel";
 import { announceCurrentVersion } from "../../modules/panels/versionAnnouncement";
+import { startStormAnnouncements } from "../../modules/panels/stormAnnouncement";
 
 const PRESENCE_INTERVAL_MS = 30_000;
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
@@ -85,6 +87,10 @@ class Ready extends Listener<typeof Events.ClientReady> {
     this.container.logger.info(`Ready! Logged in as ${botUser.tag}.`);
 
     client.auditLogInterval = startAuditLogForwarder(client);
+    await runReadyTask("configure storm announcements", () => {
+      client.stormAnnouncementInterval = startStormAnnouncements(client);
+      return Promise.resolve();
+    });
 
     await ensurePanels();
     await runReadyTask("configure version announcements", setupVersionAnnouncements);
@@ -102,6 +108,7 @@ async function ensurePanels(): Promise<void> {
   await runReadyTask("publish the verification panel", () => ensureVerificationPanel(client, client.discordVerifyChannelId));
   await runReadyTask("publish the rules panel", () => ensureRulesPanel(client, client.discordRulesChannelId));
   await runReadyTask("publish the server info panel", () => ensureServerInfoPanel(client, client.discordServerInfoChannelId));
+  await runReadyTask("publish the FAQ panel", () => ensureFaqPanel(client, client.discordFaqPanelChannelId));
   await runReadyTask("publish the ticket panel", () => ensureTicketPanel(client, client.discordTicketPanelChannelId));
 }
 

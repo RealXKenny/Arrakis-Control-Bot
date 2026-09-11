@@ -25,6 +25,7 @@ class ArrakisClient extends SapphireClient {
   public discordVerifyChannelId?: string;
   public discordRulesChannelId?: string;
   public discordServerInfoChannelId?: string;
+  public discordFaqPanelChannelId?: string;
   public discordAnnouncementChannelId?: string;
   public discordTicketPanelChannelId?: string;
   public discordTicketCategoryId?: string;
@@ -33,6 +34,7 @@ class ArrakisClient extends SapphireClient {
   public auditLogger!: DiscordAuditLogger;
   public auditLogInterval?: NodeJS.Timeout;
   public versionAnnouncementInterval?: NodeJS.Timeout;
+  public stormAnnouncementInterval?: NodeJS.Timeout;
   public presenceInterval?: NodeJS.Timeout;
   public interactionRateLimiter!: RateLimiter;
   public tickets: TicketRepository | null = null;

@@ -23,6 +23,7 @@ interface EnvironmentConfig {
   discordVerifyChannelId?: string;
   discordRulesChannelId?: string;
   discordServerInfoChannelId?: string;
+  discordFaqPanelChannelId?: string;
   discordAnnouncementChannelId?: string;
   discordTicketPanelChannelId?: string;
   discordTicketCategoryId?: string;
@@ -111,6 +112,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     discordVerifyChannelId: process.env.VERIFY_CHANNEL_ID,
     discordRulesChannelId: process.env.RULES_CHANNEL_ID,
     discordServerInfoChannelId: process.env.SERVER_INFO_CHANNEL_ID,
+    discordFaqPanelChannelId: process.env.FAQ_PANEL_CHANNEL_ID,
     discordAnnouncementChannelId: process.env.ANNOUNCEMENT_CHANNEL_ID,
     discordTicketPanelChannelId: process.env.TICKET_PANEL_CHANNEL_ID,
     discordTicketCategoryId: process.env.TICKET_CATEGORY_ID,

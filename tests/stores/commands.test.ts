@@ -77,10 +77,10 @@ describe("moderation commands", () => {
 });
 
 describe("Sapphire command store", () => {
-  it("discovers all 13 commands without a gateway login", async () => {
+  it("discovers all 14 commands without a gateway login", async () => {
     const { commands } = await getStoreSnapshot();
-    expect(commands).toEqual(expect.arrayContaining(["reload", "info", "ping", "purge", "userinfo", "ban", "kick", "timeout", "players", "profile", "backups", "servers", "status"]));
-    expect(commands).toHaveLength(13);
+    expect(commands).toEqual(expect.arrayContaining(["reload", "info", "ping", "purge", "userinfo", "ban", "kick", "timeout", "players", "profile", "backups", "servers", "status", "storm"]));
+    expect(commands).toHaveLength(14);
   });
 
   it("reports the native Sapphire reload count", async () => {

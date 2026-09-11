@@ -4,7 +4,7 @@ Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: A
 
 See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/api/reference/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.5.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.6.
 
 ## Requirements
 
@@ -82,6 +82,20 @@ The production start path was previously verified with configured live services.
 - The first command that reaches the Dune Console will expose an invalid key or missing scope through its safe API error response.
 - `CLIENT_ID` remains optional configuration; Sapphire uses the authenticated application when synchronizing registered commands.
 - Use `LOG_LEVEL=DEBUG` temporarily when diagnosing integration or interaction failures. Logs do not intentionally include tokens or authorization headers.
+
+## Weekly Coriolis storm panel
+
+Set `STORM_CHANNEL_ID` in `.env` to choose the Discord channel and enable a Components V2 panel with an attached Dune banner, start/end dates, and live Discord countdowns. Every minute, the bot reads `coriolisNextCycleAt` from `GET /api/map/markers`, uses it as the storm end, and calculates the start as exactly 24 hours earlier. It checks for that cycle's marker in the configured channel and sends the panel when none exists, including restoring a panel deleted during an active cycle.
+
+The Console API key needs read access to the `map` namespace. The bot accepts an ISO timestamp, Unix seconds, or Unix milliseconds from the API. It ignores an expired API cycle and restores a missing panel while the reported cycle is still active.
+
+Users can also run `/storm` at any time to retrieve the current API-backed storm panel. This command works independently of `STORM_CHANNEL_ID`.
+
+Grant View Channel, Read Message History, Send Messages, Attach Files, and Embed Links in the destination. History checks recognize the bot's own cycle marker across restarts, including busy channels; failed reads/sends retry on the next minute. Keep prior panels for duplicate protection. Only shard 0 publishes; run one bot deployment to avoid races between separate deployments. No role or everyone mentions are sent. Restart after changing configuration. Leaving `STORM_CHANNEL_ID` unset disables the feature.
+
+## Community FAQ panel
+
+Set `FAQ_PANEL_CHANNEL_ID` to publish the persistent Crimson Skies FAQ and banner. On startup, the bot updates its existing FAQ message in place or creates it when missing, keeping one current panel in the configured channel.
 
 ## Architecture
 

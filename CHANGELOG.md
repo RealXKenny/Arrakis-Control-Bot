@@ -2,19 +2,31 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
-## [1.0.6] - In-Progress
+## [1.0.6] - 2026-09-10
 
 ### Added
 
 - Sapphire-compatible logger adapter that applies the Arrakis timestamp, level, and scope format to framework and `container.logger` output.
 - Typed, immutable source catalog containing all 354 Dune Console API endpoints.
 - Regression coverage for Sapphire logger formatting, log-level thresholds, endpoint catalog completeness, and catalog immutability.
+- API-backed Coriolis storm panels with localized Discord timestamps, a 24-hour storm window derived from `coriolisNextCycleAt`, cycle-level duplicate detection, and automatic restoration when a panel is missing.
+- Public `/storm` command for retrieving the current Coriolis schedule on demand.
+- Persistent Crimson Skies FAQ panel with a generated Dune-style banner and startup updates in place.
 
 ### Changed
 
 - Route Sapphire framework logs through the central `[BOT]` logger so application-command registration, readiness, commands, handlers, listeners, and preconditions share one output format.
 - Load the Dune Console endpoint catalog directly from compiled source instead of parsing Markdown from the working directory at startup.
 - Updated architecture and setup documentation to describe the compiled endpoint catalog.
+- Added dedicated `STORM_CHANNEL_ID` and `FAQ_PANEL_CHANNEL_ID` configuration for automatic panel destinations.
+
+### Fixed
+
+- Prevented duplicate Coriolis announcements while ensuring deleted or absent cycle panels are recreated.
+
+### Verification
+
+- `npm run build`, `npm run lint`, `npm test`, `npm audit --omit=dev`, and `git diff --check` pass for version 1.0.6.
 
 ### Removed
 

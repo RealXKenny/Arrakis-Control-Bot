@@ -25,6 +25,7 @@ interface BotConfig {
   discordVerifyChannelId?: string | null;
   discordRulesChannelId?: string | null;
   discordServerInfoChannelId?: string | null;
+  discordFaqPanelChannelId?: string | null;
   discordAnnouncementChannelId?: string | null;
   discordTicketPanelChannelId?: string | null;
   discordTicketCategoryId?: string | null;
@@ -88,6 +89,7 @@ function createBotApplication(config: BotConfig) {
     if (client.auditLogInterval) clearInterval(client.auditLogInterval);
     if (client.presenceInterval) clearInterval(client.presenceInterval);
     if (client.versionAnnouncementInterval) clearInterval(client.versionAnnouncementInterval);
+    if (client.stormAnnouncementInterval) clearInterval(client.stormAnnouncementInterval);
 
     const cleanup = (async (): Promise<void> => {
       try {
@@ -144,6 +146,7 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordVerifyChannelId = config.discordVerifyChannelId ?? undefined;
   client.discordRulesChannelId = config.discordRulesChannelId ?? undefined;
   client.discordServerInfoChannelId = config.discordServerInfoChannelId ?? undefined;
+  client.discordFaqPanelChannelId = config.discordFaqPanelChannelId ?? undefined;
   client.discordAnnouncementChannelId = config.discordAnnouncementChannelId ?? undefined;
   client.discordTicketPanelChannelId = config.discordTicketPanelChannelId ?? undefined;
   client.discordTicketCategoryId = config.discordTicketCategoryId ?? undefined;
