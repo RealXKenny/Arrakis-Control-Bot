@@ -1,6 +1,6 @@
 {
   "name": "Arrakis-Control-Bot",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A modular Sapphire Framework and Discord.js v14 bot.",
   "main": "src/index.ts",
   "engines": {
