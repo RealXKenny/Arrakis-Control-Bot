@@ -1,7 +1,7 @@
 import type { ModalSubmitInteraction } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { execute } from "../../src/interaction-handlers/modals/blueprint-upload-modal";
+import { execute } from "../../src/interaction-handlers/players/blueprints/blueprint-upload-modal";
 import { getStoreSnapshot } from "../helpers/storeSnapshot";
 
 describe("blueprint upload modal", () => {
@@ -84,32 +84,36 @@ describe("blueprint upload modal", () => {
 });
 
 describe("Sapphire interaction-handler store", () => {
-  it("discovers 18 handlers and two fallbacks without a gateway login", async () => {
+  it("discovers 22 feature handlers and two system fallbacks without a gateway login", async () => {
     const { handlers } = await getStoreSnapshot();
     expect(handlers).toEqual(
       expect.arrayContaining([
-        "blueprint-upload",
-        "member-captcha",
-        "player-link",
-        "player-unlink",
-        "player-verify",
-        "ticket-claim",
-        "ticket-close",
-        "ticket-open",
-        "ticket-review",
-        "ticket-unclaim",
-        "self-assignable-roles",
-        "ticket-category",
+        "blueprint-upload-button",
+        "help-page-button",
+        "member-captcha-button",
+        "market-page-button",
+        "player-link-button",
+        "player-unlink-button",
+        "player-verify-button",
+        "ticket-claim-button",
+        "ticket-close-button",
+        "ticket-open-button",
+        "ticket-review-button",
+        "ticket-unclaim-button",
+        "self-assignable-roles-menu",
+        "help-category-menu",
+        "market-category-menu",
+        "ticket-category-menu",
         "blueprint-upload-modal",
         "member-captcha-modal",
         "player-link-modal",
         "player-verify-modal",
         "ticket-create-modal",
         "ticket-review-modal",
-        "unavailable",
+        "unavailable-component",
         "unavailable-modal",
       ]),
     );
-    expect(handlers).toHaveLength(20);
+    expect(handlers).toHaveLength(24);
   });
 });

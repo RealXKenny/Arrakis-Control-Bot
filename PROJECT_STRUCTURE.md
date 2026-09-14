@@ -1,139 +1,164 @@
 # Project Structure
 
-Arrakis Control Bot uses top-level Sapphire stores, a dedicated client composition layer, domain-oriented modules, and isolated infrastructure adapters. Sapphire owns discovery and routing; domain and infrastructure behavior remains independent of store layout.
+Arrakis Control Bot uses domain-first organization beneath Sapphire's four required piece-store roots. Pieces remain thin framework adapters; business behavior belongs to domain modules, external I/O belongs to infrastructure, and reusable Sapphire glue belongs to support.
 
 ## Repository Layout
 
 ```text
-.
-├── .env.example                         Runtime configuration template
-├── README.md                            Setup, operation, and deployment guide
-├── PROJECT_STRUCTURE.md                 Architecture and ownership guide
-├── package.json                         Scripts and dependency declarations
-├── package-lock.json                    Reproducible dependency resolution
-├── tsconfig.json                        Strict TypeScript configuration
-├── eslint.config.mjs                    Typed ESLint configuration
-├── src/
-│   ├── client/                          Sapphire client composition and lifecycle
-│   │   ├── ArrakisClient.ts             SapphireClient subclass and store mappings
-│   │   ├── BotApplication.ts            Service composition, DB bootstrap, and login
-│   │   ├── logger.ts                    Process-level application logger
-│   │   └── shard.ts                     Shard lifecycle and graceful shutdown
-│   ├── commands/                        Top-level Sapphire Command store
-│   │   ├── administration/              Administrative commands
-│   │   ├── general/                     General Discord commands
-│   │   ├── moderation/                  Staff moderation commands
-│   │   ├── players/                     Dune player commands
-│   │   └── server/                      Server and backup commands
-│   ├── interaction-handlers/            Top-level InteractionHandler store
-│   │   ├── buttons/                     Button handlers
-│   │   ├── menus/                       Select-menu handlers
-│   │   ├── modals/                      Modal-submit handlers
-│   │   └── fallbacks/                   Unknown and expired-control handlers
-│   ├── listeners/                       Top-level Sapphire Listener store
-│   │   ├── client/                      Discord client and gateway listeners
-│   │   └── framework/                   Sapphire denial and error listeners
-│   ├── preconditions/                   Top-level Sapphire Precondition store
-│   ├── support/                         Framework routing helpers and base pieces
-│   ├── infrastructure/                  Low-level technical adapters and I/O drivers
-│   │   ├── api/                         API clients and compiled endpoint catalog
-│   │   ├── config/                      Environment, limits, and version parsing
-│   │   ├── database/                    PostgreSQL repositories and schema setup
-│   │   └── rateLimit/                   Replaceable rate-limit storage and policy
-│   ├── modules/                         Reusable application and domain behavior
-│   │   ├── audit/                       Audit messages and forwarding
-│   │   ├── formatters/                  External-data presentation mapping
-│   │   ├── panels/                      Persistent Discord panel orchestration
-│   │   ├── tickets/                     Ticket lifecycle and channel orchestration
-│   │   └── validators/                  Payload and file validation
-│   ├── shared/                          Stateless shared primitives and utilities
-│   │   ├── constants/                   Role configuration and constants
-│   │   ├── factories/                   Discord response and image builders
-│   │   └── utils/                       CAPTCHA, permissions, limits, and lookups
-│   ├── types/                           TypeScript module augmentation
-│   └── index.ts                         Shard manager entrypoint
-└── tests/
-    ├── client/                          Client composition and lifecycle tests
-    ├── stores/                          Sapphire store and routing tests
-    ├── infrastructure/                  Config, API, and state-adapter tests
-    ├── modules/                         Domain module tests
-    ├── shared/                          Shared utility tests
-    └── helpers/                         Credential-free test harnesses
+src/
+├── index.ts
+├── client/
+│   ├── ArrakisClient.ts
+│   ├── BotApplication.ts
+│   ├── logger.ts
+│   └── shard.ts
+├── commands/                              Sapphire Command store
+│   ├── administration/operations/
+│   ├── economy/market/
+│   ├── general/{help,information}/
+│   ├── moderation/{members,messages}/
+│   ├── players/
+│   │   ├── actions/
+│   │   ├── bulk/
+│   │   ├── directory/
+│   │   ├── equipment/
+│   │   ├── inventory/
+│   │   ├── items/
+│   │   ├── progression/
+│   │   └── reset/
+│   ├── server/{backups,lifecycle,maintenance,monitoring,services}/
+│   ├── updates/{game,runtime,stack}/
+│   └── world/storms/
+├── interaction-handlers/                  Sapphire InteractionHandler store
+│   ├── community/{onboarding,roles}/
+│   ├── help/navigation/
+│   ├── market/navigation/
+│   ├── players/{blueprints,linking}/
+│   ├── system/fallbacks/
+│   └── tickets/{intake,reviews,workflow}/
+├── listeners/                             Sapphire Listener store
+│   ├── discord/
+│   └── sapphire/
+├── preconditions/                         Sapphire Precondition store
+│   ├── access/
+│   └── rate-limit/
+├── modules/                               Business and application logic
+│   ├── audit/
+│   ├── community/{faq,onboarding,roles,rules,verification}/
+│   ├── help/
+│   ├── market/
+│   ├── players/{administration,blueprints,directory,linking}/
+│   ├── releases/
+│   ├── server/{backups,information,operations,status}/
+│   ├── tickets/
+│   ├── updates/
+│   └── world/storms/
+├── infrastructure/                        External drivers and persistence
+│   ├── config/
+│   ├── database/tickets/
+│   ├── http/{convoy,discord-adapter,dune-console}/
+│   └── rate-limit/
+├── support/                               Sapphire and Discord framework glue
+│   ├── access/
+│   ├── commands/
+│   └── interactions/
+├── shared/                                Framework-neutral primitives
+│   ├── actors/
+│   ├── discord/
+│   └── process/
+└── types/
+    └── discord.d.ts
+
+tests/
+├── client/
+├── helpers/
+├── infrastructure/{config,http,rate-limit}/
+├── modules/
+│   ├── community/{faq,onboarding}/
+│   ├── help/
+│   ├── market/
+│   ├── players/{administration,directory}/
+│   ├── releases/
+│   ├── server/{backups,information,operations}/
+│   ├── tickets/
+│   ├── updates/
+│   └── world/storms/
+├── shared/discord/
+└── stores/
 ```
+
+## Path Convention
+
+Sapphire pieces follow this predictable shape:
+
+```text
+<store-root>/<domain>/<feature>/<piece>.ts
+```
+
+Examples:
+
+- `commands/server/backups/create-backup.ts`
+- `commands/players/inventory/delete-inventory-item.ts`
+- `interaction-handlers/tickets/intake/ticket-create-modal.ts`
+- `interaction-handlers/market/navigation/market-page-button.ts`
+
+Handler filenames include their component role (`-button`, `-menu`, or `-modal`) while remaining grouped by domain. This keeps related feature behavior together without creating ambiguous Sapphire piece names.
 
 ## Layer Ownership
 
 | Layer | Responsibility |
 |---|---|
-| `src/client/` | Constructs `ArrakisClient`, binds services, initializes PostgreSQL, logs in to Discord, and owns shard lifecycle. |
-| `src/commands/` | Defines slash-command registration, declarative preconditions, and command execution. |
-| `src/interaction-handlers/` | Routes exact and prefixed component IDs and preserves component acknowledgment order. |
-| `src/listeners/` | Handles Discord gateway events and Sapphire framework denial/error events. |
-| `src/preconditions/` | Enforces reusable owner, staff, and rate-limit policies. |
-| `src/support/` | Contains framework-specific bases and routing helpers shared by Sapphire pieces. |
-| `src/infrastructure/` | Owns HTTP transport, the hardcoded Dune endpoint catalog, environment parsing, persistence, and replaceable state drivers. |
-| `src/modules/` | Owns reusable Arrakis business behavior, including tickets, panels, audit forwarding, formatting, and validation. |
-| `src/shared/` | Provides small reusable factories, constants, and utilities without startup side effects. |
-| `tests/` | Verifies behavior and compiled Sapphire discovery without live credentials or a gateway connection. |
+| `client/` | Client composition, dependency binding, login, and shard lifecycle. |
+| `commands/` | Slash-command schemas, precondition declarations, input extraction, and delegation. |
+| `interaction-handlers/` | Component matching, acknowledgment order, session ownership checks, and delegation. |
+| `listeners/` | Discord gateway and Sapphire lifecycle event adapters. |
+| `preconditions/` | Reusable command admission and authorization policies. |
+| `modules/` | Domain validation, orchestration, formatting, sessions, and presentation behavior. |
+| `infrastructure/` | HTTP transport, API catalogs, configuration, databases, and persistence drivers. |
+| `support/` | Framework-specific factories, routing helpers, access helpers, and base pieces. |
+| `shared/` | Small deterministic primitives that do not own domain or infrastructure behavior. |
+
+Commands and handlers must not contain database queries, raw HTTP transport, durable state, or substantial domain rules. Infrastructure must not construct Discord responses. Modules may depend on infrastructure contracts and shared primitives, but should not depend on files beneath Sapphire piece-store roots.
 
 ## Sapphire Store Mapping
 
-`ArrakisClient` uses `src/` as its piece root and explicitly maps each top-level store:
+The store roots remain registered in `ArrakisClient`:
 
-| Source directory | Sapphire store | Piece type |
-|---|---|---|
-| `src/commands/` | `commands` | `Command` |
-| `src/interaction-handlers/` | `interaction-handlers` | `InteractionHandler` |
-| `src/listeners/` | `listeners` | `Listener` |
-| `src/preconditions/` | `preconditions` | `Precondition` |
+| Source root | Sapphire store |
+|---|---|
+| `src/commands/` | `commands` |
+| `src/interaction-handlers/` | `interaction-handlers` |
+| `src/listeners/` | `listeners` |
+| `src/preconditions/` | `preconditions` |
 
-No custom dynamic loader layer is used. The subcommands plugin is registered before client construction, while existing application commands retain their flat invocation shapes.
+Sapphire recursively discovers pieces below these roots. No domain directory needs its own registration. Avoid helper modules and barrel `index.ts` files inside store roots; place reusable code in `modules/`, `support/`, or `shared/`.
 
-## Runtime Sequences
+## Interaction Routing
 
-### Startup
+Interaction handlers are domain-first. Component type is expressed by the filename and `InteractionHandlerTypes`, not by a global `buttons/`, `menus/`, or `modals/` directory.
 
-1. `src/index.ts` validates manager configuration and starts the Discord shard manager.
-2. Each shard launches `src/client/shard.ts` and validates its runtime environment.
-3. `BotApplication` constructs `ArrakisClient` and binds external adapters, repositories, channel configuration, audit services, and rate-limit state.
-4. PostgreSQL ticket storage initializes before Discord login when `DATABASE_URL` is configured.
-5. Sapphire discovers commands, interaction handlers, listeners, and preconditions from their top-level stores.
-6. The client establishes the Discord gateway connection.
-7. The ready listener starts presence rotation, panel synchronization, audit forwarding, and version announcements as isolated tasks.
+Custom IDs remain stable API contracts. Moving or renaming a handler file must not silently change prefixes such as `help-page:`, `market-category:`, `ticket-claim:`, or `ticket-review:`. Register known exact IDs and prefixes in `support/interactions/componentCustomIds.ts` and cover them in routing tests.
 
-### Interaction Handling
+## Adding a Feature
 
-1. Discord delivers an interaction through the gateway.
-2. Sapphire resolves the corresponding command or interaction handler.
-3. Command preconditions evaluate rate limits and configured authorization policies.
-4. The selected piece validates input and delegates reusable work to modules or infrastructure adapters.
-5. The piece returns the existing Discord response payload.
-6. Sapphire framework listeners handle denials and unexpected command, autocomplete, handler, parse, or listener errors.
+For a new world mechanic named `sandworm`:
 
-Component handlers use exact or explicitly defined prefix matching. Unknown or expired custom IDs are delegated to typed fallback handlers. Ticket identifiers, acknowledgment order, user-facing messages, and domain state transitions must remain stable.
+```text
+src/commands/world/sandworms/sandworm-status.ts
+src/interaction-handlers/world/sandworms/sandworm-page-button.ts
+src/modules/world/sandworms/sandwormService.ts
+src/infrastructure/http/dune-console/DuneApi.ts
+tests/modules/world/sandworms/sandwormService.test.ts
+tests/stores/commands.test.ts
+tests/stores/interactionHandlers.test.ts
+tests/stores/routing.test.ts
+```
 
-### Graceful Shutdown
+The command and handler should only translate Discord input/output. Put mechanics and validation in the module, and extend the Dune Console driver only when new external I/O is required.
 
-1. The shard captures a process signal, parent-process exit, or fatal process event.
-2. A duplicate-shutdown guard prevents concurrent cleanup.
-3. Presence, audit, and announcement jobs are cancelled.
-4. The Discord client and PostgreSQL pool are closed within the bounded shutdown window.
-5. The shard exits with the appropriate status for its process supervisor.
+## Verification
 
-## Extension Guidelines
-
-- Add commands beneath the relevant `src/commands/` domain and register application commands through the shared overwrite policy.
-- Add buttons, menus, modals, and fallbacks under `src/interaction-handlers/` with the correct `InteractionHandlerTypes` value.
-- Add Discord listeners under `src/listeners/client/` and Sapphire lifecycle listeners under `src/listeners/framework/`.
-- Add reusable command authorization or admission policies under `src/preconditions/` and declare them in command options.
-- Keep framework-specific helper code in `src/support/`; do not move domain rules into store adapters.
-- Add external HTTP clients under `src/infrastructure/api/` and construct them in `BotApplication`.
-- Keep SQL and connection-pool behavior inside `src/infrastructure/database/`.
-- Put reusable ticket, panel, audit, formatting, or validation behavior in `src/modules/`.
-- Put deterministic, broadly reusable primitives in `src/shared/`.
-- Mirror the owning production boundary under `tests/` and keep tests credential-free.
-
-Run the complete verification sequence before merge or deployment:
+Run the complete verification sequence after moving or adding pieces:
 
 ```powershell
 npm run build
@@ -143,15 +168,4 @@ npm audit
 git diff --check
 ```
 
-## Distributed State Roadmap
-
-The current rate limiter and CAPTCHA state are bounded and process-local. A multi-instance deployment should introduce shared adapters without changing commands or interaction handlers.
-
-1. Preserve the existing state contracts.
-2. Implement Redis-backed adapters with atomic acquisition and explicit TTLs.
-3. Namespace keys by environment, application, guild, user, and operation.
-4. Select in-memory or distributed adapters in `BotApplication` through configuration.
-5. Add shared contract tests for both implementations.
-6. Coordinate scheduled jobs and command registration through leases, leader election, or a deployment-time job before running multiple active instances.
-
-Static verification does not prove live connectivity. Deployment validation must separately confirm Discord readiness, PostgreSQL availability, external API scopes, and panel synchronization.
+The build clears `dist` before compiling. This prevents stale compiled pieces from being discovered after source moves. Store tests verify unique piece names and recursive discovery without a live Discord login.

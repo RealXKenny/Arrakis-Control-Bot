@@ -1,7 +1,7 @@
 import { loadEnvironment } from "../infrastructure/config/environment";
 import { createBotApplication } from "./BotApplication";
 import { createLogger, type Logger } from "./logger";
-import { monitorParentProcess } from "../shared/utils/parentProcessMonitor";
+import { monitorParentProcess } from "../shared/process/parentProcessMonitor";
 
 const REQUIRED_ENVIRONMENT = ["TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY"] as const;
 const config = loadEnvironment([...REQUIRED_ENVIRONMENT]);

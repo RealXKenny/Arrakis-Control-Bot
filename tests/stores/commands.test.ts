@@ -1,9 +1,10 @@
 import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { execute as executeKick } from "../../src/commands/moderation/kick";
-import { reloadPieces } from "../../src/commands/administration/reload";
-import { canModerateMember } from "../../src/shared/utils/staffAccess";
+import { execute as executeKick } from "../../src/commands/moderation/members/kick";
+import { reloadPieces } from "../../src/commands/administration/operations/reload";
+import { PLAYER_ADMIN_COMMAND_NAMES } from "../../src/support/commands/playerAdminCommandFactory";
+import { canModerateMember } from "../../src/support/access/staffAccess";
 import { getStoreSnapshot } from "../helpers/storeSnapshot";
 
 afterEach(() => {
@@ -77,10 +78,10 @@ describe("moderation commands", () => {
 });
 
 describe("Sapphire command store", () => {
-  it("discovers all 14 commands without a gateway login", async () => {
+  it("discovers all 77 commands without a gateway login", async () => {
     const { commands } = await getStoreSnapshot();
-    expect(commands).toEqual(expect.arrayContaining(["reload", "info", "ping", "purge", "userinfo", "ban", "kick", "timeout", "players", "profile", "backups", "servers", "status", "storm"]));
-    expect(commands).toHaveLength(14);
+    expect(commands).toEqual(expect.arrayContaining(["help", "reload", "info", "ping", "purge", "userinfo", "ban", "kick", "timeout", "players", "profile", ...Object.values(PLAYER_ADMIN_COMMAND_NAMES), "backups", "create-backup", "restore-backup", "download-backup", "delete-backup", "delete-all-backups", "import-backup", "configure-auto-backup", "market", "start-server", "stop-server", "restart-server", "fix-network", "cleanup-images", "cleanup-build-cache", "services", "restart-service", "check-game-update", "apply-game-update", "fix-steamcmd", "check-stack-update", "apply-stack-update", "auto-update-status", "configure-auto-update", "repair-runtime", "servers", "status", "storm"]));
+    expect(commands).toHaveLength(77);
   });
 
   it("reports the native Sapphire reload count", async () => {

@@ -3,7 +3,7 @@ import { Shard, ShardingManager } from "discord.js";
 
 import { loadEnvironment } from "./infrastructure/config/environment";
 import { createLogger } from "./client/logger";
-import { monitorParentProcess } from "./shared/utils/parentProcessMonitor";
+import { monitorParentProcess } from "./shared/process/parentProcessMonitor";
 
 const REQUIRED_ENVIRONMENT = ["TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY"];
 const SHARD_ENTRYPOINT = path.join(__dirname, "client", `shard${path.extname(__filename)}`);

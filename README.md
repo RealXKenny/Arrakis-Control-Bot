@@ -2,7 +2,7 @@
 
 Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: Awakening community administration, player linking, moderation, server operations, panels, and external service integrations.
 
-See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/api/reference/endpointCatalog.ts`, so production startup does not depend on external reference files.
+See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
 Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.6.
 
@@ -92,6 +92,38 @@ The Console API key needs read access to the `map` namespace. The bot accepts an
 Users can also run `/storm` at any time to retrieve the current API-backed storm panel. This command works independently of `STORM_CHANNEL_ID`.
 
 Grant View Channel, Read Message History, Send Messages, Attach Files, and Embed Links in the destination. History checks recognize the bot's own cycle marker across restarts, including busy channels; failed reads/sends retry on the next minute. Keep prior panels for duplicate protection. Only shard 0 publishes; run one bot deployment to avoid races between separate deployments. No role or everyone mentions are sent. Restart after changing configuration. Leaving `STORM_CHANNEL_ID` unset disables the feature.
+
+## CHOAM market command
+
+Users can run `/market` to browse active CHOAM Exchange sell orders grouped by item and grade. Results show each item's lowest asking price, total stock, listing count, and a recommended listing price calculated from the Market Bot's saved buyback percentage. The interactive panel provides an All Categories/category menu and First, Previous, Next, and Last page buttons. Optional `search`, `category`, `seller`, and `page` arguments set the initial view; `seller` defaults to all sellers. Controls are bound to the requesting member and expire after 15 minutes.
+
+The command reads `GET /api/exchange/items` through the configured Dune Console API key and never changes exchange rows. Ensure that key is permitted to read the exchange endpoint. If the game database does not support the exchange schema, the command reports the capability as unavailable.
+
+## Interactive command help
+
+Run `/help` to open the private Arrakis Command Center. It catalogs all 77 standalone commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
+
+## Owner server controls
+
+Members with the configured `OWNER_ROLE_ID` can run `/start-server`, `/stop-server`, `/restart-server`, `/fix-network`, `/cleanup-images`, `/cleanup-build-cache`, `/services`, and `/restart-service service:<name>`. Each standalone owner-only command calls the matching Dune Console endpoint and responds ephemerally. `/services` lists current service status and provides the names accepted by `/restart-service`. Storage cleanup requests include the Console's exact required confirmation phrase. The Console API key must have permission to execute server operations.
+
+`/restart-server` and `/restart-service` accept an optional `immediate` flag. Normal requests respect the Console Restart Queue and report queued `202` responses; `immediate:true` sends `restartQueue=immediate` to bypass its countdown. Concurrency-conflict `409` responses are shown in the ephemeral error panel.
+
+## Owner update controls
+
+Owners can use `/check-game-update`, `/apply-game-update`, `/fix-steamcmd`, `/check-stack-update`, `/apply-stack-update`, `/auto-update-status`, `/configure-auto-update`, and `/repair-runtime`. `/check-game-update` accepts the optional `fresh` flag. `/configure-auto-update` requires all documented automatic-update fields and forwards its `confirmation` value to the Console. All update responses are ephemeral.
+
+## Backup controls
+
+`/backups` remains the read-only overview for the backup list and automatic-backup status. Owners can use `/create-backup`, `/restore-backup`, `/download-backup`, `/delete-backup`, `/delete-all-backups`, `/import-backup`, and `/configure-auto-backup` for the remaining Console backup operations. Restore and deletion commands require an explicit `confirm:true`; responses are ephemeral.
+
+External imports require both the backup archive and its metadata as Discord attachments and are limited to 25 MB combined. Downloads are returned as ephemeral Discord attachments and are limited to 10 MB; larger archives must be retrieved directly through the Console.
+
+## Owner player administration
+
+Owners have 38 standalone player commands covering every item/XP/skill, kick/ban/teleport, cleanup, progression, equipment, inventory-editing, and kick-all route. Examples include `/give-item`, `/add-player-xp`, `/kick-player`, `/ban-player`, `/teleport-player`, `/add-player-currency`, and `/repair-player-gear`. Player-scoped operations require the numeric Console `player-id`; disruptive operations also require `confirm:true`.
+
+Options ending in `-json` accept the documented structured value as JSON: `items-json` and `augments-json` require arrays, while `values-json` requires an object. Routes with a fixed Console confirmation phrase supply it automatically; routes whose confirmation phrase is operation-specific expose a required `confirmation` option. All responses are ephemeral.
 
 ## Community FAQ panel
 

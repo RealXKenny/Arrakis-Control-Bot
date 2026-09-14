@@ -12,13 +12,13 @@ import {
   type TextChannel,
 } from "discord.js";
 
-import type { DiscordAdapterPlayerState } from "../../infrastructure/api/DiscordAdapterClient";
-import type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord } from "../../infrastructure/database/TicketRepository";
+import type { DiscordAdapterPlayerState } from "../../infrastructure/http/discord-adapter/DiscordAdapterClient";
+import type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord } from "../../infrastructure/database/tickets/TicketRepository";
 import { createLogger } from "../../client/logger";
-import { createV2Response } from "../../shared/factories/componentFactory";
-import { createActorContext } from "../../shared/utils/createActorContext";
-import { getConfiguredStaffRoleIds, hasStaffRole } from "../../shared/utils/staffAccess";
-import { truncateDiscordText } from "../../shared/utils/discordLimits";
+import { createV2Response } from "../../shared/discord/componentFactory";
+import { createActorContext } from "../../shared/actors/createActorContext";
+import { getConfiguredStaffRoleIds, hasStaffRole } from "../../support/access/staffAccess";
+import { truncateDiscordText } from "../../shared/discord/discordLimits";
 import { publishTicketArchive } from "./ticketArchive";
 
 const logger = createLogger("TICKETS");

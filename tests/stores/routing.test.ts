@@ -1,9 +1,9 @@
 import { MessageFlags, type ButtonInteraction } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { UNAVAILABLE_MESSAGE, respondWithUnavailableControl } from "../../src/interaction-handlers/fallbacks/unavailable";
-import { respondWithRateLimit } from "../../src/support/RateLimitedInteractionHandler";
-import { isKnownComponentInteraction, matchesCustomId } from "../../src/support/componentCustomIds";
+import { UNAVAILABLE_MESSAGE, respondWithUnavailableControl } from "../../src/interaction-handlers/system/fallbacks/unavailable-component";
+import { respondWithRateLimit } from "../../src/support/interactions/RateLimitedInteractionHandler";
+import { isKnownComponentInteraction, matchesCustomId } from "../../src/support/interactions/componentCustomIds";
 
 describe("Sapphire interaction routing", () => {
   it("matches exact and ticket-prefixed custom IDs without accepting near misses", () => {
@@ -11,6 +11,10 @@ describe("Sapphire interaction routing", () => {
     expect(matchesCustomId("ticket-claim:42", "ticket-claim", "ticket-claim:")).toBe(true);
     expect(matchesCustomId("ticket-claiming:42", "ticket-claim", "ticket-claim:")).toBe(false);
     expect(isKnownComponentInteraction(fakeButton("ticket-review:42"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeButton("market-page:session:next"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeButton("help-page:session:next"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeSelect("market-category:session"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeSelect("help-category:session"))).toBe(true);
     expect(isKnownComponentInteraction(fakeButton("expired-control"))).toBe(false);
   });
 
@@ -41,6 +45,15 @@ function fakeButton(customId: string): ButtonInteraction {
     customId,
     isButton: () => true,
     isAnySelectMenu: () => false,
+    isModalSubmit: () => false,
+  } as unknown as ButtonInteraction;
+}
+
+function fakeSelect(customId: string): ButtonInteraction {
+  return {
+    customId,
+    isButton: () => false,
+    isAnySelectMenu: () => true,
     isModalSubmit: () => false,
   } as unknown as ButtonInteraction;
 }

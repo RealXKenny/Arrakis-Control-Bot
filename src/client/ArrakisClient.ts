@@ -4,11 +4,11 @@ import path from "node:path";
 import { SapphireClient } from "@sapphire/framework";
 import type { ClientOptions } from "discord.js";
 
-import type { ConvoyClient } from "../infrastructure/api/ConvoyClient";
-import type { DiscordAdapterClient } from "../infrastructure/api/DiscordAdapterClient";
-import type { DuneApi } from "../infrastructure/api/DuneApi";
-import type { TicketRepository } from "../infrastructure/database/TicketRepository";
-import type { RateLimiter } from "../infrastructure/rateLimit/rateLimiter";
+import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
+import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
+import type { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
+import type { TicketRepository } from "../infrastructure/database/tickets/TicketRepository";
+import type { RateLimiter } from "../infrastructure/rate-limit/InMemoryRateLimiter";
 import type { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
 
 const PIECES_DIRECTORY = path.join(__dirname, "..");

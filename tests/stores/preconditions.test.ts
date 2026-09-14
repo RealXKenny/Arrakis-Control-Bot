@@ -1,7 +1,7 @@
 import { MessageFlags } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { respondToCommandDenial } from "../../src/listeners/framework/commandDenied";
+import { respondToCommandDenial } from "../../src/listeners/sapphire/commandDenied";
 import { getStoreSnapshot } from "../helpers/storeSnapshot";
 
 describe("Sapphire precondition store", () => {

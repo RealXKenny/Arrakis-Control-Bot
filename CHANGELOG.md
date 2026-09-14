@@ -2,6 +2,39 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.7] - 2026-09-14
+
+### Added
+
+- Interactive `/market` browser backed by the Dune Console exchange API, with category filtering, search, stable pagination, live stock and listing totals, and lowest asking prices.
+- Market buyback guidance calculated from the configured buyback percentage and each item's lowest asking price.
+- Interactive `/help` browser with domain and feature navigation for the expanded command catalog.
+- Standalone owner-only server lifecycle, service, network-repair, Docker cleanup, update-management, backup-management, and player-mutation commands.
+- Restart Queue support for full-server and individual-service restarts, including queued responses, concurrency conflicts, and an immediate-restart option.
+- Credential-free Vitest coverage for domain modules, infrastructure clients and repositories, Sapphire store discovery, shared Discord builders, access controls, validators, and action orchestration.
+
+### Changed
+
+- Reorganized commands, interaction handlers, listeners, preconditions, modules, infrastructure, shared utilities, support code, and tests into a consistent domain-first `store/domain/feature/piece.ts` layout.
+- Kept Sapphire's top-level piece-store roots intact while grouping interaction handlers by feature instead of scattering related buttons, menus, and modals by component type.
+- Split large multi-action command surfaces into predictable standalone slash commands while retaining thin command execution layers over domain services.
+- Expanded project documentation to describe the production directory tree, command organization, Market Board integration, owner-only operations, and testing boundaries.
+
+### Fixed
+
+- Kept the server information panel below Discord's 4,000-character displayable component-text limit by splitting and bounding panel content.
+- Removed obsolete example configuration text that was not a valid environment variable.
+
+### Security
+
+- Restricted server lifecycle, maintenance, updates, backups, service restarts, and player mutation operations to the configured owner role.
+- Kept tests fully offline by mocking Discord interactions, PostgreSQL pools, and external HTTP clients; no bot token, database, gateway, or live Console is required.
+
+### Verification
+
+- `npm test` passes with 142 tests across 35 test files.
+- `npm run lint` and `git diff --check` pass for version 1.0.7.
+
 ## [1.0.6] - 2026-09-10
 
 ### Added
@@ -215,7 +248,8 @@ Initial production release.
 - `npm test` passes with 9 tests across 4 test files.
 - `npm audit --audit-level=high` reports 0 vulnerabilities.
 
-[1.0.6]: https://github.com/RealXKenny/Arrakis-Control-Bot/compare/v1.0.5...HEAD
+[1.0.7]: https://github.com/RealXKenny/Arrakis-Control-Bot/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/RealXKenny/Arrakis-Control-Bot/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.5
 [1.0.4]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.4
 [1.0.3]: https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.3

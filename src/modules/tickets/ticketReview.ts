@@ -1,6 +1,6 @@
 import type { Client } from "discord.js";
 
-import type { TicketRecord, TicketReviewInput } from "../../infrastructure/database/TicketRepository";
+import type { TicketRecord, TicketReviewInput } from "../../infrastructure/database/tickets/TicketRepository";
 import { updateTicketArchive } from "./ticketArchive";
 
 class TicketReviewValidationError extends Error {

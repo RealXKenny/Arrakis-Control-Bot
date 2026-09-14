@@ -1,9 +1,9 @@
 import type { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
-import type { DiscordAdapterClient } from "../infrastructure/api/DiscordAdapterClient";
-import type { ConvoyClient } from "../infrastructure/api/ConvoyClient";
-import type { DuneApi } from "../infrastructure/api/DuneApi";
-import type { RateLimiter } from "../infrastructure/rateLimit/rateLimiter";
-import type { TicketRepository } from "../infrastructure/database/TicketRepository";
+import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
+import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
+import type { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
+import type { RateLimiter } from "../infrastructure/rate-limit/InMemoryRateLimiter";
+import type { TicketRepository } from "../infrastructure/database/tickets/TicketRepository";
 
 declare module "discord.js" {
   interface Client {

@@ -1,11 +1,11 @@
 import { GatewayIntentBits } from "discord.js";
-import { DuneApi } from "../infrastructure/api/DuneApi";
-import { DiscordAdapterClient } from "../infrastructure/api/DiscordAdapterClient";
-import { ConvoyClient } from "../infrastructure/api/ConvoyClient";
+import { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
+import { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
+import { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
 import { createLogger, createSapphireLogger } from "./logger";
-import { InMemoryRateLimitStore, RateLimiter } from "../infrastructure/rateLimit/rateLimiter";
-import { TicketRepository } from "../infrastructure/database/TicketRepository";
+import { InMemoryRateLimitStore, RateLimiter } from "../infrastructure/rate-limit/InMemoryRateLimiter";
+import { TicketRepository } from "../infrastructure/database/tickets/TicketRepository";
 import { ArrakisClient } from "./ArrakisClient";
 
 export type BotClient = ArrakisClient;

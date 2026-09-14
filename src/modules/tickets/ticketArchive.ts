@@ -1,8 +1,8 @@
 import { AttachmentBuilder, ContainerBuilder, FileBuilder, MessageFlags, SeparatorSpacingSize, type Client, type TextChannel } from "discord.js";
 
-import type { TicketRecord } from "../../infrastructure/database/TicketRepository";
+import type { TicketRecord } from "../../infrastructure/database/tickets/TicketRepository";
 import { createLogger } from "../../client/logger";
-import { truncateDiscordText } from "../../shared/utils/discordLimits";
+import { truncateDiscordText } from "../../shared/discord/discordLimits";
 
 const logger = createLogger("TICKET ARCHIVE");
 
