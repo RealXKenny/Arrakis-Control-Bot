@@ -2,6 +2,17 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.8] - 2026-09-17
+
+### Changed
+
+- Updated the Server Info panel to use the new import path.
+
+### Verification
+
+- `npm test` passes with 142 tests across 35 test files.
+- `npm run lint` and `git diff --check` pass for version 1.0.8.
+
 ## [1.0.7] - 2026-09-14
 
 ### Added
