@@ -1,11 +1,13 @@
 import dotenv from "dotenv";
 import path from "node:path";
+import { loadChatBridgeConfig, type ChatBridgeConfig } from "./chatBridge";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
 interface EnvironmentConfig {
+  chatBridge?: ChatBridgeConfig;
   discordToken: string;
   clientId?: string;
   guildId?: string;
@@ -95,6 +97,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   }
 
   return Object.freeze({
+    chatBridge: loadChatBridgeConfig(process.env),
     discordToken,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,

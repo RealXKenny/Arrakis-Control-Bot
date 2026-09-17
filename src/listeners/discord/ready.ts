@@ -59,6 +59,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
     }
 
     const botUser = client.user;
+    client.chatBridge?.start();
     const serverName = process.env.SERVER_NAME || DEFAULT_SERVER_NAME;
     const presenceStatuses = statuses(serverName);
 

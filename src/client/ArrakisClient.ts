@@ -3,6 +3,7 @@ import "@sapphire/plugin-subcommands/register";
 import path from "node:path";
 import { SapphireClient } from "@sapphire/framework";
 import type { ClientOptions } from "discord.js";
+import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
 
 import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
@@ -16,6 +17,7 @@ const PIECES_DIRECTORY = path.join(__dirname, "..");
 type ArrakisClientOptions = ClientOptions & { baseUserDirectory?: string };
 
 class ArrakisClient extends SapphireClient {
+  public chatBridge?: DiscordGameChatBridge;
   public duneApi!: DuneApi;
   public convoyApi: ConvoyClient | null = null;
   public discordAdapter: DiscordAdapterClient | null = null;

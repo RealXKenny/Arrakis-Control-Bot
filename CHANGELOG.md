@@ -2,6 +2,29 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.0.9] - 2026-09-17
+
+### Added
+
+- Bidirectional Discord and Dune map chat through a remote RabbitMQ broker, with verified TLS, private certificate trust and configurable certificate hostname.
+- Configurable routing for all seven documented map keys, supporting shared Discord channels or separate channels per map without code changes.
+- `[Owner]` labels on game-to-Discord messages, resolved through verified player links and the existing `OWNER_ROLE_ID` in the destination Discord server.
+- A complete setup and troubleshooting guide in `guides/`, including persona SQL templates, remote networking, authentication and TLS setup.
+- Public development and production RabbitMQ certificates; no private keys or credentials are included.
+
+### Changed
+
+- Added independent per-map publisher confirmations, partial-failure reporting, bounded receive queues, reconnect handling, echo suppression and graceful bridge shutdown.
+- Kept routine chat logs concise and removed temporary full-payload JSON diagnostics.
+- Moved setup material into `guides/` and removed the temporary `docs/` directory.
+- Updated package and lockfile versions to 1.0.9.
+
+### Verification
+
+- `npm test` passes with 170 tests across 38 test files, including map routing and Owner-role resolution.
+- `npm run lint`, `git diff --check` and the production dependency audit pass.
+- Discord-to-game delivery was confirmed in development after persona platform metadata was populated and the game client was restarted. Other map destinations and production still require deployment-specific smoke tests; broker confirmations do not prove game-client display.
+
 ## [1.0.8] - 2026-09-17
 
 ### Changed

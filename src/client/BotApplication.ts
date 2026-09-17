@@ -7,10 +7,14 @@ import { createLogger, createSapphireLogger } from "./logger";
 import { InMemoryRateLimitStore, RateLimiter } from "../infrastructure/rate-limit/InMemoryRateLimiter";
 import { TicketRepository } from "../infrastructure/database/tickets/TicketRepository";
 import { ArrakisClient } from "./ArrakisClient";
+import type { ChatBridgeConfig } from "../infrastructure/config/chatBridge";
+import { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
+import { ChatOwnerResolver } from "../modules/chat/ChatOwnerResolver";
 
 export type BotClient = ArrakisClient;
 
 interface BotConfig {
+  chatBridge?: ChatBridgeConfig;
   logLevel?: string;
   duneConsoleApiKey: string;
   duneConsoleUrl: string;
@@ -92,6 +96,7 @@ function createBotApplication(config: BotConfig) {
     if (client.stormAnnouncementInterval) clearInterval(client.stormAnnouncementInterval);
 
     const cleanup = (async (): Promise<void> => {
+      await client.chatBridge?.stop();
       try {
         await client.destroy();
         logger.debug("Discord client closed.");
@@ -137,6 +142,8 @@ function createClient(logLevel?: string): BotClient {
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {
+  const chatOwners = new ChatOwnerResolver(client, process.env.OWNER_ROLE_ID);
+  client.chatBridge = config.chatBridge ? new DiscordGameChatBridge(client, config.chatBridge, (message) => client.logger.warn(message), (message) => client.logger.info(message), chatOwners.isOwner) : undefined;
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   client.convoyApi = config.advinApiKey ? new ConvoyClient(config.advinApiUrl, config.advinApiKey) : null;
   client.discordAdapter = config.duneDiscordAdapterToken ? new DiscordAdapterClient(config.duneConsoleUrl, config.duneDiscordAdapterToken) : null;
