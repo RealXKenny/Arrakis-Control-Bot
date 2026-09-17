@@ -188,7 +188,7 @@ The broker user needs access to the game's vhost, publishing and reading `chat.m
 rabbitmqctl set_permissions -p / "5E121CE000000004" '^amq\.gen-.*$' '^(chat\.map|amq\.gen-.*)$' '^(chat\.map|amq\.gen-.*)$'
 ```
 
-The game's `chat.map` exchange must already exist. The bridge binds a separate temporary queue to the exact map keys; it does not consume player queues. By default it does not use the global `chat.intercept` feed. Optional proximity forwarding uses a separate intercept subscription and rejects every channel type except explicit `Proximity` messages. Verify that your game deployment publishes the desired map traffic through `chat.map`. Map keys are case-sensitive. The example includes all seven requested keys: `HaggaBasin.0`, `Survival_1.dim_1`, `DeepDesert_1.0`, `DeepDesert_1.dim_1`, `SH_Arrakeen.0`, `SH_HarkoVillage.0`, `Survival_1.dim_0`. These are configurable routing keys, not a fixed allowlist: add future maps in `CHAT_BRIDGE_ROUTES` and restart the bot. Verify exact keys against the live broker bindings; map names and dimensions can differ by deployment. Incoming Discord messages retain their source map label. Game messages are not rebroadcast into other game maps. A Discord channel can have multiple map routes; multiple channels can also share a map. Duplicate channel/map pairs are rejected. Each outgoing map publish has its own message ID and confirmation; a failed route does not prevent attempts to the remaining maps. The shard owning each configured guild starts that guild's routes. Run only one bot deployment.
+The game's `chat.map` exchange must already exist. The bridge binds a separate temporary queue to the exact map keys; it does not consume player queues. It uses only `chat.map`; proximity forwarding is not supported. Verify that your game deployment publishes the desired map traffic through `chat.map`. Map keys are case-sensitive. The example includes all seven requested keys: `HaggaBasin.0`, `Survival_1.dim_1`, `DeepDesert_1.0`, `DeepDesert_1.dim_1`, `SH_Arrakeen.0`, `SH_HarkoVillage.0`, `Survival_1.dim_0`. These are configurable routing keys, not a fixed allowlist: add future maps in `CHAT_BRIDGE_ROUTES` and restart the bot. Verify exact keys against the live broker bindings; map names and dimensions can differ by deployment. Incoming Discord messages retain their source map label. Game messages are not rebroadcast into other game maps. A Discord channel can have multiple map routes; multiple channels can also share a map. Duplicate channel/map pairs are rejected. Each outgoing map publish has its own message ID and confirmation; a failed route does not prevent attempts to the remaining maps. The shard owning each configured guild starts that guild's routes. Run only one bot deployment.
 
 Enable **Message Content Intent** in the Discord Developer Portal. Grant View Channel, Send Messages, and Read Message History in each mapped channel; members who can write there can send to game chat. Only new human text messages are relayed. Bots, webhooks, DMs, attachments-only messages and edits are ignored. Discord mentions are disabled for game messages. Echoes from the bridge persona and recent duplicate game message IDs are suppressed.
 
@@ -198,9 +198,9 @@ After enabling, send one message in the configured Discord channel and one in th
 
 ### Map reference
 
-| Routing key supplied for this setup | Intended destination |
+| Routing key supplied for this setup | Discord label |
 | --- | --- |
-| `HaggaBasin.0` | Hagga Basin PvE |
+| `HaggaBasin.0` | Hagga Basin |
 | `Survival_1.dim_1` | Hagga Basin PvP |
 | `DeepDesert_1.0` | Deep Desert PvP |
 | `DeepDesert_1.dim_1` | Deep Desert PvE |
@@ -209,6 +209,12 @@ After enabling, send one message in the configured Discord channel and one in th
 | `Survival_1.dim_0` | World Overmap |
 
 Use actual broker bindings to resolve discrepancies with these labels. Configuring a key does not create a game map. Because the bridge has its own receive queue, a broker confirmation can occur even when no game player is subscribed to that map.
+
+Discord displays readable labels such as `**[Hagga Basin] Player#1234:** hello`.
+The labels affect presentation and delivery-failure replies only; `.env` routes,
+AMQP publishing, queue bindings and duplicate detection keep the original keys.
+Unknown future map keys are displayed unchanged until a label is added in
+`src/modules/chat/mapChatLabel.ts`.
 
 The configuration example shares one Discord channel across all seven maps. Replace both example Discord IDs with your server/channel IDs (enable Developer Mode in Discord to copy them). To separate maps, use a different `channelId` on each desired route. The parser accepts up to 100 unique channel/map pairs and keys of the form `Name.Dimension`, with letters, digits and underscores in each component. Arbitrary new keys following that format require only a configuration change; different future protocols may require code updates.
 
@@ -227,28 +233,6 @@ For development, use `npm run dev` instead of the production start. Stop the pre
 Verify startup logs list all configured routes and report that the map consumer is active. For each map with an online player, send a uniquely identifiable short Discord message, verify it in game, then send a game message and verify its map label in Discord. A partial-failure reply lists unconfirmed maps; some other maps may already have received the message, so avoid resending blindly.
 
 ## Troubleshooting by symptom
-
-### Optional server-wide proximity chat
-
-To forward proximity chat from the broker's global intercept feed into Discord:
-
-```dotenv
-CHAT_BRIDGE_PROXIMITY_ROUTES='[{"guildId":"123456789012345678","channelId":"234567890123456789"}]'
-```
-
-Replace these with the destination server/channel IDs. The destination can be the same channel as map chat. Proximity chat appears as `[Proximity] Sender: message`. This expands the audience beyond players nearby in game; enable it only when that is the intended server policy.
-
-The dedicated RabbitMQ user also needs read permission on `chat.intercept`. For the example identity and root vhost, these permissions cover both map and proximity subscriptions:
-
-```bash
-docker exec dune-rmq-game rabbitmqctl set_permissions -p / '5E121CE000000004' '^amq\.gen-.*$' '^(chat\.map|amq\.gen-.*)$' '^(chat\.map|chat\.intercept|amq\.gen-.*)$'
-```
-
-This command replaces that user's resource permissions; adapt it if the same user needs additional resources. Then restart the bot and check for the proximity connection-ready log. No extra administrator tag is needed.
-
-The bridge binds its own temporary queue to topic exchange `chat.intercept` with `#`. The intercept subscription can receive other chat types from the broker, but only a payload with `m_ChannelType: "Proximity"` and no recipient field is forwarded. Whispers, guild/party messages, map messages and unknown types are discarded before Discord delivery. Raw payloads are not logged. Copies for multiple proximity recipients are deduplicated by destination and message ID. The feed does not provide a verified map label, so the bridge does not invent one.
-
-Proximity is receive-only: Discord messages continue to use the existing map routes. A failed proximity connection retries separately and does not stop map chat. Remove the variable or set it to `[]` and restart to disable. Delivery depends on the deployment emitting proximity traffic to `chat.intercept`; verify with a live proximity message. Other channel-type spellings are rejected until their wire format is explicitly verified.
 
 | Symptom | Check |
 | --- | --- |

@@ -21,21 +21,13 @@ export function encodeMapChat(funcomId: string, message: string, displayName?: s
 }
 
 export function decodeMapChat(body: Buffer): { id: string; sender: string; text: string } | null {
-  return decodeChat(body, "Map");
-}
-
-export function decodeProximityChat(body: Buffer): { id: string; sender: string; text: string } | null {
-  return decodeChat(body, "Proximity");
-}
-
-function decodeChat(body: Buffer, channelType: "Map" | "Proximity"): { id: string; sender: string; text: string } | null {
   if (body.length > 64 * 1024) return null;
   try {
     const envelope = JSON.parse(body.toString("utf8"));
     if (envelope?.Type !== "TextChat") return null;
     const raw = envelope.content ?? envelope.Content;
     const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (payload?.m_ChannelType !== channelType || payload.m_UserNameTo) return null;
+    if (payload?.m_ChannelType !== "Map" || payload.m_UserNameTo) return null;
     if (typeof payload.m_FuncomIdFrom !== "string" || !payload.m_FuncomIdFrom.trim()
       || typeof payload.m_Message?.m_UnlocalizedMessage !== "string" || !payload.m_Message.m_UnlocalizedMessage.trim()
       || typeof payload.m_Id !== "string" || !payload.m_Id) return null;

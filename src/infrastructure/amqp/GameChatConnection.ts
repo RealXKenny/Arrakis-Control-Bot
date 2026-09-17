@@ -21,7 +21,6 @@ export class GameChatConnection {
     private readonly receive: (map: string, body: Buffer) => Promise<void>,
     private readonly warn: Warn,
     private readonly info: (message: string) => void = () => undefined,
-    private readonly subscription: "map" | "proximity" = "map",
   ) {}
 
   public start(): void {
@@ -79,17 +78,12 @@ export class GameChatConnection {
       channel.on("return", (message: ConsumeMessage) => {
         this.pending.get(message.properties.messageId)?.(new Error("RabbitMQ returned an unroutable chat message."));
       });
-      const exchange = this.subscription === "proximity" ? "chat.intercept" : "chat.map";
-      stage = `checking ${exchange}`;
-      await channel.checkExchange(exchange);
+      stage = "checking chat.map";
+      await channel.checkExchange("chat.map");
       stage = "creating the chat receive queue";
       const queue = await channel.assertQueue("", { exclusive: true, autoDelete: true, durable: false, arguments: { "x-max-length": 500, "x-message-ttl": 60_000 } });
-      stage = `binding ${exchange} routes`;
-      if (this.subscription === "proximity") {
-        await channel.bindQueue(queue.queue, exchange, "#");
-      } else {
-        for (const map of new Set(this.config.routes.map((route) => route.map))) await channel.bindQueue(queue.queue, exchange, map);
-      }
+      stage = "binding the map routes";
+      for (const map of new Set(this.config.routes.map((route) => route.map))) await channel.bindQueue(queue.queue, "chat.map", map);
       await channel.prefetch(1);
       stage = "starting the chat consumer";
       await channel.consume(queue.queue, (message) => {
@@ -105,16 +99,15 @@ export class GameChatConnection {
       this.channel = channel;
       this.delay = 1_000;
       stage = "relaying chat";
-      this.info(`RabbitMQ ${this.subscription} chat connection ready; routes are bound and the consumer is active.`);
+      this.info("RabbitMQ chat connection ready; map routes are bound and the consumer is active.");
     } catch (error: unknown) {
-      this.warn(`RabbitMQ ${this.subscription} chat unavailable while ${stage}: ${describeChatConnectionError(error)} Retrying automatically.`);
+      this.warn(`RabbitMQ chat unavailable while ${stage}: ${describeChatConnectionError(error)} Retrying automatically.`);
       if (connection) await connection.close().catch(() => undefined);
       this.channel = undefined;
     }
   }
 
   public publish(map: string, id: string, body: Buffer): Promise<void> {
-    if (this.subscription !== "map") return Promise.reject(new Error("Proximity chat is receive-only."));
     const properties: Options.Publish = {
       // Match the live game's AMQP properties; this is not an HTTP MIME type.
       contentType: "Content", type: "text_chat", appId: "fls_backend",

@@ -2,6 +2,21 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.10.1] - 2026-09-17
+
+### Changed
+
+- Display readable map names in Discord, including Hagga Basin, Hagga Basin PvP, Deep Desert PvP/PvE, Arrakeen, Harko Village and World Overmap. Exact AMQP routing keys are unchanged; unknown maps retain their routing key as a label.
+- Use readable map names in delivery-failure replies and bound long destination lists to Discord message limits.
+
+### Removed
+
+- Removed proximity forwarding, the global intercept subscription and proximity-route configuration following deployment testing. The bridge supports map chat only; Discord-role Owner tags and concise publish logs remain.
+
+### Verification
+
+- `npm test` passes with 177 tests across 37 test files; build, lint, dependency audit and diff checks pass.
+
 ## [1.10.0] - 2026-09-17
 
 ### Added
