@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Client, Message } from "discord.js";
 import { parse as parseDotenv } from "dotenv";
 import { loadChatBridgeConfig } from "../../../src/infrastructure/config/chatBridge";
-import { encodeMapChat, decodeMapChat } from "../../../src/modules/chat/gameChatProtocol";
+import { encodeMapChat, decodeMapChat, decodeProximityChat } from "../../../src/modules/chat/gameChatProtocol";
 import { DiscordGameChatBridge } from "../../../src/modules/chat/DiscordGameChatBridge";
 import { GameChatConnection } from "../../../src/infrastructure/amqp/GameChatConnection";
 
@@ -14,10 +14,33 @@ const env = { RABBITMQ_URL: "amqps://5E121CE000000001:secret@remote.example.com:
 const config = loadChatBridgeConfig(env)!;
 const maps = ["HaggaBasin.0", "Survival_1.dim_1", "DeepDesert_1.0", "DeepDesert_1.dim_1", "SH_Arrakeen.0", "SH_HarkoVillage.0", "Survival_1.dim_0"];
 const allRoutes = maps.map((map) => ({ ...route, map }));
+const proximityRoutes = [{ guildId: route.guildId, channelId: route.channelId }];
+
+function chatBody(type: string, recipient = ""): Buffer {
+  const envelope = JSON.parse(encodeMapChat("Player#1234", "hello").body.toString());
+  const payload = JSON.parse(envelope.content);
+  payload.m_ChannelType = type;
+  payload.m_UserNameTo = recipient;
+  return Buffer.from(JSON.stringify({ Type: "TextChat", Content: JSON.stringify(payload) }));
+}
 
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("chat configuration and game wire format", () => {
+  it("requires opt-in valid proximity destinations", () => {
+    expect(config.proximityRoutes).toEqual([]);
+    expect(loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY_ROUTES: JSON.stringify(proximityRoutes) })?.proximityRoutes).toEqual(proximityRoutes);
+    for (const value of ["null", JSON.stringify([proximityRoutes[0], proximityRoutes[0]]), JSON.stringify([{ ...proximityRoutes[0], guildId: "bad" }])]) {
+      expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY_ROUTES: value })).toThrow("CHAT_BRIDGE_PROXIMITY_ROUTES");
+    }
+  });
+
+  it("accepts only explicit proximity traffic and rejects private or unknown channel types", () => {
+    expect(decodeProximityChat(chatBody("Proximity"))).toMatchObject({ sender: "Player#1234", text: "hello" });
+    for (const type of ["Map", "Whisper", "Whispers", "Guild", "Party", "Local", "Unknown"]) expect(decodeProximityChat(chatBody(type))).toBeNull();
+    expect(decodeProximityChat(chatBody("Proximity", "Recipient#1234"))).toBeNull();
+    expect(decodeMapChat(chatBody("Proximity"))).toBeNull();
+  });
   it("supports all seven maps on one channel and future exact map keys", () => {
     const routes = [...allRoutes, { ...route, map: "FutureMap.dim_42" }];
     expect(loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify(routes) })?.routes).toEqual(routes);
@@ -102,6 +125,19 @@ function mockBroker() {
 }
 
 describe("RabbitMQ lifecycle", () => {
+  it("uses a private intercept queue for proximity and forbids publishing on it", async () => {
+    const { channel } = mockBroker();
+    const receive = vi.fn().mockResolvedValue(undefined);
+    const transport = new GameChatConnection(config, receive, vi.fn(), vi.fn(), "proximity");
+    transport.start();
+    await vi.waitFor(() => expect(channel.consume).toHaveBeenCalled());
+    expect(channel.checkExchange).toHaveBeenCalledWith("chat.intercept");
+    expect(channel.bindQueue).toHaveBeenCalledWith("amq.gen-test", "chat.intercept", "#");
+    expect(channel.assertQueue).toHaveBeenCalledWith("", expect.objectContaining({ exclusive: true, autoDelete: true }));
+    await expect(transport.publish(route.map, "id", Buffer.from("{}"))).rejects.toThrow("receive-only");
+    expect(channel.publish).not.toHaveBeenCalled();
+    await transport.stop();
+  });
 
   it("binds exact maps, confirms publishing, acknowledges received messages and closes cleanly", async () => {
     const { channel, connection } = mockBroker();
@@ -160,24 +196,79 @@ describe("RabbitMQ lifecycle", () => {
 });
 
 describe("Discord chat routing", () => {
-  it("adds a guild-specific Owner label and keeps relaying when role lookup fails", async () => {
-    const isOwner = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockRejectedValueOnce(new Error("unavailable"));
-    const { bridge, send } = setup(undefined, config.routes, isOwner);
-    for (let i = 0; i < 3; i++) await bridge.sendToDiscord(route.map, encodeMapChat("Player#1234", "hello").body);
-    expect(isOwner).toHaveBeenCalledWith(route.guildId, "Player#1234");
-    expect(send.mock.calls[0][0].content).toContain("[Owner] Player#1234:");
-    expect(send.mock.calls[1][0].content).not.toContain("[Owner]");
-    expect(send.mock.calls[2][0].content).not.toContain("[Owner]");
-    expect(send.mock.calls[0][0].allowedMentions).toEqual({ parse: [] });
+  it("tags Discord owners on every map using the role ID without player-link requests", async () => {
+    const { channel } = mockBroker();
+    const { bridge, client, info } = setup(undefined, allRoutes, "owner-role");
+    const getCurrentPlayer = vi.fn().mockRejectedValue(new Error("No verification available"));
+    Object.assign(client, { discordAdapter: { getCurrentPlayer } });
+    bridge.start();
+    await vi.waitFor(() => expect(channel.consume).toHaveBeenCalled());
+    const roles = new Map([["owner-role", {}]]);
+    const message = { id: "345678901234567890", guildId: route.guildId, channelId: route.channelId, content: "hello", author: { bot: false, username: "Kenny" }, member: { displayName: "Kenny", roles: { cache: roles } }, reply: vi.fn() };
+    await bridge.sendToGame(message as unknown as Message);
+    expect(channel.publish).toHaveBeenCalledTimes(7);
+    for (const call of channel.publish.mock.calls) {
+      expect(decodeMapChat(call[2])).toMatchObject({ sender: config.funcomId, text: "[Discord] [Owner] Kenny: hello" });
+    }
+    expect(getCurrentPlayer).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("RabbitMQ accepted 7/7 map publishes."));
+    expect(info.mock.calls.flat().join(" ")).not.toContain("game-client display is not confirmed");
+    roles.clear();
+    await bridge.sendToGame(message as unknown as Message);
+    expect(decodeMapChat(channel.publish.mock.lastCall?.[2])?.text).toBe("[Discord] Kenny: hello");
+    await bridge.sendToGame({ ...message, member: null } as unknown as Message);
+    expect(decodeMapChat(channel.publish.mock.lastCall?.[2])?.text).toBe("[Discord] Kenny: hello");
+    await bridge.stop();
   });
-  function setup(displayName?: string, routes = config.routes, isOwner?: (guildId: string, sender: string) => Promise<boolean>) {
+
+  it("does not infer Owner status from another role or from game sender names", async () => {
+    const { channel } = mockBroker();
+    const { bridge, send } = setup(undefined, config.routes, "owner-role");
+    bridge.start();
+    await vi.waitFor(() => expect(channel.consume).toHaveBeenCalled());
+    await bridge.sendToGame({ guildId: route.guildId, channelId: route.channelId, content: "hello", author: { bot: false, username: "Kenny" }, member: { roles: { cache: new Map([["another-role", {}]]) } }, reply: vi.fn() } as unknown as Message);
+    expect(decodeMapChat(channel.publish.mock.calls[0][2])?.text).toBe("[Discord] Kenny: hello");
+    await bridge.sendToDiscord(route.map, encodeMapChat("Kenny#1234", "hello").body);
+    expect(send.mock.calls[0][0].content).not.toContain("[Owner]");
+    await bridge.stop();
+  });
+  function setup(displayName?: string, routes = config.routes, ownerRoleId?: string, proximity = config.proximityRoutes) {
     const send = vi.fn().mockResolvedValue({});
     const channel = { isSendable: () => true, guildId: route.guildId, send };
     const client = Object.assign(new EventEmitter(), { guilds: { cache: new Map([[route.guildId, {}]]) }, channels: { fetch: vi.fn().mockResolvedValue(channel) } });
     const info = vi.fn();
-    const bridge = new DiscordGameChatBridge(client as unknown as Client, { ...config, displayName, routes }, vi.fn(), info, isOwner);
+    const bridge = new DiscordGameChatBridge(client as unknown as Client, { ...config, displayName, routes, proximityRoutes: proximity }, vi.fn(), info, ownerRoleId);
     return { bridge, client, send, info };
   }
+
+  it("deduplicates proximity recipient copies and excludes all private traffic", async () => {
+    const { bridge, send } = setup(undefined, config.routes, "owner-role", proximityRoutes);
+    for (const type of ["Whispers", "Guild", "Party", "Map"]) await bridge.sendProximityToDiscord(chatBody(type));
+    expect(send).not.toHaveBeenCalled();
+    const body = chatBody("Proximity");
+    await bridge.sendProximityToDiscord(body);
+    await bridge.sendProximityToDiscord(body);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0]).toMatchObject({ content: "**[Proximity] Player#1234:** hello", allowedMentions: { parse: [] } });
+    const disabled = setup();
+    await disabled.bridge.sendProximityToDiscord(body);
+    expect(disabled.send).not.toHaveBeenCalled();
+  });
+
+  it("keeps map publishing available when the separate proximity subscription is denied", async () => {
+    const map = mockBroker();
+    const proximity = mockBroker();
+    proximity.channel.checkExchange.mockRejectedValue(new Error("ACCESS_REFUSED"));
+    connect.mockResolvedValueOnce(map.connection).mockResolvedValueOnce(proximity.connection);
+    const { bridge } = setup(undefined, config.routes, undefined, proximityRoutes);
+    bridge.start();
+    await vi.waitFor(() => expect(map.channel.consume).toHaveBeenCalled());
+    await vi.waitFor(() => expect(proximity.connection.close).toHaveBeenCalled());
+    await bridge.sendToGame({ guildId: route.guildId, channelId: route.channelId, content: "hello", author: { bot: false, username: "Kenny" }, reply: vi.fn() } as unknown as Message);
+    expect(map.channel.publish).toHaveBeenCalledTimes(1);
+    expect(proximity.channel.publish).not.toHaveBeenCalled();
+    await bridge.stop();
+  });
 
 
   it("binds and relays all seven maps with independent IDs and continues after a rejected map", async () => {
@@ -194,7 +285,7 @@ describe("Discord chat routing", () => {
     await bridge.sendToGame({ id: "345678901234567890", guildId: route.guildId, channelId: route.channelId, content: "hello", author: { bot: false, username: "Kenny" }, reply } as unknown as Message);
     expect(channel.publish.mock.calls.map((call) => call[1])).toEqual(maps);
     expect(new Set(channel.publish.mock.calls.map((call) => call[3].messageId)).size).toBe(7);
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("broker confirmed 6/7"));
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("RabbitMQ accepted 6/7"));
     expect(reply).toHaveBeenCalledTimes(1);
     expect(reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining(maps[1]) }));
     expect(info.mock.calls.flat().join(" ")).not.toContain("Kenny: hello");
@@ -230,7 +321,7 @@ describe("Discord chat routing", () => {
     const payload = JSON.parse(JSON.parse(channel.publish.mock.calls[0][2].toString()).content);
     expect(payload.m_bUseSpoofedUserName).toBe(true);
     expect(payload.m_SpoofedUserNameFrom.m_UnlocalizedName).toBe("Arrakis Control");
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("game-client display is not confirmed"));
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("RabbitMQ accepted 1/1 map publishes."));
     expect(info.mock.calls.flat().join(" ")).not.toContain("Kenny: hello");
     await bridge.sendToGame({ ...message, author: { bot: true } } as unknown as Message);
     await bridge.sendToGame({ ...message, channelId: "other" } as unknown as Message);

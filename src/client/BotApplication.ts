@@ -9,7 +9,6 @@ import { TicketRepository } from "../infrastructure/database/tickets/TicketRepos
 import { ArrakisClient } from "./ArrakisClient";
 import type { ChatBridgeConfig } from "../infrastructure/config/chatBridge";
 import { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
-import { ChatOwnerResolver } from "../modules/chat/ChatOwnerResolver";
 
 export type BotClient = ArrakisClient;
 
@@ -142,8 +141,7 @@ function createClient(logLevel?: string): BotClient {
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {
-  const chatOwners = new ChatOwnerResolver(client, process.env.OWNER_ROLE_ID);
-  client.chatBridge = config.chatBridge ? new DiscordGameChatBridge(client, config.chatBridge, (message) => client.logger.warn(message), (message) => client.logger.info(message), chatOwners.isOwner) : undefined;
+  client.chatBridge = config.chatBridge ? new DiscordGameChatBridge(client, config.chatBridge, (message) => client.logger.warn(message), (message) => client.logger.info(message), process.env.OWNER_ROLE_ID) : undefined;
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   client.convoyApi = config.advinApiKey ? new ConvoyClient(config.advinApiUrl, config.advinApiKey) : null;
   client.discordAdapter = config.duneDiscordAdapterToken ? new DiscordAdapterClient(config.duneConsoleUrl, config.duneDiscordAdapterToken) : null;

@@ -4,6 +4,11 @@ export interface ChatRoute {
   map: string;
 }
 
+export interface ProximityRoute {
+  guildId: string;
+  channelId: string;
+}
+
 export interface ChatBridgeConfig {
   url: string;
   username: string;
@@ -12,6 +17,7 @@ export interface ChatBridgeConfig {
   caFile?: string;
   tlsServername?: string;
   routes: ChatRoute[];
+  proximityRoutes?: ProximityRoute[];
 }
 
 export function loadChatBridgeConfig(env: NodeJS.ProcessEnv): ChatBridgeConfig | undefined {
@@ -57,7 +63,25 @@ export function loadChatBridgeConfig(env: NodeJS.ProcessEnv): ChatBridgeConfig |
     throw new Error("CHAT_BRIDGE_ROUTES must be a JSON array of unique Discord channel/map mappings: {guildId, channelId, map}, with valid Discord IDs and an exact map key such as HaggaBasin.0.");
   }
   // Explicitly encode the root vhost; heartbeat detects broken remote connections.
+  let proximityRoutes: ProximityRoute[] = [];
+  if (env.CHAT_BRIDGE_PROXIMITY_ROUTES?.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(env.CHAT_BRIDGE_PROXIMITY_ROUTES);
+      if (!Array.isArray(parsed) || parsed.length > 100) throw new Error();
+      const channels = new Set<string>();
+      for (const route of parsed) {
+        if (!route || typeof route.guildId !== "string" || typeof route.channelId !== "string"
+          || !/^\d{17,20}$/.test(route.guildId) || !/^\d{17,20}$/.test(route.channelId)
+          || channels.has(route.channelId)
+          || routes.some((mapRoute) => mapRoute.channelId === route.channelId && mapRoute.guildId !== route.guildId)) throw new Error();
+        channels.add(route.channelId);
+      }
+      proximityRoutes = parsed;
+    } catch {
+      throw new Error("CHAT_BRIDGE_PROXIMITY_ROUTES must be a JSON array of unique {guildId, channelId} destinations with valid Discord IDs.");
+    }
+  }
   if (!url.pathname || url.pathname === "/") url.pathname = "/%2F";
   url.searchParams.set("heartbeat", "30");
-  return { url: url.toString(), username, funcomId, displayName, routes, caFile: env.RABBITMQ_CA_FILE?.trim() || undefined, tlsServername };
+  return { url: url.toString(), username, funcomId, displayName, routes, proximityRoutes, caFile: env.RABBITMQ_CA_FILE?.trim() || undefined, tlsServername };
 }

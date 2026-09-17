@@ -4,7 +4,7 @@ Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: A
 
 See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.0.9.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.10.0.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ Ticket transcripts require the Discord **Message Content Intent**. Enable it for
 
 ## Discord ↔ game chat over RabbitMQ
 
-See the [complete RabbitMQ ↔ Discord setup guide](guides/rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map.
+See the [complete RabbitMQ ↔ Discord setup guide](guides/rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map, plus opt-in server-wide proximity chat forwarding to Discord.
 
 ## Development
 

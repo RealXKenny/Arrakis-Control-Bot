@@ -2,6 +2,23 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.10.0] - 2026-09-17
+
+### Added
+
+- Opt-in server-wide proximity-to-Discord forwarding through a separate `chat.intercept` subscription, with `[Proximity]` labels, duplicate suppression, and strict exclusion of other channel types.
+- Proximity subscription failures are isolated from map chat. Discord-to-game messages remain map-only.
+
+### Changed
+
+- Apply `[Owner]` to Discord-to-game messages directly from `OWNER_ROLE_ID`; remove chat's verified-player lookups and the associated Adapter requests. Incoming game messages no longer receive an Owner label.
+- Simplify publish logs to report how many map messages RabbitMQ accepted, without the repeated game-client display disclaimer.
+
+### Verification
+
+- `npm test` passes with 173 tests across 37 test files; build, lint and dependency audit pass.
+- The configured broker accepted a temporary intercept subscription. Live proximity payload/display verification remains deployment-specific; only explicit `Proximity` messages are forwarded.
+
 ## [1.0.9] - 2026-09-17
 
 ### Added
