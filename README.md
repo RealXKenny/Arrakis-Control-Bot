@@ -28,13 +28,13 @@ See the [complete RabbitMQ ↔ Discord setup guide](guides/rabbitmq-discord.md) 
 
 ## Join-to-create voice rooms
 
-Configure `DATABASE_URL`, restart the bot, then run `/voice setup join:<voice channel> category:<category> panel:<text channel>` with **Manage Server** permission. Members joining the trigger receive a personal voice room; controls work only for the creator while inside their own room. Ownership and setup survive restarts, and empty rooms are automatically removed.
+Configure `DATABASE_URL`, restart the bot, then run `/voice-setup join:<voice channel> category:<category> panel:<text channel>` with **Manage Server** permission. Members joining the trigger receive a personal voice room; controls work only for the creator while inside their own room. Ownership and setup survive restarts, and empty rooms are automatically removed.
 
 See the [voice-room setup and control guide](guides/voice-rooms.md) for permissions, commands, panel controls, and recovery behavior.
 
 ## Lavalink music lounge
 
-Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and `MUSIC_*` values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts song names/links in the dedicated request text channel, and provides a public panel and `/music` commands. Playback controls belong to the current song's requester. The queue and playback checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
+Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and `MUSIC_*` values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts song names/links in the dedicated request text channel, and provides a public panel and standalone music commands such as `/play`, `/queue`, and `/skip`. Playback controls belong to the current song's requester. The queue and playback checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
 
 ## Development
 
@@ -99,13 +99,13 @@ The production start path was previously verified with configured live services.
 
 ## Weekly Coriolis storm panel
 
-Set `STORM_CHANNEL_ID` in `.env` to choose the Discord channel and enable a Components V2 panel with an attached Dune banner, start/end dates, and live Discord countdowns. Every minute, the bot reads `coriolisNextCycleAt` from `GET /api/map/markers`, uses it as the storm end, and calculates the start as exactly 24 hours earlier. It checks for that cycle's marker in the configured channel and sends the panel when none exists, including restoring a panel deleted during an active cycle.
+Set `STORM_CHANNEL_ID` in `.env` to enable one persistent Coriolis storm panel with a Dune banner, clear status, start/end dates, and live Discord countdowns. Every minute, the bot reads `coriolisNextCycleAt` from `GET /api/map/markers`, uses it as the storm end, and calculates the start as exactly 24 hours earlier. It edits the same message when the cycle or storm phase changes, and recreates the panel if deleted.
 
-The Console API key needs read access to the `map` namespace. The bot accepts an ISO timestamp, Unix seconds, or Unix milliseconds from the API. It ignores an expired API cycle and restores a missing panel while the reported cycle is still active.
+The Console API key needs read access to the `map` namespace. The bot accepts an ISO timestamp, Unix seconds, or Unix milliseconds from the API. When the reported cycle expires, the scheduled panel displays an awaiting-next-cycle state until a new schedule arrives.
 
 Users can also run `/storm` at any time to retrieve the current API-backed storm panel. This command works independently of `STORM_CHANNEL_ID`.
 
-Grant View Channel, Read Message History, Send Messages, Attach Files, and Embed Links in the destination. History checks recognize the bot's own cycle marker across restarts, including busy channels; failed reads/sends retry on the next minute. Keep prior panels for duplicate protection. Only shard 0 publishes; run one bot deployment to avoid races between separate deployments. No role or everyone mentions are sent. Restart after changing configuration. Leaving `STORM_CHANNEL_ID` unset disables the feature.
+Grant View Channel, Read Message History, Send Messages, Attach Files, and Embed Links in the destination. On startup, history discovery reuses the oldest recognized bot storm panel and removes duplicate bot storm announcements. Other messages are preserved. Discovery is limited to 10,000 messages and fails without creating duplicates if that limit is exceeded. Failed reads/edits/sends retry on the next minute. Only shard 0 publishes; run one bot deployment to avoid races between separate deployments. No role or everyone mentions are sent. Restart after changing configuration. Leaving `STORM_CHANNEL_ID` unset disables the feature.
 
 ## CHOAM market command
 

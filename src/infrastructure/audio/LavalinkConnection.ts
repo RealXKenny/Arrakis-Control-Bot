@@ -4,6 +4,7 @@ import type { MusicConfig } from "../config/music";
 
 export interface MusicEvents {
   ready: () => void;
+  started: (requestId: string) => void;
   ended: (requestId: string) => void;
   failed: (requestId?: string) => void;
 }
@@ -22,6 +23,15 @@ export class LavalinkConnection {
 
   public available(): boolean { return Boolean(this.manager.getIdealNode()); }
   public player(guildId: string): Player | undefined { return this.manager.players.get(guildId); }
+  public async freezePosition(guildId: string, requestId: string): Promise<number | undefined> {
+    const player = this.player(guildId);
+    if (!player) return undefined;
+    const snapshot = await player.node.rest.updatePlayer({ guildId, playerOptions: { paused: true } });
+    if (!snapshot?.track || trackRequestId({ track: snapshot.track }) !== requestId) return undefined;
+    // Lavalink v4 includes player state, omitted from this Shoukaku version's REST types.
+    const position = (snapshot as typeof snapshot & { state?: { position?: number } }).state?.position ?? snapshot.track.info.position;
+    return Number.isFinite(position) && position >= 0 ? position : undefined;
+  }
   public async resolve(query: string) {
     const node = this.manager.getIdealNode();
     if (!node) throw new Error("Lavalink unavailable.");
@@ -32,6 +42,10 @@ export class LavalinkConnection {
     const player = await this.manager.joinVoiceChannel({ guildId, channelId, shardId, deaf: true });
     if (!this.watched.has(player)) {
       this.watched.add(player);
+      player.on("start", (event) => {
+        const id = trackRequestId(event);
+        if (id) this.events.started(id);
+      });
       player.on("end", (event) => {
         if (event.reason === "finished" || event.reason === "loadFailed") {
           const id = trackRequestId(event);

@@ -1,5 +1,7 @@
 # Join-to-create voice rooms
 
+All voice commands are standalone `/voice-*` commands (for example `/voice-setup`, `/voice-rename`, and `/voice-kick`). The old `/voice` group is removed when command registration synchronizes after restart. Public panel buttons retain their existing behavior and owner checks.
+
 ## Setup
 
 1. Configure the bot's PostgreSQL `DATABASE_URL` (and `DATABASE_SSL` if required) and restart the bot. It creates `bot_voice_settings` and `bot_voice_rooms` automatically in the bot database. No game database changes or extra credentials are needed.
@@ -8,7 +10,7 @@
 4. Allow members to view/connect to the join channel and read the control channel. Members do not need permission to send messages in the control channel. Category permissions form the starting permissions for new rooms.
 5. A member with **Manage Server** runs:
 
-   `/voice setup join:<Join to Create> category:<Voice Rooms> panel:<voice-controls>`
+   `/voice-setup join:<Join to Create> category:<Voice Rooms> panel:<voice-controls>`
 
 6. Join the trigger channel. The bot creates your room, records its ID, and moves you into it. Another member can create a separate room.
 
@@ -26,11 +28,11 @@ VOICE_PANEL_CHANNEL_ID=
 VOICE_PANEL_PUBLIC=true
 ```
 
-Fill in all four IDs and configure `DATABASE_URL` to apply setup automatically on startup. The bot reuses the saved panel message when its channel is unchanged. Leave all four IDs blank to manage setup through `/voice setup` and PostgreSQL instead. Partial IDs fail startup validation.
+Fill in all four IDs and configure `DATABASE_URL` to apply setup automatically on startup. The bot reuses the saved panel message when its channel is unchanged. Leave all four IDs blank to manage setup through `/voice-setup` and PostgreSQL instead. Partial IDs fail startup validation.
 
 `VOICE_PANEL_PUBLIC=true` makes the panel channel readable by everyone when publishing or updating its panel. It removes explicit View Channel / Read Message History denies from that channel's overwrites and grants those permissions to `@everyone`, without changing message-writing permissions. The bot needs **Manage Roles** in the panel channel. Room ownership checks and private action replies remain enforced.
 
-Set `VOICE_PANEL_PUBLIC=false` to leave channel permissions under manual administration; it does not undo previously granted public access. With environment setup enabled, startup reapplies it, including re-enabling creation after `/voice disable`. Clear all four IDs if the saved slash-command configuration should remain authoritative.
+Set `VOICE_PANEL_PUBLIC=false` to leave channel permissions under manual administration; it does not undo previously granted public access. With environment setup enabled, startup reapplies it, including re-enabling creation after `/voice-disable`. Clear all four IDs if the saved slash-command configuration should remain authoritative.
 
 ## Owner controls
 
@@ -38,14 +40,14 @@ The shared panel provides **Rename**, **Limit**, **Lock**, **Unlock**, **Hide**,
 
 | Command | Effect |
 | --- | --- |
-| `/voice rename name:<name>` | Rename your current owned room, up to 100 characters. |
-| `/voice limit users:<0–99>` | Set the room's user limit; 0 means unlimited. |
-| `/voice lock` / `/voice unlock` | Restrict new connections / restore original role join permissions. |
-| `/voice hide` / `/voice show` | Hide the room / restore original role visibility. |
-| `/voice permit member:<member>` | Explicitly allow a member to view and join your room, including while locked or hidden. |
-| `/voice reject member:<member>` | Deny a member view/connect access and disconnect them if they are in your room. |
-| `/voice kick member:<member>` | Disconnect a member who is currently in your room without banning re-entry. |
-| `/voice delete` | Delete your current owned room and disconnect its members. |
+| `/voice-rename name:<name>` | Rename your current owned room, up to 100 characters. |
+| `/voice-limit users:<0–99>` | Set the room's user limit; 0 means unlimited. |
+| `/voice-lock` / `/voice-unlock` | Restrict new connections / restore original role join permissions. |
+| `/voice-hide` / `/voice-show` | Hide the room / restore original role visibility. |
+| `/voice-permit member:<member>` | Explicitly allow a member to view and join your room, including while locked or hidden. |
+| `/voice-reject member:<member>` | Deny a member view/connect access and disconnect them if they are in your room. |
+| `/voice-kick member:<member>` | Disconnect a member who is currently in your room without banning re-entry. |
+| `/voice-delete` | Delete your current owned room and disconnect its members. |
 
 Locks and visibility restrictions preserve explicit member overwrites (including the creator, the bot, and permitted members). Discord administrators bypass channel restrictions. Locking does not disconnect existing occupants. Unlock/show restore role settings captured when the room was created; later category changes are not automatically synchronized into rooms.
 
@@ -53,9 +55,9 @@ Owners receive no additional server roles or general channel-management permissi
 
 ## Administration
 
-- `/voice setup`: configure or replace the guild's join/category/panel selection and publish a fresh panel. Requires **Manage Server**. Older panels stop working.
-- `/voice panel`: update the saved panel or replace it if deleted. Requires **Manage Server**.
-- `/voice disable`: prevent new rooms while preserving existing owners, controls, and automatic cleanup. Run setup again to re-enable.
+- `/voice-setup`: configure or replace the guild's join/category/panel selection and publish a fresh panel. Requires **Manage Server**. Older panels stop working.
+- `/voice-panel`: update the saved panel or replace it if deleted. Requires **Manage Server**.
+- `/voice-disable`: prevent new rooms while preserving existing owners, controls, and automatic cleanup. Run setup again to re-enable.
 
 Each guild has one configured trigger and one control panel. A member can own at most one room per guild. Returning to the trigger while a saved room still exists moves the member back into it. Ownership is not transferred when the creator leaves; remaining members can keep talking until the room becomes empty.
 

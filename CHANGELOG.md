@@ -2,6 +2,37 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.10.3] - 2026-09-17
+
+### Added
+
+- Song-start DMs with artwork and a music lounge link; blocked DMs do not interrupt playback.
+- View Lyrics button with a private Genius search link for the current song.
+- Convoy setup guide covering team-scoped keys, permissions and rate limits.
+
+### Changed
+
+- Keep one Now Playing card, update it in place, consolidate duplicate bot cards and clean processed text requests/replies after 15 seconds.
+- Replace music subcommands with `/play`, `/queue`, `/now`, `/skip`, `/pause`, `/resume`, `/volume`, `/stop`, `/clear` and `/music-panel`.
+- Restrict Clear Queue and Stop Playback to `OWNER_ROLE_ID`, including slash commands and fresh role checks on confirmation. Voice membership is still required.
+- Pause Lavalink during graceful shutdown and save its final reported position. Restart recovery preserves remaining song time, queue, volume and original paused state; abrupt crashes use the last checkpoint.
+- Replace repeated storm announcements with one persistent panel showing upcoming, active and awaiting-cycle states; remove the technical API footer and consolidate existing bot storm panels.
+- Replace the voice command group with 13 standalone `/voice-*` commands, preserving creator-only room controls and administrator-only setup.
+- Redesign startup with a compact Arrakis banner, numbered phases and a chat-route summary. Preserve console history across restarts and use plain text for redirected logs.
+- Update Convoy server listing to `/api/v1/client/servers`, nested primary IP addresses, `server.read` permission guidance and Retry-After rate-limit errors.
+
+### Upgrade notes
+
+- Restart the bot to synchronize standalone slash commands and refresh existing panels. The old `/music` and `/voice` command groups are replaced.
+- Set `OWNER_ROLE_ID` for Clear Queue and Stop Playback. Other playback controls remain limited to the current requester.
+- Grant Manage Messages in the music request channel for request cleanup. PostgreSQL remains required for music recovery.
+- Convoy keys need `server.read` for the intended team. Existing origin-only `API_URL` values remain supported.
+
+### Verification
+
+- Build, lint and all 286 tests across 53 files passed; the production dependency audit reported zero vulnerabilities.
+- Live Discord panels, Lavalink playback and the production Convoy API require deployment testing.
+
 ## [1.10.2] - 2026-09-17
 
 ### Added

@@ -29,7 +29,7 @@ export class DiscordGameChatBridge {
       this.info("Chat bridge inactive on this shard: no configured guilds are present.");
       return;
     }
-    for (const route of routes) this.info(`Chat bridge route: Discord channel ${route.channelId} -> chat.map/${route.map}.`);
+    this.info(`[CHAT] ${new Set(routes.map((route) => route.map)).size} map(s) linked across ${new Set(routes.map((route) => route.channelId)).size} Discord channel(s).`);
     this.info(this.config.displayName ? "Chat bridge uses an explicit game display name; native player-name lookup is disabled in the payload." : "Chat bridge uses native game player-name lookup.");
     this.connection = new GameChatConnection({ ...this.config, routes }, (map, body) => this.sendToDiscord(map, body), this.warn, this.info);
     this.connection.start();

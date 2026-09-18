@@ -1,26 +1,20 @@
 import { Command } from "@sapphire/framework";
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { registerApplicationCommand } from "../../../support/commands/registerApplicationCommand";
-import type { MusicAction } from "../../../modules/music/MusicService";
+import { registerApplicationCommand } from "./registerApplicationCommand";
+import type { MusicAction } from "../../modules/music/MusicService";
+import { MUSIC_COMMANDS, type MusicCommandName } from "../../modules/music/musicCommands";
 
-export const musicCommand = new SlashCommandBuilder().setName("music").setDescription("Request songs and control the music lounge.")
-  .addSubcommand((sub) => sub.setName("play").setDescription("Queue a song or playlist in the music lounge.")
-    .addStringOption((option) => option.setName("query").setDescription("Song name or supported HTTPS link").setMaxLength(500).setRequired(true)))
-  .addSubcommand((sub) => sub.setName("volume").setDescription("Set the music lounge volume.")
-    .addIntegerOption((option) => option.setName("level").setDescription("Volume from 0 to 100").setMinValue(0).setMaxValue(100).setRequired(true)));
-
-for (const [name, description] of [
-  ["panel", "Publish or refresh the music control panel (Manage Server)."],
-  ["queue", "Show the current song and upcoming requests."], ["now", "Show the current song."],
-  ["skip", "Skip the current song."], ["pause", "Pause playback."], ["resume", "Resume playback."],
-  ["stop", "Stop playback and clear the queue; remain in voice."], ["clear", "Clear upcoming songs without stopping the current song."],
-]) musicCommand.addSubcommand((sub) => sub.setName(name).setDescription(description));
-
-export class MusicCommand extends Command {
+export function musicCommandDefinition(name: MusicCommandName) {
+  const command = new SlashCommandBuilder().setName(name).setDescription(MUSIC_COMMANDS[name]);
+  if (name === "play") command.addStringOption((option) => option.setName("query").setDescription("Song name or supported HTTPS link").setMaxLength(500).setRequired(true));
+  if (name === "volume") command.addIntegerOption((option) => option.setName("level").setDescription("Volume from 0 to 100").setMinValue(0).setMaxValue(100).setRequired(true));
+  return command;
+}
+export function createMusicCommand(name: MusicCommandName) { return class MusicCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name: "music", description: "Request music and manage the lounge queue.", preconditions: ["InteractionRateLimit"] });
+    super(context, { ...options, name, description: MUSIC_COMMANDS[name], preconditions: ["InteractionRateLimit"] });
   }
-  public override registerApplicationCommands(registry: Command.Registry): void { registerApplicationCommand(registry, musicCommand); }
+  public override registerApplicationCommands(registry: Command.Registry): void { registerApplicationCommand(registry, musicCommandDefinition(name)); }
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const service = interaction.client.music;
@@ -29,7 +23,7 @@ export class MusicCommand extends Command {
       return;
     }
     try {
-      const action = interaction.options.getSubcommand();
+      const action = name === "music-panel" ? "panel" : name;
       let content: string;
       if (action === "panel") {
         await service.authorize(interaction.guild, interaction.channelId, interaction.user.id, false);
@@ -55,4 +49,5 @@ export class MusicCommand extends Command {
       await interaction.editReply({ content, allowedMentions: { parse: [] } });
     } catch (error) { await interaction.editReply(service.errorMessage(error)); }
   }
+}
 }

@@ -1,4 +1,4 @@
-import { Collection, ChannelType, type Client, type Guild } from "discord.js";
+import { Collection, ChannelType, type Client, type Guild, type Message } from "discord.js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { LoadType, type Track } from "shoukaku";
 import type { MusicConfig } from "../../../src/infrastructure/config/music";
@@ -7,7 +7,7 @@ import { MusicService } from "../../../src/modules/music/MusicService";
 import type { MusicState } from "../../../src/infrastructure/database/music/MusicRepository";
 
 const mocked = vi.hoisted(() => ({ events: undefined as MusicEvents | undefined, connected: false, available: true,
-  resolve: vi.fn(), join: vi.fn(), leave: vi.fn(), close: vi.fn(),
+  resolve: vi.fn(), join: vi.fn(), leave: vi.fn(), close: vi.fn(), freezePosition: vi.fn(),
   player: { track: null as string | null, position: 0, playTrack: vi.fn(), stopTrack: vi.fn(), setPaused: vi.fn(), setGlobalVolume: vi.fn() },
 }));
 vi.mock("../../../src/infrastructure/audio/LavalinkConnection", () => ({ LavalinkConnection: class {
@@ -18,6 +18,7 @@ vi.mock("../../../src/infrastructure/audio/LavalinkConnection", () => ({ Lavalin
   join = mocked.join;
   leave = mocked.leave;
   close = mocked.close;
+  freezePosition = mocked.freezePosition;
 } }));
 
 const config: MusicConfig = { guildId: "guild", voiceChannelId: "voice", requestChannelId: "requests", url: "localhost:2333", password: "test", secure: false, searchPrefix: "scsearch", volume: 30, maxQueue: 3 };
@@ -26,27 +27,33 @@ function track(title = "Song"): Track {
   return { encoded: title, info: { title, author: "Artist", identifier: title, isSeekable: true, isStream: false, length: 1000, position: 0, sourceName: "soundcloud" }, pluginInfo: {} };
 }
 function setup(saved?: MusicState) {
-  const user = { voice: { channelId: "voice" } };
+  const user = { voice: { channelId: "voice" }, roles: { cache: new Collection([["owner-role", {}]]) } };
   const me = { voice: { channelId: "voice" } };
   const guild = { id: "guild", available: true, shardId: 0, members: { fetch: vi.fn().mockResolvedValue(user), fetchMe: vi.fn().mockResolvedValue(me) },
     channels: { fetch: vi.fn().mockResolvedValue({ id: "voice", type: ChannelType.GuildVoice, permissionsFor: () => ({ has: () => true }) }) } };
-  const client = { guilds: { cache: new Collection([["guild", guild]]) }, logger: { warn: vi.fn() }, interactionRateLimiter: { allow: () => true } };
+  const edit = vi.fn().mockResolvedValue(undefined);
+  const send = vi.fn().mockResolvedValue({ edit });
+  const dm = vi.fn().mockResolvedValue(undefined);
+  const client = { users: { fetch: vi.fn().mockResolvedValue({ send: dm }) }, channels: { fetch: vi.fn().mockResolvedValue({ isSendable: () => true, isDMBased: () => false, guildId: "guild", messages: { fetch: vi.fn().mockResolvedValue(new Collection()) }, send }) },
+    guilds: { cache: new Collection([["guild", guild]]) }, logger: { warn: vi.fn() }, interactionRateLimiter: { allow: () => true } };
   const storage = { initialize: vi.fn().mockResolvedValue(undefined), load: vi.fn().mockResolvedValue(saved), save: vi.fn().mockResolvedValue(undefined) };
   const service = new MusicService(client as unknown as Client, config, storage);
   services.push(service);
-  return { service, guild: guild as unknown as Guild, user, me, client, storage };
+  return { service, guild: guild as unknown as Guild, user, me, client, storage, send, edit, dm };
 }
 function requestId(index: number): string { return mocked.player.playTrack.mock.calls[index][0].track.userData.requestId; }
 
 beforeEach(() => {
+  vi.stubEnv("OWNER_ROLE_ID", "owner-role");
   vi.clearAllMocks(); mocked.connected = false; mocked.available = true;
+  mocked.freezePosition.mockResolvedValue(undefined);
   mocked.resolve.mockResolvedValue({ loadType: LoadType.SEARCH, data: [track()] });
   mocked.join.mockImplementation(() => { mocked.connected = true; return Promise.resolve(mocked.player); });
   mocked.leave.mockImplementation(() => { mocked.connected = false; return Promise.resolve(); });
   mocked.player.track = null; mocked.player.position = 0;
   mocked.player.playTrack.mockImplementation((options) => { mocked.player.track = options.track.encoded; mocked.player.position = options.position ?? 0; return Promise.resolve(); });
 });
-afterEach(async () => { for (const service of services.splice(0)) await service.stop(); });
+afterEach(async () => { for (const service of services.splice(0)) await service.stop(); vi.unstubAllEnvs(); });
 
 it("joins the permanent channel, sets volume and plays the first search result", async () => {
   const { service, guild } = setup();
@@ -151,7 +158,7 @@ it("falls back to a YouTube thumbnail when artwork is missing or invalid", async
   expect(service.nowPlayingMessage().embeds[0].toJSON().image?.url).toBe("https://i.ytimg.com/vi/LDU_Txk06tM/hqdefault.jpg");
 });
 
-it.each(["skip", "pause", "resume", "volume", "clear", "stop"] as const)("restricts %s to the current requester while others can queue", async (action) => {
+it.each(["skip", "pause", "resume", "volume"] as const)("restricts %s to the current requester while others can queue", async (action) => {
   const { service, guild } = setup();
   await service.request(guild, "requests", "owner", "one");
   await service.request(guild, "requests", "other", "two");
@@ -213,4 +220,128 @@ it("starts live streams at the live edge instead of seeking to a saved offset", 
   const { service, guild } = setup({ current: { id: "live", requester: "user", track: live }, queue: [], position: 900, paused: false, volume: 30 });
   await service.action(guild, "requests", "user", "volume", 40);
   expect(mocked.player.playTrack).toHaveBeenCalledWith(expect.objectContaining({ position: 0 }));
+});
+
+it("keeps a single card across track changes and suppresses duplicate start events", async () => {
+  const { service, guild, send, edit } = setup();
+  const song = track("Same song"); song.info.artworkUrl = "https://example.com/cover.jpg";
+  mocked.resolve.mockResolvedValue({ loadType: LoadType.SEARCH, data: [song] });
+  await service.request(guild, "requests", "user", "one");
+  await service.request(guild, "requests", "other", "two");
+  expect(send).not.toHaveBeenCalled();
+  mocked.events!.started(requestId(0));
+  mocked.events!.started(requestId(0));
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  expect(send.mock.calls[0][0].embeds[0].toJSON()).toMatchObject({ image: { url: song.info.artworkUrl }, fields: [{ name: "Requested by", value: "<@user>" }] });
+  expect(send.mock.calls[0][0].allowedMentions).toEqual({ parse: [] });
+  await service.action(guild, "requests", "user", "skip");
+  mocked.events!.started(requestId(0)); // Late event for the old track.
+  mocked.events!.started(requestId(1));
+  await vi.waitFor(() => expect(edit).toHaveBeenCalled());
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(edit.mock.lastCall![0].embeds[0].toJSON().fields).toEqual([{ name: "Requested by", value: "<@other>" }]);
+});
+
+it("continues playback and future announcements after a Discord send failure", async () => {
+  const { service, guild, send, client } = setup();
+  send.mockRejectedValueOnce(new Error("missing permission"));
+  await service.request(guild, "requests", "user", "one");
+  mocked.events!.started(requestId(0));
+  await vi.waitFor(() => expect(client.logger.warn).toHaveBeenCalled());
+  await service.request(guild, "requests", "user", "two");
+  await service.action(guild, "requests", "user", "skip");
+  mocked.events!.started(requestId(1));
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  expect(mocked.player.playTrack).toHaveBeenCalledTimes(2);
+});
+
+it("cleans processed requests and acknowledgments after 15 seconds", async () => {
+  vi.useFakeTimers();
+  try {
+    const { service, guild } = setup();
+    const deleteRequest = vi.fn().mockResolvedValue(undefined);
+    const deleteReply = vi.fn().mockResolvedValue(undefined);
+    await service.onMessage({ guild, guildId: "guild", channelId: "requests", author: { id: "user", bot: false }, content: "song",
+      reply: vi.fn().mockResolvedValue({ delete: deleteReply }), delete: deleteRequest } as unknown as Message);
+    expect(deleteRequest).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(deleteRequest).toHaveBeenCalledOnce();
+    expect(deleteReply).toHaveBeenCalledOnce();
+  } finally { vi.useRealTimers(); }
+});
+
+it("DMs only the current requester on track start, with artwork and a lounge link", async () => {
+  const { service, guild, client, dm } = setup();
+  const song = track(); song.info.artworkUrl = "https://example.com/art.jpg";
+  mocked.resolve.mockResolvedValue({ loadType: LoadType.SEARCH, data: [song] });
+  await service.request(guild, "requests", "requester", "song");
+  expect(dm).not.toHaveBeenCalled();
+  mocked.events!.started(requestId(0));
+  mocked.events!.started(requestId(0));
+  await vi.waitFor(() => expect(dm).toHaveBeenCalledOnce());
+  expect(client.users.fetch).toHaveBeenCalledWith("requester");
+  const payload = dm.mock.calls[0][0];
+  expect(payload.embeds[0].toJSON()).toMatchObject({ title: "🎵 Your song is playing", image: { url: song.info.artworkUrl } });
+  expect(payload.components[0].toJSON().components[0].url).toBe("https://discord.com/channels/guild/requests");
+});
+
+it("continues playback and updates the public card when the requester blocks DMs", async () => {
+  const { service, guild, dm, send } = setup();
+  dm.mockRejectedValue({ code: 50007 });
+  await service.request(guild, "requests", "user", "song");
+  mocked.events!.started(requestId(0));
+  await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+  expect(mocked.player.stopTrack).not.toHaveBeenCalled();
+  await service.action(guild, "requests", "user", "pause");
+  expect(mocked.player.setPaused).toHaveBeenCalledWith(true);
+});
+
+it("resumes a rebooted song at the frozen shutdown offset without consuming downtime", async () => {
+  const first = setup();
+  const song = track("long song"); song.info.length = 240_000;
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [song] });
+  await first.service.request(first.guild, "requests", "user", "song");
+  mocked.player.position = 100_000;
+  mocked.freezePosition.mockResolvedValueOnce(123_456);
+  await first.service.stop();
+  const saved = structuredClone(first.storage.save.mock.lastCall![1]) as MusicState;
+  expect(saved.position).toBe(123_456);
+  expect(saved.paused).toBe(false);
+  mocked.connected = false;
+  const restarted = setup(saved);
+  await restarted.service.initialize();
+  restarted.service.start();
+  await vi.waitFor(() => expect(mocked.player.playTrack).toHaveBeenLastCalledWith(expect.objectContaining({ position: 123_456, paused: false })));
+  expect(song.info.length - saved.position).toBe(116_544);
+});
+
+it("retains the cached offset if final position capture fails", async () => {
+  const { service, guild, storage } = setup();
+  await service.request(guild, "requests", "user", "song");
+  mocked.player.position = 650;
+  mocked.freezePosition.mockRejectedValueOnce(new Error("Lavalink down"));
+  await service.stop();
+  expect(storage.save).toHaveBeenLastCalledWith("guild", expect.objectContaining({ position: 650, paused: false }));
+});
+
+it.each(["clear", "stop"] as const)("restricts %s to the configured owner role and rechecks role changes", async (action) => {
+  const { service, guild, user, storage } = setup();
+  await service.request(guild, "requests", "requester", "one");
+  await service.request(guild, "requests", "requester", "two");
+  user.roles.cache.clear();
+  const saves = storage.save.mock.calls.length;
+  await expect(service.action(guild, "requests", "requester", action)).rejects.toThrow("Owner role");
+  expect(storage.save).toHaveBeenCalledTimes(saves);
+  user.roles.cache.set("owner-role", {});
+  await service.action(guild, "requests", "different-user", action);
+  expect(guild.members.fetch).toHaveBeenCalledWith({ user: "different-user", force: true });
+  expect(service.describeQueue()).toContain("Waiting: 0");
+  user.roles.cache.clear();
+  await expect(service.action(guild, "requests", "different-user", action)).rejects.toThrow("Owner role");
+});
+
+it("denies owner controls when OWNER_ROLE_ID is missing", async () => {
+  const { service, guild } = setup();
+  vi.stubEnv("OWNER_ROLE_ID", "");
+  await expect(service.action(guild, "requests", "user", "clear")).rejects.toThrow("OWNER_ROLE_ID");
 });

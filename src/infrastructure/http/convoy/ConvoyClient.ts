@@ -14,7 +14,7 @@ class ConvoyClient {
   private readonly apiKey: string;
 
   constructor(baseUrl = "https://vps.advinservers.com", apiKey?: string) {
-    if (!apiKey) {
+    if (!apiKey?.trim()) {
       throw new Error("API_KEY is required for the Convoy API.");
     }
 
@@ -23,7 +23,16 @@ class ConvoyClient {
       throw new Error("Convoy URL must use HTTP(S) without embedded credentials.");
     }
     this.baseUrl = parsedUrl.toString();
-    this.apiKey = apiKey;
+    this.apiKey = apiKey.trim();
+  }
+
+  /** The v1 server list is an unpaginated array scoped to the API key's team. */
+  async listServers(): Promise<Record<string, unknown>[]> {
+    const response = await this.request("GET", "/api/v1/client/servers");
+    if (!Array.isArray(response) || !response.every(isRecord)) {
+      throw new ConvoyApiError("Convoy returned an unexpected server list.", 200, null);
+    }
+    return response;
   }
 
   request(method: string, route: string, options: ConvoyRequestOptions = {}): Promise<unknown> {
@@ -47,6 +56,7 @@ class ConvoyClient {
     try {
       response = await fetch(url, {
         method,
+        redirect: "error",
         headers: {
           Accept: binary ? "image/png" : "application/json",
           "Content-Type": "application/json",
@@ -62,6 +72,11 @@ class ConvoyClient {
     }
 
     if (response.status === 204) return null;
+    if (response.status === 429) {
+      const seconds = response.headers.get("retry-after");
+      const retryAfter = seconds && /^\d+$/.test(seconds) && Number.isSafeInteger(Number(seconds)) ? Number(seconds) : undefined;
+      throw new ConvoyApiError("Convoy API rate limit reached. Try again later.", 429, null, retryAfter);
+    }
 
     if (binary) {
       if (!response.ok) {
@@ -88,7 +103,7 @@ class ConvoyClient {
         response.status === 401
           ? "Advin API authentication failed. Check API_KEY."
           : response.status === 403
-            ? "Advin API access denied. Ensure the key has servers.read and its IP group allows this VPS."
+            ? "Advin API access denied. Check the endpoint permission (server.read for server lists), the key's team and allowed IP groups."
             : (getErrorMessage(responseData) ?? `Convoy request failed with HTTP ${response.status}`);
 
       throw new ConvoyApiError(message, response.status, data);
@@ -101,12 +116,14 @@ class ConvoyClient {
 class ConvoyApiError extends Error {
   public readonly status: number;
   public readonly details: unknown;
+  public readonly retryAfterSeconds?: number;
 
-  constructor(message: string, status: number, details: unknown) {
+  constructor(message: string, status: number, details: unknown, retryAfterSeconds?: number) {
     super(message);
     this.name = "ConvoyApiError";
     this.status = status;
     this.details = details;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 

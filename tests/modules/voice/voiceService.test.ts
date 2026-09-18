@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { VoiceService } from "../../../src/modules/voice/VoiceService";
 import type { VoiceRepository, VoiceRoom } from "../../../src/infrastructure/database/voice/VoiceRepository";
 import { voicePanel } from "../../../src/modules/voice/voicePanel";
-import { VoiceCommand, voiceCommand } from "../../../src/commands/community/voice/voice";
+import { createVoiceCommand, voiceCommandDefinition } from "../../../src/support/commands/voiceCommandFactory";
+import { VOICE_COMMANDS, type VoiceCommandAction } from "../../../src/modules/voice/voiceCommands";
+const VoiceCommand = createVoiceCommand("setup");
 
 function fixture() {
   let saved: VoiceRoom | null = null;
@@ -189,7 +191,7 @@ describe("temporary voice rooms", () => {
   it("requires Manage Server for setup even when the command is visible to everyone", async () => {
     const setup = vi.fn();
     const editReply = vi.fn();
-    await VoiceCommand.prototype.chatInputRun.call({} as VoiceCommand, {
+    await VoiceCommand.prototype.chatInputRun.call({} as InstanceType<typeof VoiceCommand>, {
       guild: {}, client: { voiceRooms: { setup } },
       deferReply: vi.fn(), deferred: true, editReply,
       memberPermissions: { has: () => false },
@@ -244,7 +246,8 @@ describe("temporary voice rooms", () => {
     const panel = voicePanel();
     const children = panel.components[0].toJSON().components;
     expect(children.filter((child) => child.type === 1).flatMap((row) => row.components)).toHaveLength(12);
-    const names = voiceCommand.toJSON().options?.map((option) => option.name);
-    expect(names).toEqual(expect.arrayContaining(["setup", "panel", "disable", "rename", "limit", "lock", "unlock", "hide", "show", "permit", "reject", "kick", "delete"]));
+    const definitions = (Object.keys(VOICE_COMMANDS) as VoiceCommandAction[]).map((action) => voiceCommandDefinition(action).toJSON());
+    expect(definitions).toHaveLength(13);
+    expect(definitions.every((definition) => definition.name.startsWith("voice-") && !definition.options?.some((option) => option.type === 1 || option.type === 2))).toBe(true);
   });
 });

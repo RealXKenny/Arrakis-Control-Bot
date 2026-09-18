@@ -55,17 +55,7 @@ interface BotConfig {
   duneDiscordActivityLogChannelId?: string | null;
 }
 
-function clearConsole(): void {
-  if (process.stdout.isTTY) {
-    process.stdout.write("\x1b[2J\x1b[0f");
-  } else {
-    console.clear();
-  }
-}
-
 function createBotApplication(config: BotConfig) {
-  clearConsole();
-
   const logger = createLogger("BOT", config.logLevel);
 
   logger.header("ARRAKIS CONTROL", "Dune: Awakening Discord control bot");
@@ -74,25 +64,28 @@ function createBotApplication(config: BotConfig) {
 
   configureIntegrations(client, config);
 
-  logger.info("Application initialized; Sapphire stores will load application pieces during login.");
+  logger.info("[01 / SYSTEM] Loading commands, events and integrations.");
 
-  logger.info(client.discordAdapter ? "Discord Adapter integration enabled." : "Discord Adapter integration disabled: ADAPTER_TOKEN is not configured.");
+  logger.info(`[CONFIG] Player links: ${client.discordAdapter ? "enabled" : "off"} | Game chat: ${client.chatBridge ? "enabled" : "off"} | Voice rooms: ${client.voiceRooms ? "enabled" : "off"} | Music: ${client.music ? "enabled" : "off"}`);
 
   let isShuttingDown = false;
 
   async function start(): Promise<void> {
+    logger.info("[02 / STORAGE] Preparing persistent state.");
     if (client.tickets) {
       await client.tickets.initialize();
-      logger.info("PostgreSQL ticket storage is ready.");
+      logger.debug("PostgreSQL ticket storage is ready.");
     }
     await client.voiceRooms?.initialize();
     await client.music?.initialize();
 
-    logger.info(`Dune Console API key authentication enabled; ${client.duneApi.endpoints.length} API endpoints are catalogued and access is controlled by key scopes.`);
+    logger.info(`[STORAGE] ${client.tickets ? "PostgreSQL initialized" : "Not configured"}.`);
+    logger.debug(`Dune Console API key configured; ${client.duneApi.endpoints.length} endpoints catalogued.`);
+    logger.info("[03 / DISCORD] Connecting to the gateway.");
 
     await client.login(config.discordToken);
 
-    logger.info("Discord login request completed.");
+    logger.debug("Discord login request completed.");
   }
 
   async function shutdown(signal: string, exitCode = 0): Promise<void> {

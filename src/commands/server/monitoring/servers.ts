@@ -46,11 +46,7 @@ interface ErrorDetails {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isServerRecord(value: unknown): value is ServerRecord {
-  return isRecord(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function getString(...values: unknown[]): string {
@@ -87,30 +83,6 @@ function getStringOrNullValue(values: unknown[]): string | null {
   return null;
 }
 
-function parseServers(response: unknown): ServerRecord[] {
-  if (Array.isArray(response)) {
-    return response.filter(isServerRecord);
-  }
-
-  if (!isRecord(response)) {
-    return [];
-  }
-
-  const data = response.data;
-
-  if (Array.isArray(data)) {
-    return data.filter(isServerRecord);
-  }
-
-  const servers = response.servers;
-
-  if (Array.isArray(servers)) {
-    return servers.filter(isServerRecord);
-  }
-
-  return [];
-}
-
 function escapeDiscordText(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll("*", "\\*").replaceAll("_", "\\_").replaceAll("`", "\\`").replaceAll("~", "\\~").replaceAll("|", "\\|");
 }
@@ -124,7 +96,11 @@ function formatServer(server: ServerRecord): string {
 
   const state = getString(server.state, server.power_state, server.powerState, server.status, server.status_name);
 
-  const address = getStringOrNull(server.address, server.ip, server.primary_ip, server.primaryIp, server.ip_address, server.ipAddress);
+  const limits = isRecord(server.limits) ? server.limits : {};
+  const addresses = isRecord(limits.addresses) ? limits.addresses : {};
+  const candidates = [addresses.ipv4, addresses.ipv6].flatMap((entries) => Array.isArray(entries) ? entries.filter(isRecord) : []);
+  const primary = candidates.find((entry) => entry.is_primary === true && typeof entry.address === "string") ?? candidates.find((entry) => typeof entry.address === "string");
+  const address = getStringOrNull(primary?.address, server.address, server.ip, server.primary_ip, server.primaryIp, server.ip_address, server.ipAddress);
 
   const location = getStringOrNull(server.location, server.datacenter, server.data_center, server.region);
 
@@ -158,6 +134,10 @@ function getSafeErrorMessage(error: Error): string {
   const status = getErrorStatus(error);
 
   if (status === 401 || status === 403) return "The external service denied access.";
+  if (status === 429) {
+    const retry = "retryAfterSeconds" in error ? error.retryAfterSeconds : undefined;
+    return typeof retry === "number" ? `API rate limit reached. Try again in ${retry} seconds.` : "API rate limit reached. Try again later.";
+  }
   if (status === 404) return "The external service could not find the requested resource.";
   if (status !== null && status >= 500) return "The external service is temporarily unavailable.";
   if (status === 0) return "The external service could not be reached.";
@@ -172,7 +152,7 @@ function getErrorStatus(error: Error): number | null {
 }
 
 function createServersCard(servers: ServerRecord[]): ContainerBuilder {
-  const lines = servers.length ? servers.slice(0, MAX_SERVERS_DISPLAYED).map(formatServer) : ["No VPS servers were found on this account."];
+  const lines = servers.length ? servers.slice(0, MAX_SERVERS_DISPLAYED).map(formatServer) : ["No VPS servers were found in the API key's team."];
 
   const card = new ContainerBuilder()
     .setAccentColor(ACCENT_COLOR)
@@ -219,9 +199,7 @@ const command = {
     }
 
     try {
-      const response: unknown = await client.convoyApi.request("GET", "/api/client/servers");
-
-      const servers = parseServers(response);
+      const servers = await client.convoyApi.listServers();
 
       const card = createServersCard(servers);
 
@@ -270,5 +248,5 @@ class ServersCommand extends Command {
   }
 }
 
-export { ServersCommand };
+export { ServersCommand, formatServer };
 

@@ -86,7 +86,8 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
     client.presenceInterval = setInterval(updatePresence, PRESENCE_INTERVAL_MS);
 
-    this.container.logger.info(`Ready! Logged in as ${botUser.tag}.`);
+    this.container.logger.info(`[GATEWAY] Connected as ${botUser.tag} | ${client.guilds.cache.size} server(s).`);
+    this.container.logger.info("[04 / COMMUNITY] Restoring voice rooms and synchronizing panels.");
 
     client.auditLogInterval = startAuditLogForwarder(client);
     await runReadyTask("recover temporary voice rooms", async () => { await client.voiceRooms?.start(); });
@@ -97,6 +98,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
     await ensurePanels();
     await runReadyTask("configure version announcements", setupVersionAnnouncements);
+    this.container.logger.info("[WATCH ACTIVE] Startup tasks finished. Check any service warnings above.");
   }
 }
 

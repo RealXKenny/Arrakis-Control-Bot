@@ -1,7 +1,7 @@
 import type { Interaction } from "discord.js";
 
 const BUTTON_IDS = [
-  "music:request", "music:now", "music:queue", "music:pause", "music:resume", "music:skip",
+  "music:lyrics", "music:request", "music:now", "music:queue", "music:pause", "music:resume", "music:skip",
   "music:volume", "music:clear", "music:stop", "music:cancel", "music-confirm:stop", "music-confirm:clear",
   "voice:rename", "voice:limit", "voice:lock", "voice:unlock", "voice:hide", "voice:show",
   "voice:permit", "voice:reject", "voice:kick", "voice:delete",

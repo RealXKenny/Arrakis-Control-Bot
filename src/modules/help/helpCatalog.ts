@@ -1,3 +1,5 @@
+import { VOICE_COMMANDS } from "../voice/voiceCommands";
+import { MUSIC_COMMANDS } from "../music/musicCommands";
 import { PLAYER_ADMIN_COMMAND_NAMES } from "../../support/commands/playerAdminCommandFactory";
 
 type HelpAccess = "Everyone" | "Staff" | "Owner";
@@ -24,7 +26,7 @@ function playerCommands(group: string): HelpCommandEntry[] {
 
 const HELP_CATEGORIES: readonly HelpCategory[] = [
   { id: "general", label: "General", description: "Bot information and member utilities.", emoji: "📖", access: "Everyone", commands: [{ name: "help" }, { name: "info" }, { name: "ping" }, { name: "userinfo" }] },
-  { id: "community", label: "Community & World", description: "Players, profiles, the market, and Arrakis events.", emoji: "🏜️", access: "Everyone", commands: [{ name: "players" }, { name: "profile" }, { name: "market" }, { name: "storm" }, { name: "voice" }, { name: "music" }] },
+  { id: "community", label: "Community & World", description: "Players, profiles, the market, and Arrakis events.", emoji: "🏜️", access: "Everyone", commands: [{ name: "players" }, { name: "profile" }, { name: "market" }, { name: "storm" }, ...Object.keys(VOICE_COMMANDS).map((action) => ({ name: `voice-${action}` })), ...Object.keys(MUSIC_COMMANDS).map((name) => ({ name }))] },
   { id: "moderation", label: "Moderation", description: "Discord member and message moderation.", emoji: "🛡️", access: "Staff", commands: [{ name: "ban" }, { name: "kick" }, { name: "timeout" }, { name: "purge" }] },
   { id: "player-items", label: "Player Items & Skills", description: "Grant items, XP, skills, and hydration.", emoji: "🎒", access: "Owner", commands: playerCommands("items") },
   { id: "player-actions", label: "Player Actions", description: "Game kicks, bans, teleports, login repair, and vehicles.", emoji: "🎯", access: "Owner", commands: playerCommands("actions") },

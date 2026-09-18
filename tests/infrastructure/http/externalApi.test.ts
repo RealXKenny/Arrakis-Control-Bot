@@ -102,7 +102,7 @@ describe("external API clients", () => {
   it("rejects malformed Convoy JSON as an integration error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{", { status: 200, headers: { "content-type": "application/json" } })));
 
-    await expect(new ConvoyClient("https://vps.example.com", "test-key").request("GET", "/api/client/servers")).rejects.toMatchObject({
+    await expect(new ConvoyClient("https://vps.example.com", "test-key").request("GET", "/api/v1/client/servers")).rejects.toMatchObject({
       name: "ConvoyApiError",
       status: 200,
     });

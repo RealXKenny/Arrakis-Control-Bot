@@ -40,8 +40,8 @@ it("does not create a duplicate when history cannot be read", async () => {
 });
 
 function interaction(customId: string, modal = false) {
-  const service = { authorize: vi.fn(), requireRequester: vi.fn(), action: vi.fn(), request: vi.fn().mockResolvedValue("Queued"),
-    describeQueue: vi.fn().mockReturnValue("Queue"), errorMessage: () => "Join the music voice channel." };
+  const service = { authorize: vi.fn(), requireRequester: vi.fn(), requireOwnerRole: vi.fn(), action: vi.fn(), request: vi.fn().mockResolvedValue("Queued"),
+    lyricsMessage: vi.fn().mockReturnValue({ content: "Lyrics link", components: [] }), describeQueue: vi.fn().mockReturnValue("Queue"), errorMessage: () => "Join the music voice channel." };
   const value = { customId, client: { music: service }, guild: { id: "guild" }, channelId: "requests", user: { id: "user" },
     isButton: () => !modal, isModalSubmit: () => modal, deferred: true,
     deferReply: vi.fn(), deferUpdate: vi.fn(), editReply: vi.fn(), reply: vi.fn(), showModal: vi.fn(),
@@ -68,9 +68,19 @@ it("asks before clearing and removes the confirmation controls after completion"
   const first = interaction("music:clear");
   await handleMusicInteraction(first.value);
   expect(first.service.action).not.toHaveBeenCalled();
+  expect(first.service.requireOwnerRole).toHaveBeenCalledWith(first.value.guild, "user");
   expect(first.mocks.editReply).toHaveBeenCalledWith(expect.objectContaining({ components: expect.any(Array) }));
   const confirm = interaction("music-confirm:clear");
   await handleMusicInteraction(confirm.value);
   expect(confirm.service.action).toHaveBeenCalledWith(confirm.value.guild, "requests", "user", "clear");
   expect(confirm.mocks.editReply).toHaveBeenCalledWith(expect.objectContaining({ components: [] }));
+});
+
+it("allows lyrics viewing without voice membership or playback ownership", async () => {
+  const { value, service, mocks } = interaction("music:lyrics");
+  await handleMusicInteraction(value);
+  expect(service.authorize).toHaveBeenCalledWith(value.guild, "requests", "user", false);
+  expect(service.requireRequester).not.toHaveBeenCalled();
+  expect(service.action).not.toHaveBeenCalled();
+  expect(mocks.editReply).toHaveBeenCalledWith({ content: "Lyrics link", components: [] });
 });

@@ -68,6 +68,8 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
 
   const threshold = LEVELS[normalizedLevel] ?? LEVELS.INFO;
 
+  const colorEnabled = process.env.NO_COLOR === undefined && process.env.TERM !== "dumb" && (process.env.FORCE_COLOR !== undefined ? process.env.FORCE_COLOR !== "0" : Boolean(process.stdout.isTTY));
+  const paint = (color: string, text: string): string => colorEnabled ? `${color}${text}${COLORS.reset}` : text;
   const scopeColor = SCOPE_COLORS[scope] ?? SCOPE_COLORS.default;
 
   function write(level: LogLevel, message: string, details?: unknown): void {
@@ -77,7 +79,7 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
 
     const timestamp = formatTimestamp(new Date());
 
-    const output = `${COLORS.dim}[${timestamp}]${COLORS.reset} ` + `${LEVEL_COLORS[level]}[${level}]${COLORS.reset} ` + `${scopeColor}[${scope}]${COLORS.reset} ` + message;
+    const output = `${paint(COLORS.dim, `[${timestamp}]`)} ${paint(LEVEL_COLORS[level], `[${level}]`)} ${paint(scopeColor, `[${scope}]`)} ${message}`;
 
     if (level === "ERROR" || level === "FATAL") {
       if (details === undefined) {
@@ -112,18 +114,18 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
         return;
       }
 
-      const banner = [
-        "  ██████╗██████╗ ██╗███╗   ███╗███████╗ ██████╗ ███╗   ██╗    ███████╗██╗  ██╗██╗███████╗███████╗ ",
-        " ██╔════╝██╔══██╗██║████╗ ████║██╔════╝██╔═══██╗████╗  ██║    ██╔════╝██║ ██╔╝██║██╔════╝██╔════╝ ",
-        " ██║     ██████╔╝██║██╔████╔██║███████╗██║   ██║██╔██╗ ██║    ███████╗█████╔╝ ██║█████╗  ███████╗ ",
-        " ██║     ██╔══██╗██║██║╚██╔╝██║╚════██║██║   ██║██║╚██╗██║    ╚════██║██╔═██╗ ██║██╔══╝  ╚════██║ ",
-        " ╚██████╗██║  ██║██║██║ ╚═╝ ██║███████║╚██████╔╝██║ ╚████║    ███████║██║  ██╗██║███████╗███████║ ",
-        "  ╚═════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝    ╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝ ",
-      ].join("\n");
-
-      console.log(`\n${COLORS.yellow}${banner}${COLORS.reset}`);
-
-      console.log(`${COLORS.cyan}${title}${COLORS.reset} ` + `${COLORS.dim}- ${subtitle}${COLORS.reset}\n`);
+      const lines = [
+        "            /\\",
+        "       ____/  \\____       A R R A K I S",
+        "      /    /\\    \\          C O N T R O L",
+        "     /____/  \\____\\",
+        "",
+        "     THE SPICE FLOWS. THE WATCH CONTINUES.",
+      ];
+      const border = `  +${"-".repeat(56)}+`;
+      const banner = [border, ...lines.map((line) => `  |${line.padEnd(56)}|`), border].join("\n");
+      console.log(`\n${paint(COLORS.yellow, banner)}`);
+      console.log(`  ${paint(COLORS.cyan, title)} | ${subtitle}\n`);
     },
 
     debug: (message: string, details?: unknown) => write("DEBUG", message, details),
