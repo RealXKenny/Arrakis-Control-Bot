@@ -78,10 +78,10 @@ describe("moderation commands", () => {
 });
 
 describe("Sapphire command store", () => {
-  it("discovers all 77 commands without a gateway login", async () => {
+  it("discovers all 79 commands without a gateway login", async () => {
     const { commands } = await getStoreSnapshot();
-    expect(commands).toEqual(expect.arrayContaining(["help", "reload", "info", "ping", "purge", "userinfo", "ban", "kick", "timeout", "players", "profile", ...Object.values(PLAYER_ADMIN_COMMAND_NAMES), "backups", "create-backup", "restore-backup", "download-backup", "delete-backup", "delete-all-backups", "import-backup", "configure-auto-backup", "market", "start-server", "stop-server", "restart-server", "fix-network", "cleanup-images", "cleanup-build-cache", "services", "restart-service", "check-game-update", "apply-game-update", "fix-steamcmd", "check-stack-update", "apply-stack-update", "auto-update-status", "configure-auto-update", "repair-runtime", "servers", "status", "storm"]));
-    expect(commands).toHaveLength(77);
+    expect(commands).toEqual(expect.arrayContaining(["music", "voice", "help", "reload", "info", "ping", "purge", "userinfo", "ban", "kick", "timeout", "players", "profile", ...Object.values(PLAYER_ADMIN_COMMAND_NAMES), "backups", "create-backup", "restore-backup", "download-backup", "delete-backup", "delete-all-backups", "import-backup", "configure-auto-backup", "market", "start-server", "stop-server", "restart-server", "fix-network", "cleanup-images", "cleanup-build-cache", "services", "restart-service", "check-game-update", "apply-game-update", "fix-steamcmd", "check-stack-update", "apply-stack-update", "auto-update-status", "configure-auto-update", "repair-runtime", "servers", "status", "storm"]));
+    expect(commands).toHaveLength(79);
   });
 
   it("reports the native Sapphire reload count", async () => {

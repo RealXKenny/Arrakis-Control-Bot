@@ -1,12 +1,17 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import { loadChatBridgeConfig, type ChatBridgeConfig } from "./chatBridge";
+import { loadVoiceSetup, type VoiceSetupConfig } from "./voiceRooms";
+import { loadMusicConfig, type MusicConfig } from "./music";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
 interface EnvironmentConfig {
+  music?: MusicConfig;
+  voiceSetup?: VoiceSetupConfig;
+  voicePanelPublic: boolean;
   chatBridge?: ChatBridgeConfig;
   discordToken: string;
   clientId?: string;
@@ -97,6 +102,9 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   }
 
   return Object.freeze({
+    music: loadMusicConfig(process.env),
+    voiceSetup: loadVoiceSetup(process.env),
+    voicePanelPublic: parseBoolean(process.env.VOICE_PANEL_PUBLIC, true, "VOICE_PANEL_PUBLIC"),
     chatBridge: loadChatBridgeConfig(process.env),
     discordToken,
     clientId: process.env.CLIENT_ID,

@@ -1,6 +1,11 @@
 import type { Interaction } from "discord.js";
 
 const BUTTON_IDS = [
+  "music:request", "music:now", "music:queue", "music:pause", "music:resume", "music:skip",
+  "music:volume", "music:clear", "music:stop", "music:cancel", "music-confirm:stop", "music-confirm:clear",
+  "voice:rename", "voice:limit", "voice:lock", "voice:unlock", "voice:hide", "voice:show",
+  "voice:permit", "voice:reject", "voice:kick", "voice:delete",
+  "voice:info", "voice:reset",
   "blueprint-upload",
   "member-captcha",
   "player-link",
@@ -12,10 +17,11 @@ const BUTTON_IDS = [
   "ticket-review",
   "ticket-unclaim",
 ] as const;
-const BUTTON_PREFIXES = ["help-page:", "market-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:"] as const;
+const BUTTON_PREFIXES = ["voice-kick-page:", "voice-reset:", "voice-close:", "voice-cancel:", "help-page:", "market-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:"] as const;
 const MENU_IDS = ["self-assignable-roles", "ticket-category"] as const;
-const MENU_PREFIXES = ["help-category:", "market-category:"] as const;
+const MENU_PREFIXES = ["voice-member:", "help-category:", "market-category:"] as const;
 const MODAL_IDS = [
+  "music-edit:request", "music-edit:volume",
   "blueprint-upload-modal",
   "member-captcha-modal",
   "player-link-modal",
@@ -23,7 +29,7 @@ const MODAL_IDS = [
   "ticket-create-modal",
   "ticket-review-modal",
 ] as const;
-const MODAL_PREFIXES = ["ticket-create-modal:", "ticket-review-modal:"] as const;
+const MODAL_PREFIXES = ["voice-edit:", "ticket-create-modal:", "ticket-review-modal:"] as const;
 
 function matchesCustomId(customId: string, exactId: string, prefix?: string): boolean {
   return customId === exactId || Boolean(prefix && customId.startsWith(prefix));

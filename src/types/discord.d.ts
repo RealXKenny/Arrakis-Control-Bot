@@ -5,9 +5,13 @@ import type { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
 import type { RateLimiter } from "../infrastructure/rate-limit/InMemoryRateLimiter";
 import type { TicketRepository } from "../infrastructure/database/tickets/TicketRepository";
 import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
+import type { VoiceService } from "../modules/voice/VoiceService";
+import type { MusicService } from "../modules/music/MusicService";
 
 declare module "discord.js" {
   interface Client {
+    music?: MusicService;
+    voiceRooms?: VoiceService;
     chatBridge?: DiscordGameChatBridge;
     auditLogger: DiscordAuditLogger;
     auditLogInterval?: NodeJS.Timeout;

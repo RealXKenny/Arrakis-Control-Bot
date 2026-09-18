@@ -12,7 +12,7 @@ Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-bra
 - A Discord bot token with the intents and permissions used by the configured commands
 - A reachable Dune Console HTTPS endpoint and a scoped API key
 - Optional Convoy and Discord Adapter credentials for their integrations
-- PostgreSQL when the support ticket system is enabled
+- PostgreSQL for support tickets and persistent join-to-create voice rooms
 
 Copy `.env.example` to `.env` and fill in the required values. Never commit `.env` or credentials.
 
@@ -25,6 +25,16 @@ Ticket transcripts require the Discord **Message Content Intent**. Enable it for
 ## Discord ↔ game chat over RabbitMQ
 
 See the [complete RabbitMQ ↔ Discord setup guide](guides/rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map.
+
+## Join-to-create voice rooms
+
+Configure `DATABASE_URL`, restart the bot, then run `/voice setup join:<voice channel> category:<category> panel:<text channel>` with **Manage Server** permission. Members joining the trigger receive a personal voice room; controls work only for the creator while inside their own room. Ownership and setup survive restarts, and empty rooms are automatically removed.
+
+See the [voice-room setup and control guide](guides/voice-rooms.md) for permissions, commands, panel controls, and recovery behavior.
+
+## Lavalink music lounge
+
+Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and `MUSIC_*` values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts song names/links in the dedicated request text channel, and provides a public panel and `/music` commands. Playback controls belong to the current song's requester. The queue and playback checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
 
 ## Development
 

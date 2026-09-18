@@ -9,6 +9,8 @@ describe("Sapphire listener store", () => {
       expect.arrayContaining([
         "guildMemberAdd",
         "guildMemberRemove",
+        "voiceStateUpdate",
+        "musicRequest",
         "interactionCreate",
         "ready",
         "commandDenied",

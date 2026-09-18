@@ -60,6 +60,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
     const botUser = client.user;
     client.chatBridge?.start();
+    client.music?.start();
     const serverName = process.env.SERVER_NAME || DEFAULT_SERVER_NAME;
     const presenceStatuses = statuses(serverName);
 
@@ -88,6 +89,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
     this.container.logger.info(`Ready! Logged in as ${botUser.tag}.`);
 
     client.auditLogInterval = startAuditLogForwarder(client);
+    await runReadyTask("recover temporary voice rooms", async () => { await client.voiceRooms?.start(); });
     await runReadyTask("configure storm announcements", () => {
       client.stormAnnouncementInterval = startStormAnnouncements(client);
       return Promise.resolve();
@@ -133,10 +135,13 @@ async function setupVersionAnnouncements(): Promise<void> {
 
   const intervalMinutes = Math.max(Number(client.versionAnnouncementIntervalMinutes) || DEFAULT_ANNOUNCEMENT_INTERVAL_MINUTES, 1);
 
+  let checking = false;
   client.versionAnnouncementInterval = setInterval(() => {
+    if (checking) return;
+    checking = true;
     announceCurrentVersion(client, channelId).catch((error: unknown) => {
       container.logger.error("Unable to check for new version announcements.", error);
-    });
+    }).finally(() => { checking = false; });
   }, intervalMinutes * 60_000);
 }
 

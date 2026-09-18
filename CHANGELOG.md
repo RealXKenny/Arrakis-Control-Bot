@@ -2,6 +2,48 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.10.2] - 2026-09-17
+
+### Added
+
+- Listen-only music voice: server-mute human listeners on entry and restore bot-owned mutes on exit. PostgreSQL preserves pending cleanup across restarts; disconnected members are restored on their next voice connection outside the lounge. Pre-existing server mutes are preserved.
+
+- Track artwork in the music panel's Now Playing response and `/music now`, with YouTube thumbnail fallback.
+
+- Public Music Lounge panel with song-request and volume forms, queue/current-song views, playback buttons, and stop/clear confirmations. Automatically reuses the panel after restarts; `/music panel` lets administrators refresh it. Playback controls recheck voice membership on submission.
+
+- Optional Lavalink v4 music lounge with a permanent voice connection, automatic connection recovery, text song requests, `/music` queue/playback controls, listener checks, and bounded playlists/queues. Settings are documented in `.env.example`.
+
+- Persistent join-to-create voice rooms with `/voice` setup and owner commands, a shared control panel, database-backed ownership, startup reconciliation, and empty-room cleanup. Controls require the creator to be inside their own room; interrupted creation is recoverable through persisted channel markers.
+
+- Resolve game-to-Discord sender labels to in-game character names through the Console player directory, with exact Funcom ID matching, paginated caching, online-character preference and sender-ID fallback when resolution is unavailable or ambiguous.
+
+### Changed
+
+- Music playback controls belong to the current song's requester while in voice. PostgreSQL now saves queued tracks, requester ownership, volume, pause state, and five-second playback checkpoints for restart recovery; music requires `DATABASE_URL`.
+
+- Redesign the public voice panel with an Arrakis banner, grouped controls, clear button labels and a direct join-channel link; existing panels upgrade in place.
+
+- Close independent bot resources even when another cleanup fails or hangs, and clear completed shutdown timers.
+- Reuse the log timestamp formatter and stop overlapping version announcement checks.
+- Consolidate bounded download handling and report explicit Console failures and Convoy network errors consistently.
+
+### Fixed
+
+- Preserve help and market sessions during reads at capacity, with direct expiry checks on reads and bounded cleanup on insertion.
+- Suppress concurrent duplicate game messages and continue relaying to other Discord destinations after a channel failure.
+- Reject Convoy routes outside the configured origin and accept successful empty responses.
+
+### Upgrade notes
+
+- Music requires `DATABASE_URL`; its queue, playback checkpoints and pending voice unmutes are stored automatically. Supply the new `LAVALINK_*` and `MUSIC_*` settings from `.env.example` to enable it.
+- Grant music panel access, Attach Files and Embed Links, plus Connect/Speak in the music voice channel and Mute Members wherever listener mutes must be restored. Fully disconnected listeners are unmuted on their next voice connection outside the lounge.
+- Configure join-to-create rooms with `/voice setup` or the `VOICE_*` environment settings. Playback controls require the current song's requester; room controls require the room creator.
+
+### Verification
+
+- Build, lint and 264 automated tests across 50 test files pass. Live restart recovery, voice permission behavior and Lavalink source availability require deployment testing.
+
 ## [1.10.1] - 2026-09-17
 
 ### Changed

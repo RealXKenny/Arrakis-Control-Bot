@@ -15,16 +15,18 @@ const MAX_SESSIONS = 500;
 const sessions = new Map<string, HelpSession>();
 
 function sweepHelpSessions(now = Date.now()): void {
-  for (const [id, session] of sessions) if (now - session.touchedAt > SESSION_TTL_MS) sessions.delete(id);
-  while (sessions.size >= MAX_SESSIONS) {
-    const oldest = sessions.keys().next().value as string | undefined;
-    if (!oldest) break;
-    sessions.delete(oldest);
+  for (const [id, session] of sessions) {
+    if (now - session.touchedAt > SESSION_TTL_MS) sessions.delete(id);
   }
 }
 
 function createHelpSession(options: { ownerId: string; requestedBy: string; categoryId?: string }): HelpSession {
   sweepHelpSessions();
+  while (sessions.size >= MAX_SESSIONS) {
+    const oldest = sessions.keys().next().value as string | undefined;
+    if (!oldest) break;
+    sessions.delete(oldest);
+  }
   const session: HelpSession = {
     id: randomBytes(9).toString("base64url"),
     ownerId: options.ownerId,
@@ -39,9 +41,12 @@ function createHelpSession(options: { ownerId: string; requestedBy: string; cate
 }
 
 function getHelpSession(id: string): HelpSession | null {
-  sweepHelpSessions();
   const session = sessions.get(id);
   if (!session) return null;
+  if (Date.now() - session.touchedAt > SESSION_TTL_MS) {
+    sessions.delete(id);
+    return null;
+  }
   session.touchedAt = Date.now();
   sessions.delete(id);
   sessions.set(id, session);

@@ -24,16 +24,15 @@ function sweepSessions(now = Date.now()): void {
   for (const [id, session] of sessions) {
     if (now - session.touchedAt > SESSION_TTL_MS) sessions.delete(id);
   }
+}
 
+function createMarketSession(options: { ownerId: string; requestedBy: string; search?: string; category?: string; seller?: string; page?: number }): MarketSession {
+  sweepSessions();
   while (sessions.size >= MAX_SESSIONS) {
     const oldestId = sessions.keys().next().value as string | undefined;
     if (!oldestId) break;
     sessions.delete(oldestId);
   }
-}
-
-function createMarketSession(options: { ownerId: string; requestedBy: string; search?: string; category?: string; seller?: string; page?: number }): MarketSession {
-  sweepSessions();
 
   const seller: MarketSeller = options.seller === "player" || options.seller === "bot" ? options.seller : "all";
   const session: MarketSession = {
@@ -54,10 +53,12 @@ function createMarketSession(options: { ownerId: string; requestedBy: string; se
 }
 
 function getMarketSession(id: string): MarketSession | null {
-  sweepSessions();
-
   const session = sessions.get(id);
   if (!session) return null;
+  if (Date.now() - session.touchedAt > SESSION_TTL_MS) {
+    sessions.delete(id);
+    return null;
+  }
 
   session.touchedAt = Date.now();
   sessions.delete(id);

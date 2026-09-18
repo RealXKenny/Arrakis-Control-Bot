@@ -14,6 +14,7 @@ src/
 │   └── shard.ts
 ├── commands/                              Sapphire Command store
 │   ├── administration/operations/
+│   ├── community/{music,voice}/
 │   ├── economy/market/
 │   ├── general/{help,information}/
 │   ├── moderation/{members,messages}/
@@ -35,7 +36,8 @@ src/
 │   ├── market/navigation/
 │   ├── players/{blueprints,linking}/
 │   ├── system/fallbacks/
-│   └── tickets/{intake,reviews,workflow}/
+│   ├── tickets/{intake,reviews,workflow}/
+│   └── voice/
 ├── listeners/                             Sapphire Listener store
 │   ├── discord/
 │   └── sapphire/
@@ -47,15 +49,18 @@ src/
 │   ├── community/{faq,onboarding,roles,rules,verification}/
 │   ├── help/
 │   ├── market/
+│   ├── music/
 │   ├── players/{administration,blueprints,directory,linking}/
 │   ├── releases/
 │   ├── server/{backups,information,operations,status}/
 │   ├── tickets/
 │   ├── updates/
+│   ├── voice/
 │   └── world/storms/
 ├── infrastructure/                        External drivers and persistence
+│   ├── audio/
 │   ├── config/
-│   ├── database/tickets/
+│   ├── database/{tickets,voice,music}/
 │   ├── http/{convoy,discord-adapter,dune-console}/
 │   └── rate-limit/
 ├── support/                               Sapphire and Discord framework glue
@@ -77,11 +82,13 @@ tests/
 │   ├── community/{faq,onboarding}/
 │   ├── help/
 │   ├── market/
+│   ├── music/
 │   ├── players/{administration,directory}/
 │   ├── releases/
 │   ├── server/{backups,information,operations}/
 │   ├── tickets/
 │   ├── updates/
+│   ├── voice/
 │   └── world/storms/
 ├── shared/discord/
 └── stores/

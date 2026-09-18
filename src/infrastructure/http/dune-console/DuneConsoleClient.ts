@@ -1,4 +1,5 @@
 import { URL } from "node:url";
+import { readBoundedBody } from "../readBoundedBody";
 import { createLogger } from "../../../client/logger";
 import { MAX_BLUEPRINT_BYTES, validateBlueprintUpload } from "../../../modules/players/blueprints/blueprintValidator";
 
@@ -80,10 +81,11 @@ class DuneConsoleClient {
     const contentLength = Number(fileResponse.headers.get("content-length"));
 
     if (Number.isFinite(contentLength) && contentLength > MAX_BLUEPRINT_BYTES) {
+      await fileResponse.body?.cancel();
       throw new Error("Blueprint files must be 32 MB or smaller.");
     }
 
-    const fileBuffer = await readBoundedBody(fileResponse, MAX_BLUEPRINT_BYTES);
+    const fileBuffer = await readBoundedBody(fileResponse, MAX_BLUEPRINT_BYTES, "Blueprint files must be 32 MB or smaller.");
 
     validateBlueprintUpload(attachment, fileBuffer);
 
@@ -168,7 +170,7 @@ class DuneConsoleClient {
 
     const data = await this.readResponse(response);
 
-    if (!response.ok) {
+    if (!response.ok || isFailedResponse(data)) {
       const message = getResponseMessage(data) ?? `Request failed with HTTP ${response.status}.`;
 
       logger.warn(`${method} ${route} failed with HTTP ${response.status} after ${Date.now() - startedAt}ms.`);
@@ -245,7 +247,7 @@ class DuneConsoleClient {
     }
 
     return {
-      data: await readBoundedBinaryBody(response, maximumBytes),
+      data: await readBoundedBody(response, maximumBytes, `The requested archive exceeds the ${Math.floor(maximumBytes / 1024 / 1024)} MB Discord download limit.`),
       contentType: response.headers.get("content-type"),
       filename: parseContentDispositionFilename(response.headers.get("content-disposition")),
     };
@@ -297,63 +299,6 @@ function resolveConsoleUrl(route: string, baseUrl: string): URL {
   }
 
   return url;
-}
-
-async function readBoundedBody(response: Response, maximumBytes: number): Promise<Buffer> {
-  if (!response.body) {
-    return Buffer.alloc(0);
-  }
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let totalBytes = 0;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) break;
-
-      totalBytes += value.byteLength;
-
-      if (totalBytes > maximumBytes) {
-        await reader.cancel();
-        throw new Error("Blueprint files must be 32 MB or smaller.");
-      }
-
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  return Buffer.concat(chunks, totalBytes);
-}
-
-async function readBoundedBinaryBody(response: Response, maximumBytes: number): Promise<Buffer> {
-  if (!response.body) return Buffer.alloc(0);
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let totalBytes = 0;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      totalBytes += value.byteLength;
-      if (totalBytes > maximumBytes) {
-        await reader.cancel();
-        throw new Error(`The requested archive exceeds the ${Math.floor(maximumBytes / 1024 / 1024)} MB Discord download limit.`);
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  return Buffer.concat(chunks, totalBytes);
 }
 
 function parseContentDispositionFilename(value: string | null): string | null {

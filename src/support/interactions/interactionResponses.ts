@@ -35,6 +35,7 @@ function formatError(error: unknown): string {
 function safeJson(value: unknown): string {
   try {
     const text = JSON.stringify(value);
+    if (text === undefined) return "";
     return text.length <= 1_000 ? text : `${text.slice(0, 1_000)}…`;
   } catch {
     return "[unserializable]";

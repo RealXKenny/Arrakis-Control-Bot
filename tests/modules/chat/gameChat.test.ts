@@ -224,14 +224,29 @@ describe("Discord chat routing", () => {
     expect(send.mock.calls[0][0].content).not.toContain("[Owner]");
     await bridge.stop();
   });
-  function setup(displayName?: string, routes = config.routes, ownerRoleId?: string) {
+  function setup(displayName?: string, routes = config.routes, ownerRoleId?: string, resolveName?: (sender: string) => Promise<string>) {
     const send = vi.fn().mockResolvedValue({});
     const channel = { isSendable: () => true, guildId: route.guildId, send };
     const client = Object.assign(new EventEmitter(), { guilds: { cache: new Map([[route.guildId, {}]]) }, channels: { fetch: vi.fn().mockResolvedValue(channel) } });
     const info = vi.fn();
-    const bridge = new DiscordGameChatBridge(client as unknown as Client, { ...config, displayName, routes }, vi.fn(), info, ownerRoleId);
+    const bridge = new DiscordGameChatBridge(client as unknown as Client, { ...config, displayName, routes }, vi.fn(), info, ownerRoleId, resolveName);
     return { bridge, client, send, info };
   }
+
+  it("displays escaped character names while preserving sender-based echo and duplicate filtering", async () => {
+    const resolve = vi.fn().mockResolvedValue("Desert *Walker*");
+    const { bridge, send } = setup(undefined, config.routes, undefined, resolve);
+    await bridge.sendToDiscord(route.map, encodeMapChat(config.funcomId, "echo").body);
+    expect(resolve).not.toHaveBeenCalled();
+    const body = encodeMapChat("Player#1234", "hello").body;
+    await bridge.sendToDiscord(route.map, body);
+    await bridge.sendToDiscord(route.map, body);
+    expect(resolve).toHaveBeenCalledExactlyOnceWith("Player#1234");
+    expect(send.mock.calls[0][0].content).toBe("**[Hagga Basin] Desert \\*Walker\\*:** hello");
+    resolve.mockRejectedValue(new Error("unavailable"));
+    await bridge.sendToDiscord(route.map, encodeMapChat("Other#1234", "hello").body);
+    expect(send.mock.calls[1][0].content).toBe("**[Hagga Basin] Other#1234:** hello");
+  });
 
   it("binds and relays all seven maps with independent IDs and continues after a rejected map", async () => {
     const { channel } = mockBroker();
@@ -261,6 +276,29 @@ describe("Discord chat routing", () => {
       "Hagga Basin", "Hagga Basin PvP", "Deep Desert PvP", "Deep Desert PvE", "Arrakeen", "Harko Village", "World Overmap",
     ].map((label) => `**[${label}] Player#1234:** test`));
     await bridge.stop();
+  });
+
+  it("suppresses concurrent duplicates while resolving a character name", async () => {
+    let resolveName!: (value: string) => void;
+    const resolver = vi.fn(() => new Promise<string>((resolve) => { resolveName = resolve; }));
+    const { bridge, send } = setup(undefined, [route], undefined, resolver);
+    const body = encodeMapChat("Player#1234", "hello").body;
+    const first = bridge.sendToDiscord(route.map, body);
+    await bridge.sendToDiscord(route.map, body);
+    resolveName("Character");
+    await first;
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("continues to another Discord destination when one rejects delivery", async () => {
+    const routes = [route, { ...route, channelId: "345678901234567890" }];
+    const { bridge, send } = setup(undefined, routes);
+    send.mockRejectedValueOnce(new Error("missing permissions"));
+    const body = encodeMapChat("Player#1234", "hello").body;
+    await expect(bridge.sendToDiscord(route.map, body)).rejects.toThrow("destinations failed");
+    expect(send).toHaveBeenCalledTimes(2);
+    await bridge.sendToDiscord(route.map, body);
+    expect(send).toHaveBeenCalledTimes(3);
   });
 
   it("suppresses echoes, duplicate IDs and unmapped maps, and disables Discord mentions", async () => {

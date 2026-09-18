@@ -1,0 +1,76 @@
+import { Collection, type Client, type ButtonInteraction, type ModalSubmitInteraction, type Interaction } from "discord.js";
+import { expect, it, vi } from "vitest";
+import { MusicPanelPublisher, musicPanel } from "../../../src/modules/music/musicPanel";
+import { handleMusicInteraction } from "../../../src/modules/music/musicInteractions";
+import { isKnownComponentInteraction } from "../../../src/support/interactions/componentCustomIds";
+import { MUSIC_BUTTON_ACTIONS } from "../../../src/modules/music/musicPanel";
+
+it("routes all panel controls and forms past the unavailable-component fallback", () => {
+  for (const customId of [...MUSIC_BUTTON_ACTIONS.map((action) => `music:${action}`), "music:cancel", "music-confirm:clear", "music-confirm:stop", "music-edit:request", "music-edit:volume"]) {
+    expect(isKnownComponentInteraction({ customId, isButton: () => !customId.startsWith("music-edit:"), isAnySelectMenu: () => false,
+      isModalSubmit: () => customId.startsWith("music-edit:") } as unknown as Interaction)).toBe(true);
+  }
+});
+
+it("reuses a panel buried below a full page of requests and coalesces publications", async () => {
+  const edit = vi.fn();
+  const history = new Collection(Array.from({ length: 100 }, (_, i) => [String(i), { id: String(i), author: { id: "listener" }, components: [] }]));
+  const fetch = vi.fn().mockResolvedValueOnce(history).mockResolvedValueOnce(new Collection([["panel", {
+    author: { id: "bot" }, components: musicPanel("voice").components, edit,
+  }]]));
+  const send = vi.fn();
+  const client = { user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue({
+    isTextBased: () => true, isSendable: () => true, isDMBased: () => false, messages: { fetch }, send,
+  }) } };
+  const publisher = new MusicPanelPublisher(client as unknown as Client, "requests", "voice");
+  await Promise.all([publisher.publish(), publisher.publish()]);
+  expect(fetch).toHaveBeenNthCalledWith(2, { limit: 100, before: "99" });
+  expect(edit).toHaveBeenCalledOnce();
+  expect(send).not.toHaveBeenCalled();
+});
+
+it("does not create a duplicate when history cannot be read", async () => {
+  const send = vi.fn();
+  const client = { channels: { fetch: vi.fn().mockResolvedValue({ isTextBased: () => true, isSendable: () => true,
+    isDMBased: () => false, messages: { fetch: vi.fn().mockRejectedValue(new Error("Forbidden")) }, send }) } };
+  const publisher = new MusicPanelPublisher(client as unknown as Client, "requests", "voice");
+  await expect(publisher.publish()).rejects.toThrow("Forbidden");
+  expect(publisher.ready).toBe(false);
+  expect(send).not.toHaveBeenCalled();
+});
+
+function interaction(customId: string, modal = false) {
+  const service = { authorize: vi.fn(), requireRequester: vi.fn(), action: vi.fn(), request: vi.fn().mockResolvedValue("Queued"),
+    describeQueue: vi.fn().mockReturnValue("Queue"), errorMessage: () => "Join the music voice channel." };
+  const value = { customId, client: { music: service }, guild: { id: "guild" }, channelId: "requests", user: { id: "user" },
+    isButton: () => !modal, isModalSubmit: () => modal, deferred: true,
+    deferReply: vi.fn(), deferUpdate: vi.fn(), editReply: vi.fn(), reply: vi.fn(), showModal: vi.fn(),
+    fields: { getTextInputValue: () => "Song" } };
+  return { value: value as unknown as ButtonInteraction | ModalSubmitInteraction, service, mocks: value };
+}
+
+it("allows queue viewing without voice membership", async () => {
+  const { value, service, mocks } = interaction("music:queue");
+  await handleMusicInteraction(value);
+  expect(service.authorize).toHaveBeenCalledWith(value.guild, "requests", "user", false);
+  expect(mocks.editReply).toHaveBeenCalledWith(expect.objectContaining({ content: "Queue", allowedMentions: { parse: [] } }));
+});
+
+it.each(["music-edit:request", "music-confirm:stop"])("rechecks membership on %s before changing playback", async (id) => {
+  const { value, service } = interaction(id, id.startsWith("music-edit"));
+  service.authorize.mockRejectedValue(new Error("left voice"));
+  await handleMusicInteraction(value);
+  expect(service.action).not.toHaveBeenCalled();
+  expect(service.request).not.toHaveBeenCalled();
+});
+
+it("asks before clearing and removes the confirmation controls after completion", async () => {
+  const first = interaction("music:clear");
+  await handleMusicInteraction(first.value);
+  expect(first.service.action).not.toHaveBeenCalled();
+  expect(first.mocks.editReply).toHaveBeenCalledWith(expect.objectContaining({ components: expect.any(Array) }));
+  const confirm = interaction("music-confirm:clear");
+  await handleMusicInteraction(confirm.value);
+  expect(confirm.service.action).toHaveBeenCalledWith(confirm.value.guild, "requests", "user", "clear");
+  expect(confirm.mocks.editReply).toHaveBeenCalledWith(expect.objectContaining({ components: [] }));
+});

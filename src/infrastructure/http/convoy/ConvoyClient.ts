@@ -18,13 +18,20 @@ class ConvoyClient {
       throw new Error("API_KEY is required for the Convoy API.");
     }
 
-    this.baseUrl = new URL(baseUrl).toString();
+    const parsedUrl = new URL(baseUrl);
+    if (!["https:", "http:"].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) {
+      throw new Error("Convoy URL must use HTTP(S) without embedded credentials.");
+    }
+    this.baseUrl = parsedUrl.toString();
     this.apiKey = apiKey;
   }
 
   request(method: string, route: string, options: ConvoyRequestOptions = {}): Promise<unknown> {
     const { query, body, binary = false } = options;
     const url = new URL(route, this.baseUrl);
+    if (url.origin !== new URL(this.baseUrl).origin || url.username || url.password) {
+      throw new Error("Convoy API routes must use the configured origin without credentials.");
+    }
 
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined && value !== null) {
@@ -36,16 +43,25 @@ class ConvoyClient {
   }
 
   async #request(method: string, url: URL, body: unknown, binary: boolean): Promise<unknown> {
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Accept: binary ? "image/png" : "application/json",
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          Accept: binary ? "image/png" : "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      throw new ConvoyApiError("Convoy API network request failed.", 0, {
+        cause: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
+
+    if (response.status === 204) return null;
 
     if (binary) {
       if (!response.ok) {

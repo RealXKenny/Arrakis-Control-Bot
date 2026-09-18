@@ -1,3 +1,4 @@
+import { cleanupResources } from "../shared/process/cleanupResources";
 import { GatewayIntentBits } from "discord.js";
 import { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
 import { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
@@ -9,10 +10,22 @@ import { TicketRepository } from "../infrastructure/database/tickets/TicketRepos
 import { ArrakisClient } from "./ArrakisClient";
 import type { ChatBridgeConfig } from "../infrastructure/config/chatBridge";
 import { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
+import { ChatPlayerNames } from "../modules/chat/ChatPlayerNames";
+import { VoiceRepository } from "../infrastructure/database/voice/VoiceRepository";
+import { VoiceService } from "../modules/voice/VoiceService";
+import type { VoiceSetupConfig } from "../infrastructure/config/voiceRooms";
+import type { MusicConfig } from "../infrastructure/config/music";
+import { MusicService } from "../modules/music/MusicService";
+import { MusicRepository } from "../infrastructure/database/music/MusicRepository";
+import { MusicMuteRepository } from "../infrastructure/database/music/MusicMuteRepository";
+import { MusicVoiceMute } from "../modules/music/MusicVoiceMute";
 
 export type BotClient = ArrakisClient;
 
 interface BotConfig {
+  music?: MusicConfig;
+  voiceSetup?: VoiceSetupConfig;
+  voicePanelPublic?: boolean;
   chatBridge?: ChatBridgeConfig;
   logLevel?: string;
   duneConsoleApiKey: string;
@@ -72,6 +85,8 @@ function createBotApplication(config: BotConfig) {
       await client.tickets.initialize();
       logger.info("PostgreSQL ticket storage is ready.");
     }
+    await client.voiceRooms?.initialize();
+    await client.music?.initialize();
 
     logger.info(`Dune Console API key authentication enabled; ${client.duneApi.endpoints.length} API endpoints are catalogued and access is controlled by key scopes.`);
 
@@ -94,34 +109,25 @@ function createBotApplication(config: BotConfig) {
     if (client.versionAnnouncementInterval) clearInterval(client.versionAnnouncementInterval);
     if (client.stormAnnouncementInterval) clearInterval(client.stormAnnouncementInterval);
 
-    const cleanup = (async (): Promise<void> => {
-      await client.chatBridge?.stop();
-      try {
-        await client.destroy();
-        logger.debug("Discord client closed.");
-      } catch (error) {
-        logger.error("Unable to close the Discord client cleanly.", error);
-      }
-
-      if (client.tickets) {
-        try {
-          await client.tickets.close();
-          logger.debug("PostgreSQL connection pool closed.");
-        } catch (error) {
-          logger.error("Unable to close the PostgreSQL connection pool cleanly.", error);
-        }
-      }
-    })();
-
-    await Promise.race([
-      cleanup,
-      new Promise<void>((resolve) => {
-        setTimeout(() => {
-          logger.warn("Graceful shutdown timed out; forcing process exit.");
-          resolve();
-        }, 10_000).unref();
-      }),
-    ]);
+    const stopMusic = client.music?.stop() ?? Promise.resolve();
+    await cleanupResources(
+      [
+        { name: "RabbitMQ chat bridge", run: () => client.chatBridge?.stop() },
+        { name: "music and Discord client", run: async () => {
+          try { await stopMusic; }
+          finally { await client.destroy(); }
+        } },
+        { name: "voice rooms and PostgreSQL connection pool", run: async () => {
+          try { await client.voiceRooms?.stop(); }
+          finally {
+            try { await stopMusic; }
+            finally { await client.tickets?.close(); }
+          }
+        } },
+      ],
+      (name, error) => logger.error(`Unable to close the ${name} cleanly.`, error),
+      () => logger.warn("Graceful shutdown timed out; forcing process exit."),
+    );
 
     process.exitCode = exitCode;
   }
@@ -135,14 +141,22 @@ function createBotApplication(config: BotConfig) {
 
 function createClient(logLevel?: string): BotClient {
   return new ArrakisClient({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates],
     logger: { instance: createSapphireLogger("BOT", logLevel) },
   });
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {
-  client.chatBridge = config.chatBridge ? new DiscordGameChatBridge(client, config.chatBridge, (message) => client.logger.warn(message), (message) => client.logger.info(message), process.env.OWNER_ROLE_ID) : undefined;
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
+  if (config.chatBridge) {
+    const chatNames = new ChatPlayerNames(client.duneApi);
+    client.chatBridge = new DiscordGameChatBridge(
+      client, config.chatBridge,
+      (message) => client.logger.warn(message),
+      (message) => client.logger.info(message),
+      process.env.OWNER_ROLE_ID, chatNames.resolve,
+    );
+  }
   client.convoyApi = config.advinApiKey ? new ConvoyClient(config.advinApiUrl, config.advinApiKey) : null;
   client.discordAdapter = config.duneDiscordAdapterToken ? new DiscordAdapterClient(config.duneConsoleUrl, config.duneDiscordAdapterToken) : null;
   client.discordAdapterLinkPanelChannelId = config.duneDiscordLinkPanelChannelId ?? undefined;
@@ -157,6 +171,10 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordTicketCategoryId = config.discordTicketCategoryId ?? undefined;
   client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
   client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl) : null;
+  client.voiceRooms = client.tickets ? new VoiceService(client, new VoiceRepository(client.tickets.pool), config.voicePanelPublic ?? true, config.voiceSetup) : undefined;
+  if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
+  client.music = config.music && client.tickets ? new MusicService(client, config.music, new MusicRepository(client.tickets.pool),
+    new MusicVoiceMute(client, config.music.guildId, config.music.voiceChannelId, new MusicMuteRepository(client.tickets.pool))) : undefined;
   client.versionAnnouncementIntervalMinutes = config.versionAnnouncementIntervalMinutes;
   client.interactionRateLimiter = new RateLimiter({
     durationMs: config.interactionCooldownMs,

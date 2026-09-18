@@ -156,7 +156,7 @@ Connect using a hostname covered by the certificate, or set `RABBITMQ_TLS_SERVER
 
 Discord-to-game messages get an `[Owner]` label when the Discord sender holds `OWNER_ROLE_ID` in the source server. For example: `[Discord] [Owner] Kenny: hello`. The bridge checks the message member roles directly; no player link, verification, Discord Adapter or Console player-profile lookup is required for this label. Game-to-Discord messages show the game sender without an Owner tag.
 
-The optional bridge connects directly from the bot machine to the game's RabbitMQ server. Each configured Discord channel sends human messages to its mapped game maps and receives their chat. Repeat a channel ID with different map keys to share one channel across maps. Discord messages appear through the registered game persona with `[Discord] Display Name: message` attribution. Incoming names use the sender's Funcom ID because the AMQP payload does not supply a reliable resolved character name.
+The optional bridge connects directly from the bot machine to the game's RabbitMQ server. Each configured Discord channel sends human messages to its mapped game maps and receives their chat. Repeat a channel ID with different map keys to share one channel across maps. Discord messages appear through the registered game persona with `[Discord] Display Name: message` attribution. Incoming messages display the in-game character name resolved from the Console player directory, using the exact Funcom ID in the AMQP message.
 
 Add these variables to the bot machine's `.env` (replace the example IDs, host and password):
 
@@ -231,6 +231,12 @@ npm start
 For development, use `npm run dev` instead of the production start. Stop the previous instance first; two deployments can relay duplicates. The base bot still requires `TOKEN`, `CONSOLE_URL` and `CONSOLE_API_KEY`, as described in the [main README](../README.md). The RabbitMQ settings do not replace these values.
 
 Verify startup logs list all configured routes and report that the map consumer is active. For each map with an online player, send a uniquely identifiable short Discord message, verify it in game, then send a game message and verify its map label in Discord. A partial-failure reply lists unconfirmed maps; some other maps may already have received the message, so avoid resending blindly.
+
+### In-game character names in Discord
+
+The bridge reads paginated `GET /api/players` using the existing `CONSOLE_URL` and `CONSOLE_API_KEY` (`players:read` scope). It matches `funcom_id` exactly and displays `character_name`; Discord linking and Adapter authentication are not required. See the [Console API reference](https://github.com/Red-Blink/dune-awakening-selfhost-docker/blob/main/docs/console/API-REFERENCE.md#players).
+
+The directory is shared across routes and refreshed every minute, so renamed characters may take up to a minute to update. The online character is preferred when an account has older offline characters. Ambiguous matches, missing names, insufficient API permissions or a lookup exceeding 1.5 seconds fall back to the original sender ID without dropping chat. Failed refreshes wait 15 seconds before retrying. Directory reads are bounded to 25 pages of 200 rows; a larger or malformed directory falls back rather than assigning potentially incorrect names from incomplete data. Names are escaped for Discord; the original sender ID remains in use for echo suppression.
 
 ## Troubleshooting by symptom
 

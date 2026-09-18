@@ -253,3 +253,36 @@ describe("external API clients", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+
+describe("API failure handling", () => {
+  it("accepts empty Convoy success responses", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    await expect(new ConvoyClient("https://vps.example.com", "key").request("DELETE", "/resource")).resolves.toBeNull();
+  });
+
+  it("wraps Convoy network failures without replaying a mutation", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("failed"));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(new ConvoyClient("https://vps.example.com", "key").request("POST", "/resource")).rejects.toMatchObject({ name: "ConvoyApiError", status: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects foreign Convoy routes before exposing authentication", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ConvoyClient("https://vps.example.com", "key");
+    expect(() => client.request("GET", "https://other.example.com/resource")).toThrow("configured origin");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reports explicit Console failure bodies even with HTTP 200", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ok: false, error: "Operation rejected" })));
+    await expect(new DuneConsoleClient("https://console.example.com", "key").request("POST", "/api/server/start")).rejects.toThrow("Operation rejected");
+  });
+
+  it("enforces streamed archive limits without Content-Length", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("oversized")));
+    await expect(new DuneConsoleClient("https://console.example.com", "key").requestBinary("GET", "/archive", 8)).rejects.toThrow("exceeds");
+  });
+});
