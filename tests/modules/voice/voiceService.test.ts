@@ -5,7 +5,7 @@ import type { VoiceRepository, VoiceRoom } from "../../../src/infrastructure/dat
 import { voicePanel } from "../../../src/modules/voice/voicePanel";
 import { createVoiceCommand, voiceCommandDefinition } from "../../../src/support/commands/voiceCommandFactory";
 import { VOICE_COMMANDS, type VoiceCommandAction } from "../../../src/modules/voice/voiceCommands";
-const VoiceCommand = createVoiceCommand("setup");
+const VoiceCommand = createVoiceCommand();
 
 function fixture() {
   let saved: VoiceRoom | null = null;
@@ -248,6 +248,6 @@ describe("temporary voice rooms", () => {
     expect(children.filter((child) => child.type === 1).flatMap((row) => row.components)).toHaveLength(12);
     const definitions = (Object.keys(VOICE_COMMANDS) as VoiceCommandAction[]).map((action) => voiceCommandDefinition(action).toJSON());
     expect(definitions).toHaveLength(13);
-    expect(definitions.every((definition) => definition.name.startsWith("voice-") && !definition.options?.some((option) => option.type === 1 || option.type === 2))).toBe(true);
+    expect(definitions.every((definition) => definition.type === 1 && !definition.options?.some((option) => Number(option.type) === 1 || Number(option.type) === 2))).toBe(true);
   });
 });

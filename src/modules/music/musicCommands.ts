@@ -6,8 +6,8 @@ export const MUSIC_COMMANDS = {
   pause: "Pause your currently playing song.",
   resume: "Resume your currently playing song.",
   volume: "Set the volume while your song is playing.",
-  stop: "Stop your song and clear the queue; remain in voice.",
-  clear: "Clear upcoming songs while your song is playing.",
+  stop: "Stop playback and clear the queue (Owner role required).",
+  clear: "Clear upcoming songs (Owner role required).",
   "music-panel": "Publish or refresh the music controls (Manage Server).",
 } as const;
 export type MusicCommandName = keyof typeof MUSIC_COMMANDS;

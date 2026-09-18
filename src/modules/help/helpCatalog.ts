@@ -1,5 +1,4 @@
-import { VOICE_COMMANDS } from "../voice/voiceCommands";
-import { MUSIC_COMMANDS } from "../music/musicCommands";
+import { GROUPED_ACTIONS } from "../../support/commands/groupedCommandCatalog";
 import { PLAYER_ADMIN_COMMAND_NAMES } from "../../support/commands/playerAdminCommandFactory";
 
 type HelpAccess = "Everyone" | "Staff" | "Owner";
@@ -7,6 +6,7 @@ type HelpAccess = "Everyone" | "Staff" | "Owner";
 interface HelpCommandEntry {
   name: string;
   access?: HelpAccess;
+  description?: string;
 }
 
 interface HelpCategory {
@@ -24,9 +24,9 @@ function playerCommands(group: string): HelpCommandEntry[] {
     .map(([, name]) => ({ name }));
 }
 
-const HELP_CATEGORIES: readonly HelpCategory[] = [
+const LEGACY_CATEGORIES: readonly HelpCategory[] = [
   { id: "general", label: "General", description: "Bot information and member utilities.", emoji: "📖", access: "Everyone", commands: [{ name: "help" }, { name: "info" }, { name: "ping" }, { name: "userinfo" }] },
-  { id: "community", label: "Community & World", description: "Players, profiles, the market, and Arrakis events.", emoji: "🏜️", access: "Everyone", commands: [{ name: "players" }, { name: "profile" }, { name: "market" }, { name: "storm" }, ...Object.keys(VOICE_COMMANDS).map((action) => ({ name: `voice-${action}` })), ...Object.keys(MUSIC_COMMANDS).map((name) => ({ name }))] },
+  { id: "community", label: "Community & World", description: "Players, profiles, the market, and Arrakis events.", emoji: "🏜️", access: "Everyone", commands: [{ name: "players" }, { name: "profile" }, { name: "market" }, { name: "storm" }, { name: "voice" }, { name: "music" }, { name: "player catalog", description: "Search bundled item, skill, vehicle, journey, augment, XP, region and market references." }] },
   { id: "moderation", label: "Moderation", description: "Discord member and message moderation.", emoji: "🛡️", access: "Staff", commands: [{ name: "ban" }, { name: "kick" }, { name: "timeout" }, { name: "purge" }] },
   { id: "player-items", label: "Player Items & Skills", description: "Grant items, XP, skills, and hydration.", emoji: "🎒", access: "Owner", commands: playerCommands("items") },
   { id: "player-actions", label: "Player Actions", description: "Game kicks, bans, teleports, login repair, and vehicles.", emoji: "🎯", access: "Owner", commands: playerCommands("actions") },
@@ -40,6 +40,14 @@ const HELP_CATEGORIES: readonly HelpCategory[] = [
   { id: "updates", label: "Updates", description: "Game, stack, SteamCMD, and runtime update controls.", emoji: "🔄", access: "Owner", commands: [{ name: "check-game-update" }, { name: "apply-game-update" }, { name: "auto-update-status" }, { name: "configure-auto-update" }, { name: "check-stack-update" }, { name: "apply-stack-update" }, { name: "fix-steamcmd" }, { name: "repair-runtime" }] },
   { id: "administration", label: "Bot Administration", description: "Owner-only bot process administration.", emoji: "⚙️", access: "Owner", commands: [{ name: "reload" }] },
 ];
+
+const HELP_CATEGORIES: readonly HelpCategory[] = LEGACY_CATEGORIES.map((category) => ({
+  ...category,
+  commands: category.commands.map((entry) => {
+    const action = GROUPED_ACTIONS.find((action) => action.legacy === entry.name);
+    return action ? { ...entry, name: [action.group, action.subgroup, action.name].filter(Boolean).join(" "), access: action.access, description: action.data.toJSON().description } : entry;
+  }),
+}));
 
 function getHelpCategory(id: string): HelpCategory | null {
   return HELP_CATEGORIES.find((category) => category.id === id) ?? null;

@@ -1,6 +1,6 @@
 # Convoy VPS integration
 
-The bot's `/servers` command uses `GET /api/v1/client/servers`, following the supplied Convoy OpenAPI 3.1 reference (`api-1.yaml`, API version 1.0.0).
+The bot's `/server vps` command uses `GET /api/v1/client/servers`, following the supplied Convoy OpenAPI 3.1 reference (`api-1.yaml`, API version 1.0.0).
 
 Set `API_URL` to your Convoy panel origin (for example, `https://vps.advinservers.com`) and `API_KEY` to a bearer API key. A URL ending in `/api/v1/client` also works. Existing origin-only settings need no change. Restart after changing configuration.
 

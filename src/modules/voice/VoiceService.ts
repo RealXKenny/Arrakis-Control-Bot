@@ -105,9 +105,9 @@ export class VoiceService {
 
   private async publishPanel(guild: Guild): Promise<void> {
     const settings = await this.repository.settings(guild.id);
-    if (!settings) throw new VoiceUserError("Run /voice-setup first.");
+    if (!settings) throw new VoiceUserError("Run /voice setup first.");
     const channel = await guild.channels.fetch(settings.panel_channel_id);
-    if (channel?.type !== ChannelType.GuildText) throw new VoiceUserError("The configured control-panel channel is unavailable. Run /voice-setup again.");
+    if (channel?.type !== ChannelType.GuildText) throw new VoiceUserError("The configured control-panel channel is unavailable. Run /voice setup again.");
     if (this.panelPublic) {
       // Remove only visibility/history denies, preserving unrelated permissions.
       const publicBits = PermissionFlagsBits.ViewChannel | PermissionFlagsBits.ReadMessageHistory;

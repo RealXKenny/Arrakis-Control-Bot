@@ -4,7 +4,7 @@ import { PLAYER_ADMIN_ACTIONS, formatPlayerAdminResponse, getPlayerAdminAction, 
 import { PLAYER_ADMIN_COMMAND_NAMES, buildPlayerAdminCommandData } from "../../../../src/support/commands/playerAdminCommandFactory";
 
 describe("player administration controls", () => {
-  it("registers every player operation as a standalone Discord command", () => {
+  it("preserves every player action definition for grouped registration", () => {
     const commands = PLAYER_ADMIN_ACTIONS.map((action) => buildPlayerAdminCommandData(action).toJSON());
     const names = commands.map((command) => command.name);
 

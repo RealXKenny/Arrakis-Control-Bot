@@ -1,0 +1,17 @@
+{
+  "_comment": "Map area_id -> sub-region display name, keyed by dune.actors.map. Extracted from the game client paks (BP_FogOfWarAreaDefineSpline_C actors in Maps/Arrakis/SOC_1/SubLevels/Survival_1_AreaDefinedSplines: m_AreaId.m_Id -> m_AreaName). The area_id space matches dune.markers.area_id, so a vehicle is labelled by the nearest marker's area.",
+  "HaggaBasin": {
+    "2": "Western Vermillius Gap",
+    "3": "Hagga Rift",
+    "4": "Mysa Tarill",
+    "5": "Eastern Shield Wall",
+    "6": "The O'odham",
+    "7": "Jabal Eifrit Al-janub",
+    "8": "Western Shield Wall",
+    "11": "Sheol",
+    "12": "Hagga Basin South",
+    "13": "Jabal Eifrit Al-sharq",
+    "14": "Eastern Vermillius Gap",
+    "16": "Jabal Eifrit Al-gharb"
+  }
+}

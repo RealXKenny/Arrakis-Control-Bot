@@ -1,0 +1,86 @@
+# Command groups
+
+The bot registers 11 top-level commands. Related actions are subcommands; options and access checks are preserved. Restart to synchronize the command list and remove retired standalone names.
+
+| Previous command | New command | Access |
+| --- | --- | --- |
+| `/reload` | `/bot reload` | Owner |
+| `/info` | `/bot info` | Everyone |
+| `/ping` | `/bot ping` | Everyone |
+| `/userinfo` | `/bot userinfo` | Everyone |
+| `/ban` | `/moderation ban` | Staff |
+| `/kick` | `/moderation kick` | Staff |
+| `/timeout` | `/moderation timeout` | Staff |
+| `/purge` | `/moderation purge` | Staff |
+| `/ban-player` | `/player actions ban` | Owner |
+| `/kick-player` | `/player actions kick` | Owner |
+| `/player-ban-status` | `/player actions ban-status` | Owner |
+| `/repair-login-queue` | `/player actions repair-login-queue` | Owner |
+| `/spawn-player-vehicle` | `/player actions spawn-vehicle` | Owner |
+| `/teleport-player` | `/player actions teleport` | Owner |
+| `/unban-player` | `/player actions unban` | Owner |
+| `/kick-all-online` | `/player bulk kick-all-online` | Owner |
+| `/players` | `/player list` | Everyone |
+| `/profile` | `/player profile` | Everyone |
+| `/augment-player-item` | `/player equipment augment-item` | Owner |
+| `/refuel-player-vehicle` | `/player equipment refuel-vehicle` | Owner |
+| `/repair-player-gear` | `/player equipment repair-gear` | Owner |
+| `/repair-vehicle-decay` | `/player equipment repair-vehicle-decay` | Owner |
+| `/delete-inventory-item` | `/player inventory delete-item` | Owner |
+| `/modify-inventory-item` | `/player inventory modify-item` | Owner |
+| `/add-player-xp` | `/player items add-xp` | Owner |
+| `/give-item-id` | `/player items give-item-id` | Owner |
+| `/give-item` | `/player items give-item` | Owner |
+| `/give-items` | `/player items give-items` | Owner |
+| `/refill-player-water` | `/player items refill-water` | Owner |
+| `/set-skill-module` | `/player items set-skill-module` | Owner |
+| `/set-skill-points` | `/player items set-skill-points` | Owner |
+| `/add-faction-reputation` | `/player progression faction-reputation` | Owner |
+| `/add-player-currency` | `/player progression add-currency` | Owner |
+| `/add-player-intel` | `/player progression add-intel` | Owner |
+| `/add-specialization-xp` | `/player progression specialization-add-xp` | Owner |
+| `/assign-player-faction` | `/player progression assign-faction` | Owner |
+| `/complete-journey-node` | `/player progression journey-complete` | Owner |
+| `/complete-tutorial` | `/player progression tutorial-complete` | Owner |
+| `/grant-all-keystones` | `/player progression keystones-grant-all` | Owner |
+| `/max-specialization` | `/player progression specialization-max` | Owner |
+| `/reset-all-keystones` | `/player progression keystones-reset-all` | Owner |
+| `/reset-journey-node` | `/player progression journey-reset` | Owner |
+| `/reset-specialization` | `/player progression specialization-reset` | Owner |
+| `/reset-tutorial` | `/player progression tutorial-reset` | Owner |
+| `/unlock-crafting-recipe` | `/player progression unlock-recipe` | Owner |
+| `/unlock-player-research` | `/player progression unlock-research` | Owner |
+| `/clean-player-inventory` | `/player reset clean-inventory` | Owner |
+| `/reset-player-progression` | `/player reset reset-progression` | Owner |
+| `/backups` | `/backup list` | Everyone |
+| `/configure-auto-backup` | `/backup configure-auto` | Owner |
+| `/create-backup` | `/backup create` | Owner |
+| `/delete-all-backups` | `/backup delete-all` | Owner |
+| `/delete-backup` | `/backup delete` | Owner |
+| `/download-backup` | `/backup download` | Owner |
+| `/import-backup` | `/backup import` | Owner |
+| `/restore-backup` | `/backup restore` | Owner |
+| `/restart-server` | `/server restart` | Owner |
+| `/start-server` | `/server start` | Owner |
+| `/stop-server` | `/server stop` | Owner |
+| `/cleanup-build-cache` | `/server cleanup-build-cache` | Owner |
+| `/cleanup-images` | `/server cleanup-images` | Owner |
+| `/fix-network` | `/server fix-network` | Owner |
+| `/servers` | `/server vps` | Everyone |
+| `/status` | `/server status` | Everyone |
+| `/restart-service` | `/server restart-service` | Owner |
+| `/services` | `/server services` | Owner |
+| `/apply-game-update` | `/update game apply` | Owner |
+| `/auto-update-status` | `/update game auto-status` | Owner |
+| `/check-game-update` | `/update game check` | Owner |
+| `/configure-auto-update` | `/update game configure-auto` | Owner |
+| `/fix-steamcmd` | `/update runtime fix-steamcmd` | Owner |
+| `/repair-runtime` | `/update runtime repair` | Owner |
+| `/apply-stack-update` | `/update stack apply` | Owner |
+| `/check-stack-update` | `/update stack check` | Owner |
+
+`/help`, `/music`, `/voice`, `/market` and `/storm` remain available. Music and voice retain their existing subcommands and panel controls.
+
+## Game catalogs
+
+Use `/player catalog` to search all eight bundled reference datasets. Item grants, skill modules, vehicles/templates and journey nodes offer autocomplete. See [catalog details](../data/README.md). Owner-only actions retain their permissions.

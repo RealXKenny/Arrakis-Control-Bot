@@ -1,3 +1,4 @@
+import { validateCatalogGrant } from "./gameCatalogs";
 import { container } from "@sapphire/framework";
 import { ContainerBuilder, MessageFlags, SeparatorSpacingSize, type ChatInputCommandInteraction } from "discord.js";
 
@@ -152,6 +153,7 @@ async function executePlayerAdminAction(interaction: ChatInputCommandInteraction
       else body[option.bodyKey ?? option.name] = value;
     }
 
+    validateCatalogGrant(action.name, body);
     const response = await container.client.duneApi.call(action.method, action.route, { routeParams, body: action.method === "GET" || Object.keys(body).length === 0 ? undefined : body });
     await interaction.editReply({ ...createV2Response([resultCard(`✅ ${action.description}`, formatPlayerAdminResponse(response), true)]), allowedMentions: { parse: [] } });
   } catch (error: unknown) {

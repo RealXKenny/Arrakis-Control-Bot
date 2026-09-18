@@ -1,7 +1,8 @@
+import { isPrimaryShard } from "../shared/process/shardIdentity";
 import "@sapphire/plugin-subcommands/register";
 
 import path from "node:path";
-import { SapphireClient } from "@sapphire/framework";
+import { SapphireClient, ApplicationCommandRegistries, RegisterBehavior } from "@sapphire/framework";
 import type { ClientOptions } from "discord.js";
 import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
 import type { VoiceService } from "../modules/voice/VoiceService";
@@ -47,6 +48,8 @@ class ArrakisClient extends SapphireClient {
 
   public constructor(options: ArrakisClientOptions) {
     const { baseUserDirectory = PIECES_DIRECTORY, ...clientOptions } = options;
+
+    ApplicationCommandRegistries.setDefaultBehaviorWhenNotIdentical(isPrimaryShard() ? RegisterBehavior.BulkOverwrite : RegisterBehavior.Overwrite);
 
     super({
       ...clientOptions,

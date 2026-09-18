@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { ConvoyClient } from "../../../src/infrastructure/http/convoy/ConvoyClient";
-import { formatServer } from "../../../src/commands/server/monitoring/servers";
+import { formatServer } from "../../../src/command-actions/server/monitoring/servers";
 
 afterEach(() => vi.unstubAllGlobals());
 

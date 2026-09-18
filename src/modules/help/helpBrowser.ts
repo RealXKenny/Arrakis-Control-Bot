@@ -18,7 +18,7 @@ function createHelpCard(session: HelpSession): ContainerBuilder {
   const entries = category.commands.slice(start, start + PAGE_SIZE);
   const commandText = entries.map((entry) => {
     const access = entry.access ?? category.access;
-    return `**/${entry.name}** ${ACCESS_ICONS[access]} \`${access}\`\n${truncateDiscordText(getCommandDescription(entry.name), 160)}`;
+    return `**/${entry.name}** ${ACCESS_ICONS[access]} \`${access}\`\n${truncateDiscordText(entry.description ?? getCommandDescription(entry.name), 160)}`;
   }).join("\n\n");
 
   const menu = new StringSelectMenuBuilder().setCustomId(`help-category:${session.id}`).setPlaceholder(category.label).setMinValues(1).setMaxValues(1)

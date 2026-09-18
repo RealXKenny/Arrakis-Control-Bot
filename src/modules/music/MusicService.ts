@@ -19,11 +19,14 @@ export class MusicService {
   private volume: number;
   private chain: Promise<unknown> = Promise.resolve();
   private pending = 0;
-  private timer?: ReturnType<typeof setInterval>;
+  private timer?: ReturnType<typeof setTimeout>;
   private started = false;
   private stopped = false;
   private recovering = false;
+  private retryAfter = 0;
+  private restoringId?: string;
   private resetConnection = false;
+  private interruptionVersion = 0;
   private lastWarning = 0;
   private readonly panel: MusicPanelPublisher;
   private lastPanelWarning = 0;
@@ -33,7 +36,7 @@ export class MusicService {
   private checkpointTimer?: ReturnType<typeof setInterval>;
   private checkpointPending = false;
   private lastCheckpointWarning = 0;
-  private pendingEnd?: { id: string; failed: boolean };
+  private pendingEnd?: { id: string };
   private lastAnnouncedId?: string;
   private announcements: Promise<void> = Promise.resolve();
   private readonly nowPlayingPanel: MusicNowPlayingPanel;
@@ -43,10 +46,10 @@ export class MusicService {
     this.panel = new MusicPanelPublisher(client, config.requestChannelId, config.voiceChannelId);
     this.nowPlayingPanel = new MusicNowPlayingPanel(client, config.requestChannelId);
     this.backend = new LavalinkConnection(client, config, {
-      ready: () => { this.resetConnection = true; this.recover(); },
-      started: (id) => this.announceTrack(id),
+      ready: () => { this.capturePosition(); this.resetConnection = true; this.recover(); },
+      started: (id) => { if (this.restoringId === id) this.restoringId = undefined; this.announceTrack(id); },
       ended: (id) => this.finish(id),
-      failed: (id) => { this.warn(); this.finish(id ?? this.current?.id, true); },
+      failed: (id) => this.interrupted(id),
     });
   }
 
@@ -55,7 +58,6 @@ export class MusicService {
     this.started = true;
     this.voiceMute?.start();
     this.recover();
-    this.timer = setInterval(() => this.recover(), 30_000);
     this.checkpointTimer = setInterval(() => {
       if (this.checkpointPending || this.stopped || !this.current || !this.client.guilds.cache.has(this.config.guildId)) return;
       this.checkpointPending = true;
@@ -74,7 +76,7 @@ export class MusicService {
       await this.storage.initialize();
       await this.voiceMute?.initialize();
       const saved = await this.storage.load(this.config.guildId);
-      if (saved) this.restore(saved);
+      if (saved) { this.restore(saved); this.restoringId = saved.current?.id; }
       this.initialized = true;
     })().catch((error) => { this.initialization = undefined; throw error; });
     return this.initialization;
@@ -97,14 +99,14 @@ export class MusicService {
   }
   private capturePosition(): void {
     const player = this.backend.player(this.config.guildId);
-    if (!this.resetConnection && this.current && player?.track === this.current.track.encoded && Number.isFinite(player.position)) {
+    if (!this.restoringId && !this.resetConnection && this.current && player?.track === this.current.track.encoded && Number.isFinite(player.position)) {
       this.position = Math.max(0, player.position);
     }
   }
 
   public async stop(): Promise<void> {
     this.stopped = true;
-    clearInterval(this.timer);
+    clearTimeout(this.timer);
     clearInterval(this.checkpointTimer);
     try {
       await this.voiceMute?.stop();
@@ -112,7 +114,7 @@ export class MusicService {
       await this.announcements;
       if (this.initialized && this.client.guilds.cache.has(this.config.guildId)) {
         this.capturePosition();
-        if (this.current && !this.resetConnection) {
+        if (this.current && !this.restoringId && !this.resetConnection) {
           let timer: ReturnType<typeof setTimeout> | undefined;
           try {
             const position = await Promise.race([
@@ -174,7 +176,7 @@ export class MusicService {
         try { await this.advance(player); }
         catch {
           this.warn();
-          return "Your request is queued, but playback is reconnecting. Check /queue before resending.";
+          return "Your request is queued, but playback is reconnecting. Check /music queue before resending.";
         }
       }
       if (this.current?.id === this.lastAnnouncedId) this.refreshSongCard();
@@ -311,6 +313,8 @@ export class MusicService {
   }
 
   private async ensurePlayer(): Promise<Player> {
+    const interruptionVersion = this.interruptionVersion;
+    if (Date.now() < this.retryAfter) throw new MusicUserError("Music is reconnecting. Retrying in a few seconds; your saved song and queue are preserved.");
     if (!this.backend.available()) throw new MusicUserError("Lavalink is reconnecting. Please try again shortly.");
     const guild = this.client.guilds.cache.get(this.config.guildId);
     if (!guild?.available) throw new MusicUserError("The music server is not available on this shard.");
@@ -333,6 +337,7 @@ export class MusicService {
         if (this.current) await this.play(player, this.current);
       } catch (error) { this.resetConnection = true; throw error; }
     }
+    if (interruptionVersion !== this.interruptionVersion) throw new MusicUserError("Playback was interrupted during recovery; the same song will be retried.");
     this.resetConnection = false;
     return player;
   }
@@ -346,22 +351,48 @@ export class MusicService {
   private async advance(player: Player, stopCurrent = false): Promise<void> {
     const [entry, ...queue] = this.queue;
     await this.commit({ ...this.snapshot(), current: entry, queue, paused: false, position: 0 });
+    this.restoringId = undefined;
     if (entry) await this.play(player, entry);
     else if (stopCurrent) {
       try { await player.stopTrack(); } catch (error) { this.resetConnection = true; throw error; }
     }
   }
 
-  private finish(id?: string, failed = false): void {
+  private interrupted(id?: string): void {
+    if (this.stopped || (id && id !== this.current?.id)) return;
+    this.interruptionVersion++;
+    // Freeze the checkpoint before a dead/replacement player can report position zero.
+    this.capturePosition();
+    this.resetConnection = true;
+    this.restoringId = this.current?.id;
+    this.pendingEnd = undefined;
+    this.warn();
+    this.scheduleRecovery(true);
+  }
+
+  private finish(id?: string): void {
     if (!id || this.stopped) return;
     void this.serial(async () => {
       if (this.current?.id !== id) return;
-      this.pendingEnd = { id, failed };
+      if (this.restoringId === id || !this.backend.available() || Date.now() < this.retryAfter) {
+        this.resetConnection = true;
+        this.scheduleRecovery(true);
+        return;
+      }
+      this.pendingEnd = { id };
       const player = await this.ensurePlayer();
-      await this.advance(player, failed);
+      await this.advance(player);
       if (!this.current) this.refreshSongCard();
       this.pendingEnd = undefined;
     }, true).catch(() => this.warn());
+  }
+
+  private scheduleRecovery(failed = false): void {
+    if (this.stopped || !this.started) return;
+    clearTimeout(this.timer);
+    if (failed) this.retryAfter = Date.now() + 10_000;
+    const delay = this.retryAfter > Date.now() ? this.retryAfter - Date.now() : 30_000;
+    this.timer = setTimeout(() => this.recover(), delay);
   }
 
   private recover(): void {
@@ -371,19 +402,23 @@ export class MusicService {
       this.lastPanelWarning = Date.now();
       this.client.logger.warn("Music panel unavailable. Check View Channel, Send Messages, Read Message History, and Attach Files in the music request channel.");
     });
+    if (Date.now() < this.retryAfter) return;
+    clearTimeout(this.timer);
+    if (!this.backend.available()) { this.warn(); this.scheduleRecovery(true); return; }
     this.recovering = true;
+    let failed = false;
     void this.serial(async () => {
       const player = await this.ensurePlayer();
       if (this.pendingEnd?.id === this.current?.id && this.pendingEnd) {
-        await this.advance(player, this.pendingEnd.failed);
+        await this.advance(player);
         this.pendingEnd = undefined;
       } else if (!this.current && this.queue.length) await this.advance(player);
-    }, true).catch(() => this.warn()).finally(() => { this.recovering = false; });
+    }, true).catch(() => { failed = true; this.warn(); }).finally(() => { this.recovering = false; this.scheduleRecovery(failed); });
   }
 
   private warn(): void {
     if (Date.now() - this.lastWarning < 60_000) return;
     this.lastWarning = Date.now();
-    this.client.logger.warn("Music playback unavailable or interrupted; automatic recovery will retry. Check Lavalink sources, connectivity, and voice permissions.");
+    this.client.logger.warn("Music playback unavailable or interrupted; the current song is preserved and recovery retries after 10 seconds. Check Lavalink sources, connectivity, and voice permissions.");
   }
 }

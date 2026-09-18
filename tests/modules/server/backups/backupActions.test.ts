@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { data as configureAutoData } from "../../../../src/commands/server/backups/configure-auto-backup";
-import { data as createData } from "../../../../src/commands/server/backups/create-backup";
-import { data as deleteAllData } from "../../../../src/commands/server/backups/delete-all-backups";
-import { data as deleteData } from "../../../../src/commands/server/backups/delete-backup";
-import { data as downloadData } from "../../../../src/commands/server/backups/download-backup";
-import { data as importData } from "../../../../src/commands/server/backups/import-backup";
-import { data as restoreData } from "../../../../src/commands/server/backups/restore-backup";
+import { data as configureAutoData } from "../../../../src/command-actions/server/backups/configure-auto-backup";
+import { data as createData } from "../../../../src/command-actions/server/backups/create-backup";
+import { data as deleteAllData } from "../../../../src/command-actions/server/backups/delete-all-backups";
+import { data as deleteData } from "../../../../src/command-actions/server/backups/delete-backup";
+import { data as downloadData } from "../../../../src/command-actions/server/backups/download-backup";
+import { data as importData } from "../../../../src/command-actions/server/backups/import-backup";
+import { data as restoreData } from "../../../../src/command-actions/server/backups/restore-backup";
 import { BACKUP_ACTIONS, formatBackupResponse } from "../../../../src/modules/server/backups/backupActions";
 
 describe("owner backup controls", () => {

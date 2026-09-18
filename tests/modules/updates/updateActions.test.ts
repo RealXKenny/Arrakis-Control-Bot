@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { data as applyGameData } from "../../../src/commands/updates/game/apply-game-update";
-import { data as autoStatusData } from "../../../src/commands/updates/game/auto-update-status";
-import { data as checkGameData } from "../../../src/commands/updates/game/check-game-update";
-import { data as configureAutoData } from "../../../src/commands/updates/game/configure-auto-update";
-import { data as fixSteamcmdData } from "../../../src/commands/updates/runtime/fix-steamcmd";
-import { data as repairRuntimeData } from "../../../src/commands/updates/runtime/repair-runtime";
-import { data as applyStackData } from "../../../src/commands/updates/stack/apply-stack-update";
-import { data as checkStackData } from "../../../src/commands/updates/stack/check-stack-update";
+import { data as applyGameData } from "../../../src/command-actions/updates/game/apply-game-update";
+import { data as autoStatusData } from "../../../src/command-actions/updates/game/auto-update-status";
+import { data as checkGameData } from "../../../src/command-actions/updates/game/check-game-update";
+import { data as configureAutoData } from "../../../src/command-actions/updates/game/configure-auto-update";
+import { data as fixSteamcmdData } from "../../../src/command-actions/updates/runtime/fix-steamcmd";
+import { data as repairRuntimeData } from "../../../src/command-actions/updates/runtime/repair-runtime";
+import { data as applyStackData } from "../../../src/command-actions/updates/stack/apply-stack-update";
+import { data as checkStackData } from "../../../src/command-actions/updates/stack/check-stack-update";
 import { UPDATE_ACTIONS, formatUpdateResponse, getUpdateAction } from "../../../src/modules/updates/updateActions";
 
 describe("owner update controls", () => {

@@ -1,0 +1,222 @@
+[
+  {
+    "id": "Reward.XP.Large",
+    "family": "Reward.XP",
+    "constant": "ContractLarge"
+  },
+  {
+    "id": "Reward.XP.Medium",
+    "family": "Reward.XP",
+    "constant": "ContractMedium"
+  },
+  {
+    "id": "Reward.XP.Small",
+    "family": "Reward.XP",
+    "constant": "ContractSmall"
+  },
+  {
+    "id": "XP.Combat.Contract.Large",
+    "family": "XP.Combat",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Combat.Contract.Medium",
+    "family": "XP.Combat",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Combat.Contract.Small",
+    "family": "XP.Combat",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Combat.KilledEnemy.NPC",
+    "family": "XP.Combat",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Combat.KilledEnemy.NPC_Boss",
+    "family": "XP.Combat",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Combat.KilledEnemy.NPC_Elite",
+    "family": "XP.Combat",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Combat.KilledEnemy.NPC_Minion",
+    "family": "XP.Combat",
+    "constant": "ExtraSmall"
+  },
+  {
+    "id": "XP.Combat.KilledEnemy.Player",
+    "family": "XP.Combat",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Combat.WreckVehicle.Large",
+    "family": "XP.Combat",
+    "constant": "ExtraLarge"
+  },
+  {
+    "id": "XP.Combat.WreckVehicle.Medium",
+    "family": "XP.Combat",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Combat.WreckVehicle.Small",
+    "family": "XP.Combat",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Exploration.AreaReveal",
+    "family": "XP.Exploration",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Exploration.Contract.Large",
+    "family": "XP.Exploration",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Exploration.Contract.Medium",
+    "family": "XP.Exploration",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Exploration.Contract.Small",
+    "family": "XP.Exploration",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Exploration.MarkerReveal.Large",
+    "family": "XP.Exploration",
+    "constant": "Larger"
+  },
+  {
+    "id": "XP.Exploration.MarkerReveal.Medium",
+    "family": "XP.Exploration",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Exploration.MarkerReveal.Small",
+    "family": "XP.Exploration",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Exploration.Pickup.Large",
+    "family": "XP.Exploration",
+    "constant": "ExtraLarge"
+  },
+  {
+    "id": "XP.Exploration.Pickup.Medium",
+    "family": "XP.Exploration",
+    "constant": "Larger"
+  },
+  {
+    "id": "XP.Exploration.Pickup.Small",
+    "family": "XP.Exploration",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Industry.Contract.Large",
+    "family": "XP.Industry",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Industry.Contract.Medium",
+    "family": "XP.Industry",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Industry.Contract.Small",
+    "family": "XP.Industry",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Industry.Craft.Large",
+    "family": "XP.Industry",
+    "constant": "NoXP"
+  },
+  {
+    "id": "XP.Industry.Craft.Medium",
+    "family": "XP.Industry",
+    "constant": "NoXP"
+  },
+  {
+    "id": "XP.Industry.Craft.Small",
+    "family": "XP.Industry",
+    "constant": "NoXP"
+  },
+  {
+    "id": "XP.Journey.Major",
+    "family": "XP.Journey",
+    "constant": "Epic"
+  },
+  {
+    "id": "XP.Journey.Short",
+    "family": "XP.Journey",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Journey.Standard",
+    "family": "XP.Journey",
+    "constant": "Larger"
+  },
+  {
+    "id": "XP.Journey.VeryShort",
+    "family": "XP.Journey",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Politics.Contract.Large",
+    "family": "XP.Politics",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Politics.Contract.Medium",
+    "family": "XP.Politics",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Politics.Contract.Small",
+    "family": "XP.Politics",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Science.Contract.Large",
+    "family": "XP.Science",
+    "constant": "Large"
+  },
+  {
+    "id": "XP.Science.Contract.Medium",
+    "family": "XP.Science",
+    "constant": "Medium"
+  },
+  {
+    "id": "XP.Science.Contract.Small",
+    "family": "XP.Science",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Science.Harvest.Common",
+    "family": "XP.Science",
+    "constant": "MicroPlus"
+  },
+  {
+    "id": "XP.Science.Harvest.Dew",
+    "family": "XP.Science",
+    "constant": "Micro"
+  },
+  {
+    "id": "XP.Science.Harvest.Rare",
+    "family": "XP.Science",
+    "constant": "Small"
+  },
+  {
+    "id": "XP.Science.Harvest.Uncommon",
+    "family": "XP.Science",
+    "constant": "ExtraSmall"
+  }
+]

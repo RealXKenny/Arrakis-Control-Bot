@@ -1,12 +1,12 @@
 import { Command } from "@sapphire/framework";
-import { ChannelType, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { ChannelType, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, SlashCommandSubcommandBuilder } from "discord.js";
 import { registerApplicationCommand } from "./registerApplicationCommand";
 import { runVoiceInteraction } from "../../modules/voice/voiceInteractions";
 import { VoiceUserError, type VoiceAction } from "../../modules/voice/VoiceService";
 import { VOICE_COMMANDS, type VoiceCommandAction } from "../../modules/voice/voiceCommands";
 
 export function voiceCommandDefinition(action: VoiceCommandAction) {
-  const command = new SlashCommandBuilder().setName(`voice-${action}`).setDescription(VOICE_COMMANDS[action]);
+  const command = new SlashCommandSubcommandBuilder().setName(action).setDescription(VOICE_COMMANDS[action]);
   if (action === "setup") command
     .addChannelOption((option) => option.setName("join").setDescription("Voice channel members join to create a room").addChannelTypes(ChannelType.GuildVoice).setRequired(true))
     .addChannelOption((option) => option.setName("category").setDescription("Category for temporary rooms").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
@@ -16,16 +16,22 @@ export function voiceCommandDefinition(action: VoiceCommandAction) {
   if (["permit", "reject", "kick"].includes(action)) command.addUserOption((option) => option.setName("member").setDescription("Member to manage").setRequired(true));
   return command;
 }
-export function createVoiceCommand(action: VoiceCommandAction) { return class VoiceCommand extends Command {
+export function voiceGroupDefinition() {
+  const command = new SlashCommandBuilder().setName("voice").setDescription("Create and manage temporary voice rooms.");
+  for (const action of Object.keys(VOICE_COMMANDS) as VoiceCommandAction[]) command.addSubcommand(voiceCommandDefinition(action));
+  return command;
+}
+export function createVoiceCommand() { return class VoiceCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name: `voice-${action}`, description: VOICE_COMMANDS[action], preconditions: ["InteractionRateLimit"] });
+    super(context, { ...options, name: "voice", description: "Create and manage temporary voice rooms.", preconditions: ["InteractionRateLimit"] });
   }
 
   public override registerApplicationCommands(registry: Command.Registry): void {
-    registerApplicationCommand(registry, voiceCommandDefinition(action));
+    registerApplicationCommand(registry, voiceGroupDefinition());
   }
 
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction): Promise<void> {
+    const action = interaction.options.getSubcommand(true) as VoiceCommandAction;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await runVoiceInteraction(interaction, async (service) => {
 

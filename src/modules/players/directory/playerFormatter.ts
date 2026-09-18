@@ -1,3 +1,4 @@
+import { haggaRegion } from "../administration/gameCatalogs";
 type PlayerRecord = Record<string, unknown>;
 
 type PlayerResponse =
@@ -90,7 +91,8 @@ function formatPlayer(player: PlayerRecord, index: number): string {
 
   const playtime = player.total_playtime_seconds ?? player.totalPlaytimeSeconds ?? player.playtime_seconds ?? player.playtimeSeconds;
 
-  const details = [id !== undefined && id !== null ? `ID: \`${escapeMarkdown(String(id))}\`` : null, playtime !== undefined && playtime !== null ? formatPlaytime(playtime) : null].filter((value): value is string => value !== null).join(" · ");
+  const region = haggaRegion(player.map, player.area_id ?? player.areaId);
+  const details = [region ? `Region: ${escapeMarkdown(region)}` : null,id !== undefined && id !== null ? `ID: \`${escapeMarkdown(String(id))}\`` : null, playtime !== undefined && playtime !== null ? formatPlaytime(playtime) : null].filter((value): value is string => value !== null).join(" · ");
 
   const safeName = escapeMarkdown(String(name));
 

@@ -29,7 +29,7 @@ The music channel must be separate from the Join to Create trigger and all tempo
 
 ## Requests and commands
 
-Music commands are standalone: `/play`, `/queue`, `/now`, `/skip`, `/pause`, `/resume`, `/volume`, `/stop`, `/clear`, and `/music-panel`. Restart the bot to synchronize command registration; the old `/music` group is removed.
+Music commands are grouped: `/music play`, `/music queue`, `/music now`, `/music skip`, `/music pause`, `/music resume`, `/music volume`, `/music stop`, `/music clear`, and `/music panel`. Restart the bot to synchronize command registration; retired standalone commands are removed.
 
 When Lavalink reports that a song starts, its requester receives a private card with artwork and an Open Music Lounge button. No DM is sent merely for joining the queue. Duplicate start events for the same request are suppressed within the running bot; resuming after a bot reboot can send another notification. Users with closed DMs still receive normal playback and public panel updates.
 
@@ -43,29 +43,29 @@ Moving directly to another voice channel removes the lounge mute. Discord cannot
 
 The bot automatically publishes a public Music Lounge control panel in `MUSIC_REQUEST_CHANNEL_ID`. No separate panel setting is needed. It uses the voice panel's banner style and offers Request Song, Now Playing, View Queue, View Lyrics, Pause, Resume, Skip, Volume, Clear Queue, and Stop Playback. Requests and volume open private forms; stop and clear ask for confirmation. Everyone can inspect playback and the queue. Listeners can add songs. The current requester controls skip, pause, resume and volume; members with `OWNER_ROLE_ID` control stop and clear. Permissions are rechecked when actions are submitted.
 
-Give the bot **Attach Files** for the banner as well as the text-channel permissions above. The panel does not change channel permissions: make the request channel visible to your members. After a restart, the bot scans channel history to reuse its existing panel (up to 10,000 messages; if exceeded it logs a failure instead of creating a duplicate). Administrators with **Manage Server** can run `/music-panel` in the request channel to refresh or recreate a deleted panel. Buttons keep working across restarts. Now Playing and View Queue show a fresh private snapshot; the public panel is not a live progress display.
+Give the bot **Attach Files** for the banner as well as the text-channel permissions above. The panel does not change channel permissions: make the request channel visible to your members. After a restart, the bot scans channel history to reuse its existing panel (up to 10,000 messages; if exceeded it logs a failure instead of creating a duplicate). Administrators with **Manage Server** can run `/music panel` in the request channel to refresh or recreate a deleted panel. Buttons keep working across restarts. Now Playing and View Queue show a fresh private snapshot; the public panel is not a live progress display.
 
 Join the music voice channel, then type a song name or supported HTTPS link in the request text channel. Each non-bot text message there is treated as a song request. Use this as a dedicated request channel rather than a general chat. The bot replies without pinging the requester.
 
 | Command | Behavior |
 | --- | --- |
-| `/play query:<name or link>` | Search and queue the first result, a track URL, or a playlist. |
-| `/music-panel` | Publish or refresh the public controls; requires Manage Server. |
-| `/queue` | Display the current song and the next eight queued songs. |
-| `/now` | Display the current track and volume. |
-| `/skip` | Skip to the next queued track. |
-| `/pause` / `/resume` | Pause or resume playback. |
-| `/volume level:<0–100>` | Change volume; the initial default is 30%. |
-| `/clear` | Clear upcoming songs while leaving the current track playing. |
-| `/stop` | Stop playback, clear the queue, and remain in voice. |
+| `/music play query:<name or link>` | Search and queue the first result, a track URL, or a playlist. |
+| `/music panel` | Publish or refresh the public controls; requires Manage Server. |
+| `/music queue` | Display the current song and the next eight queued songs. |
+| `/music now` | Display the current track and volume. |
+| `/music skip` | Skip to the next queued track. |
+| `/music pause` / `/music resume` | Pause or resume playback. |
+| `/music volume level:<0–100>` | Change volume; the initial default is 30%. |
+| `/music clear` | Clear upcoming songs while leaving the current track playing. |
+| `/music stop` | Stop playback, clear the queue, and remain in voice. |
 
-All commands run in the configured request channel. Queue/now can be viewed without joining voice. Any listener can request songs. Skip, pause, resume and volume require both voice membership and ownership of the current song request. Stop and clear instead require voice membership and the role configured in `OWNER_ROLE_ID`; the role is checked again when confirming. With no configured Owner role, those two actions are unavailable. There is no administrator bypass for playback. Controls transfer to the next requester when their song starts; while idle there is no playback owner. If the requester leaves voice, they must rejoin to use controls; the song continues and advances normally. Existing interaction cooldowns apply.
+All commands run in the configured request channel. Queue/music now can be viewed without joining voice. Any listener can request songs. Skip, pause, resume and volume require both voice membership and ownership of the current song request. Stop and clear instead require voice membership and the role configured in `OWNER_ROLE_ID`; the role is checked again when confirming. With no configured Owner role, those two actions are unavailable. There is no administrator bypass for playback. Controls transfer to the next requester when their song starts; while idle there is no playback owner. If the requester leaves voice, they must rejoin to use controls; the song continues and advances normally. Existing interaction cooldowns apply.
 
 The queue limit includes the current track. A playlist that does not fit is rejected before adding any tracks. PostgreSQL stores the current track, ordered queue, requester IDs, volume, pause state, and last playback position. Queue/control changes are saved before playback changes, and position is checkpointed every five seconds. During graceful shutdown, the bot pauses Lavalink and saves its final reported position; if that request fails or times out, it saves the last available position instead. Restart recovery resumes seekable tracks from the saved position, without subtracting downtime from the remaining song duration. Songs that were paused stay paused; songs that were playing resume automatically. Abrupt failure may replay several seconds (the checkpoint interval plus Lavalink's position-update delay); database outages can leave an older checkpoint. Live streams reconnect at their live edge. Source availability still determines whether a saved track can play. The database stores track metadata, not audio files or a permanent listening history. Back up PostgreSQL to protect against database loss.
 
 ## Audio sources
 
-The Now Playing button and `/now` display track artwork alongside the title, volume, and waiting count. YouTube tracks use a video thumbnail if Lavalink omits artwork; other sources without artwork display the text alone. Give the bot **Embed Links** in the request channel.
+The Now Playing button and `/music now` display track artwork alongside the title, volume, and waiting count. YouTube tracks use a video thumbnail if Lavalink omits artwork; other sources without artwork display the text alone. Give the bot **Embed Links** in the request channel.
 
 The default search prefix is `scsearch`. You can select `ytsearch` or `ytmsearch` when your Lavalink server has a working YouTube source/plugin. Supported URL hosts are YouTube, SoundCloud, and Bandcamp, but actual playback depends on the sources and plugins installed on Lavalink. Arbitrary local-file, private-network, and custom-host links are not accepted by the bot.
 
@@ -76,7 +76,11 @@ YouTube support requires server-side configuration; the bot does not install plu
 - Check Lavalink's own logs for source failures. Bot responses intentionally omit server errors that may contain credentials or request details.
 - If the bot cannot join, verify its channel permissions and that the configured ID is a regular permanent voice channel.
 - If requests are rejected, check that the member is connected to the music lounge and is using the request text channel.
-- If playback is unavailable after adding a request, inspect `/queue` before resending; queued requests can be retried during recovery.
-- After deploying, test a song, two-song queue advancement, skip, pause/resume, stop without leaving, and a Lavalink restart. Automated checks use mocks; live audio needs your configured server and Discord channels.
+- If playback is unavailable after adding a request, inspect `/music queue` before resending; queued requests can be retried during recovery.
+- After deploying, test a song, two-song queue advancement, skip, pause/music resume, stop without leaving, and a Lavalink restart. Automated checks use mocks; live audio needs your configured server and Discord channels.
 
 The **View Lyrics** button is available to everyone in the request channel. It privately provides a Genius search link using the current song title and artist; no API key is required. Lyrics open in the browser, and results may include alternate versions.
+
+Music recovery starts immediately and keeps retrying until Lavalink is ready, waiting 10 seconds after each failed attempt. Attempts do not overlap, and shutdown cancels pending retries. The saved song and position stay protected until Lavalink confirms playback has started. A failed restore retries the same song instead of advancing the queue; the requester can explicitly skip an unavailable track once connected.
+
+Connection drops, track-load failures, stuck tracks and playback exceptions preserve the current request and retry it from the last known position. They do not automatically skip songs. If a source is permanently unavailable, the requester can use `/music skip`, or an Owner-role member can use `/music stop`. Only a normal finished event advances the queue automatically.

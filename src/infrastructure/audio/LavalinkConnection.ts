@@ -1,5 +1,5 @@
 import type { Client } from "discord.js";
-import { Connectors, Shoukaku, type Player, type TrackEndEvent } from "shoukaku";
+import { Connectors, Shoukaku, type Player } from "shoukaku";
 import type { MusicConfig } from "../config/music";
 
 export interface MusicEvents {
@@ -12,6 +12,7 @@ export interface MusicEvents {
 export class LavalinkConnection {
   private readonly manager: Shoukaku;
   private readonly watched = new WeakSet<Player>();
+  private readonly retiring = new WeakSet<Player>();
 
   public constructor(client: Client, config: MusicConfig, private readonly events: MusicEvents) {
     this.manager = new Shoukaku(new Connectors.DiscordJS(client), [
@@ -19,6 +20,7 @@ export class LavalinkConnection {
     ], { resume: false, resumeByLibrary: false, reconnectTries: Number.MAX_SAFE_INTEGER, reconnectInterval: 10, restTimeout: 15, voiceConnectionTimeout: 15 });
     this.manager.on("error", () => client.logger.warn("Lavalink connection error; check its address, TLS, password, and server logs."));
     this.manager.on("ready", () => events.ready());
+    this.manager.on("close", () => events.failed());
   }
 
   public available(): boolean { return Boolean(this.manager.getIdealNode()); }
@@ -43,29 +45,42 @@ export class LavalinkConnection {
     if (!this.watched.has(player)) {
       this.watched.add(player);
       player.on("start", (event) => {
+        if (this.retiring.has(player)) return;
         const id = trackRequestId(event);
         if (id) this.events.started(id);
       });
       player.on("end", (event) => {
+        if (this.retiring.has(player)) return;
         if (event.reason === "finished" || event.reason === "loadFailed") {
           const id = trackRequestId(event);
-          if (id) this.events.ended(id);
+          if (id) {
+            if (event.reason === "loadFailed") this.events.failed(id);
+            else this.events.ended(id);
+          }
         }
       });
-      player.on("stuck", (event) => this.events.failed(trackRequestId(event)));
-      player.on("exception", () => this.events.failed());
+      player.on("stuck", (event) => { if (!this.retiring.has(player)) this.events.failed(trackRequestId(event)); });
+      player.on("exception", (event) => { if (!this.retiring.has(player)) this.events.failed(trackRequestId(event)); });
+      player.on("closed", () => { if (!this.retiring.has(player)) this.events.failed(); });
     }
     return player;
   }
 
-  public async leave(guildId: string): Promise<void> { await this.manager.leaveVoiceChannel(guildId); }
+  public async leave(guildId: string): Promise<void> {
+    const player = this.player(guildId);
+    if (player) this.retiring.add(player);
+    await this.manager.leaveVoiceChannel(guildId);
+  }
   public async close(guildId: string): Promise<void> {
     try { await this.leave(guildId); }
     finally { for (const name of this.manager.nodes.keys()) this.manager.removeNode(name, "Bot shutdown"); }
   }
 }
 
-function trackRequestId(event: Pick<TrackEndEvent, "track">): string | undefined {
-  const data = (event.track as typeof event.track & { userData?: { requestId?: unknown } }).userData;
-  return typeof data?.requestId === "string" ? data.requestId : undefined;
+function trackRequestId(event: unknown): string | undefined {
+  if (!event || typeof event !== "object" || !("track" in event)) return undefined;
+  const track = event.track;
+  if (!track || typeof track !== "object" || !("userData" in track)) return undefined;
+  const data = track.userData;
+  return data && typeof data === "object" && "requestId" in data && typeof data.requestId === "string" ? data.requestId : undefined;
 }

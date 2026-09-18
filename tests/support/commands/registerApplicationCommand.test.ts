@@ -5,6 +5,7 @@ import { registerApplicationCommand } from "../../../src/support/commands/regist
 
 const originalShard = process.env.DISCORD_SHARD_ID;
 afterEach(() => {
+  vi.unstubAllEnvs();
   if (originalShard === undefined) delete process.env.DISCORD_SHARD_ID;
   else process.env.DISCORD_SHARD_ID = originalShard;
 });
@@ -24,4 +25,12 @@ describe("registerApplicationCommand", () => {
     registerApplicationCommand(registry as never, { name: "help", description: "Help" });
     expect(registry.registerChatInputCommand).not.toHaveBeenCalled();
   });
+});
+
+it("uses Discord.js SHARDS to prevent secondary-shard global registration", () => {
+  vi.stubEnv("SHARDS", "1");
+  vi.stubEnv("DISCORD_SHARD_ID", "0");
+  const registry = { registerChatInputCommand: vi.fn() };
+  registerApplicationCommand(registry as never, { name: "help", description: "Help" });
+  expect(registry.registerChatInputCommand).not.toHaveBeenCalled();
 });

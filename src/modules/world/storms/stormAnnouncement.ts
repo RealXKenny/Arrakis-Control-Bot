@@ -1,3 +1,4 @@
+import { isPrimaryShard } from "../../../shared/process/shardIdentity";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type Message, type MessageCreateOptions } from "discord.js";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 import { createLogger } from "../../../client/logger";
@@ -51,7 +52,7 @@ export function createStormAnnouncer(client: Client, channelId: string): (now?: 
   let messageId: string | undefined;
   let renderedKey: string | undefined;
   return async (now = Date.now()): Promise<void> => {
-    if (busy || !client.user || (process.env.DISCORD_SHARD_ID ?? "0") !== "0") return;
+    if (busy || !client.user || !isPrimaryShard()) return;
     busy = true;
     try {
       const response = await client.duneApi.call("GET", "/api/map/markers", { query: { static: 0 } });
@@ -99,7 +100,7 @@ export function createStormAnnouncer(client: Client, channelId: string): (now?: 
 
 export function startStormAnnouncements(client: Client): NodeJS.Timeout | undefined {
   const channelId = readStormChannelId();
-  if (!channelId || (process.env.DISCORD_SHARD_ID ?? "0") !== "0") return;
+  if (!channelId || !isPrimaryShard()) return;
   const announce = createStormAnnouncer(client, channelId);
   const tick = (): void => { void announce().catch((error: unknown) => logger.error("Unable to update the Coriolis storm panel; will retry.", error)); };
   tick();

@@ -345,3 +345,82 @@ it("denies owner controls when OWNER_ROLE_ID is missing", async () => {
   vi.stubEnv("OWNER_ROLE_ID", "");
   await expect(service.action(guild, "requests", "user", "clear")).rejects.toThrow("OWNER_ROLE_ID");
 });
+
+it("retries a late Lavalink node every ten seconds and restores the same song position", async () => {
+  vi.useFakeTimers();
+  try {
+    const saved: MusicState = { current: { id: "restore", requester: "user", track: track("saved") },
+      queue: [{ id: "next", requester: "user", track: track("next") }], position: 450, paused: false, volume: 30 };
+    const { service, storage } = setup(saved);
+    await service.initialize();
+    mocked.available = false;
+    service.start();
+    await vi.advanceTimersByTimeAsync(5_000);
+    mocked.available = true;
+    mocked.events!.ready();
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(mocked.player.playTrack).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocked.player.playTrack).toHaveBeenCalledWith(expect.objectContaining({ position: 450, track: expect.objectContaining({ encoded: "saved" }) }));
+    mocked.events!.failed("restore");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(storage.save.mock.calls.at(-1)?.[1]).toMatchObject({ current: { id: "restore" }, position: 450, queue: [{ id: "next" }] });
+    expect(mocked.player.playTrack.mock.calls.every(([options]) => options.track.encoded === "saved")).toBe(true);
+    mocked.events!.started("restore");
+    mocked.events!.ended("restore");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocked.player.playTrack.mock.calls.at(-1)?.[0].track.encoded).toBe("next");
+    await service.stop();
+  } finally { vi.useRealTimers(); }
+});
+
+it("waits ten seconds after a failed recovery completes, without overlapping attempts", async () => {
+  vi.useFakeTimers();
+  try {
+    const { service } = setup();
+    let rejectJoin!: (error: Error) => void;
+    mocked.join.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectJoin = reject; }));
+    service.start();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(mocked.join).toHaveBeenCalledTimes(1);
+    rejectJoin(new Error("not ready"));
+    await vi.advanceTimersByTimeAsync(0);
+    mocked.events!.ready();
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(mocked.join).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocked.join).toHaveBeenCalledTimes(2);
+    await service.stop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(mocked.join).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); }
+});
+
+it.each([true, false])("preserves an already-playing song and position on interruption (identified=%s)", async (identified) => {
+  vi.useFakeTimers();
+  try {
+    const { service, guild, storage } = setup();
+    await service.request(guild, "requests", "user", "song");
+    await service.request(guild, "requests", "user", "next");
+    service.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const id = requestId(0);
+    mocked.events!.started(id);
+    mocked.player.position = 650;
+    mocked.events!.failed(identified ? id : undefined);
+    mocked.player.position = 0;
+    // A late end from the broken playback must not consume the request.
+    mocked.events!.ended(id);
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(mocked.player.playTrack).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocked.player.playTrack).toHaveBeenCalledTimes(2);
+    expect(mocked.player.playTrack.mock.calls[1][0]).toMatchObject({ position: 650, track: { userData: { requestId: id } } });
+    expect(storage.save.mock.calls.at(-1)?.[1]).toMatchObject({ current: { id }, position: 650, queue: [expect.any(Object)] });
+    mocked.events!.started(id);
+    mocked.events!.ended(id);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestId(2)).not.toBe(id);
+    await service.stop();
+  } finally { vi.useRealTimers(); }
+});

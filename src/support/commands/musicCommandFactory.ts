@@ -1,20 +1,25 @@
 import { Command } from "@sapphire/framework";
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder, SlashCommandSubcommandBuilder } from "discord.js";
 import { registerApplicationCommand } from "./registerApplicationCommand";
 import type { MusicAction } from "../../modules/music/MusicService";
 import { MUSIC_COMMANDS, type MusicCommandName } from "../../modules/music/musicCommands";
 
 export function musicCommandDefinition(name: MusicCommandName) {
-  const command = new SlashCommandBuilder().setName(name).setDescription(MUSIC_COMMANDS[name]);
+  const command = new SlashCommandSubcommandBuilder().setName(name === "music-panel" ? "panel" : name).setDescription(MUSIC_COMMANDS[name]);
   if (name === "play") command.addStringOption((option) => option.setName("query").setDescription("Song name or supported HTTPS link").setMaxLength(500).setRequired(true));
   if (name === "volume") command.addIntegerOption((option) => option.setName("level").setDescription("Volume from 0 to 100").setMinValue(0).setMaxValue(100).setRequired(true));
   return command;
 }
-export function createMusicCommand(name: MusicCommandName) { return class MusicCommand extends Command {
+export function musicGroupDefinition() {
+  const command = new SlashCommandBuilder().setName("music").setDescription("Music requests, playback and controls.");
+  for (const name of Object.keys(MUSIC_COMMANDS) as MusicCommandName[]) command.addSubcommand(musicCommandDefinition(name));
+  return command;
+}
+export function createMusicCommand() { return class MusicCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
-    super(context, { ...options, name, description: MUSIC_COMMANDS[name], preconditions: ["InteractionRateLimit"] });
+    super(context, { ...options, name: "music", description: "Music requests, playback and controls.", preconditions: ["InteractionRateLimit"] });
   }
-  public override registerApplicationCommands(registry: Command.Registry): void { registerApplicationCommand(registry, musicCommandDefinition(name)); }
+  public override registerApplicationCommands(registry: Command.Registry): void { registerApplicationCommand(registry, musicGroupDefinition()); }
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const service = interaction.client.music;
@@ -23,7 +28,7 @@ export function createMusicCommand(name: MusicCommandName) { return class MusicC
       return;
     }
     try {
-      const action = name === "music-panel" ? "panel" : name;
+      const action = interaction.options.getSubcommand(true);
       let content: string;
       if (action === "panel") {
         await service.authorize(interaction.guild, interaction.channelId, interaction.user.id, false);

@@ -1,8 +1,6 @@
-import { Command } from "@sapphire/framework";
 import { SlashCommandBuilder, type ChatInputCommandInteraction, type SlashCommandSubcommandBuilder } from "discord.js";
 
 import { executePlayerAdminAction, getPlayerAdminAction, type PlayerAdminAction, type PlayerAdminOption } from "../../modules/players/administration/playerAdminActions";
-import { registerApplicationCommand } from "./registerApplicationCommand";
 
 const PLAYER_ADMIN_COMMAND_NAMES: Record<string, string> = {
   "items.give-item": "give-item",
@@ -56,7 +54,11 @@ function addOption(command: SlashCommandSubcommandBuilder, option: PlayerAdminOp
   if (option.kind === "integer") return command.addIntegerOption(configure);
   if (option.kind === "number") return command.addNumberOption(configure);
   if (option.kind === "boolean") return command.addBooleanOption(configure);
-  return command.addStringOption(configure);
+  return command.addStringOption((builder) => {
+    configure(builder);
+    if (["item-name", "module", "vehicle-id", "template", "node-id"].includes(option.name)) builder.setAutocomplete(true);
+    return builder;
+  });
 }
 
 function getPlayerAdminCommandName(action: PlayerAdminAction): string {
@@ -70,7 +72,10 @@ function buildPlayerAdminCommandData(action: PlayerAdminAction): SlashCommandBui
   const optionBuilder = data as unknown as SlashCommandSubcommandBuilder;
   if (action.playerScoped !== false) data.addStringOption((option) => option.setName("player-id").setDescription("Numeric Dune player ID.").setRequired(true));
   if (action.confirm) data.addBooleanOption((option) => option.setName("confirm").setDescription("Explicitly confirm this disruptive action.").setRequired(true));
-  for (const option of action.options) addOption(optionBuilder, option);
+  for (const option of action.options) {
+    if (action.name === "give-item-id" && option.name === "item-id") data.addStringOption((builder) => builder.setName(option.name).setDescription(option.description).setRequired(true).setAutocomplete(true));
+    else addOption(optionBuilder, option);
+  }
   return data;
 }
 
@@ -78,19 +83,10 @@ function createPlayerAdminCommand(group: string, actionName: string) {
   const resolvedAction = getPlayerAdminAction(group, actionName);
   if (!resolvedAction) throw new Error(`Unknown player administration action: ${group}.${actionName}`);
   const action: PlayerAdminAction = resolvedAction;
-  const name = getPlayerAdminCommandName(action);
   const data = buildPlayerAdminCommandData(action);
   const execute = (interaction: ChatInputCommandInteraction): Promise<void> => executePlayerAdminAction(interaction, action);
 
-  class PlayerAdminStandaloneCommand extends Command {
-    public constructor(context: Command.LoaderContext, options: Command.Options) {
-      super(context, { ...options, name, description: action.description, preconditions: ["InteractionRateLimit", "OwnerRoleOnly"] });
-    }
-    public override registerApplicationCommands(registry: Command.Registry): void { registerApplicationCommand(registry, data); }
-    public override chatInputRun(interaction: Command.ChatInputCommandInteraction): Promise<void> { return execute(interaction); }
-  }
-
-  return { CommandClass: PlayerAdminStandaloneCommand, data, execute };
+  return { data, execute };
 }
 
 export { PLAYER_ADMIN_COMMAND_NAMES, buildPlayerAdminCommandData, createPlayerAdminCommand, getPlayerAdminCommandName };

@@ -28,13 +28,13 @@ See the [complete RabbitMQ ↔ Discord setup guide](guides/rabbitmq-discord.md) 
 
 ## Join-to-create voice rooms
 
-Configure `DATABASE_URL`, restart the bot, then run `/voice-setup join:<voice channel> category:<category> panel:<text channel>` with **Manage Server** permission. Members joining the trigger receive a personal voice room; controls work only for the creator while inside their own room. Ownership and setup survive restarts, and empty rooms are automatically removed.
+Configure `DATABASE_URL`, restart the bot, then run `/voice setup join:<voice channel> category:<category> panel:<text channel>` with **Manage Server** permission. Members joining the trigger receive a personal voice room; controls work only for the creator while inside their own room. Ownership and setup survive restarts, and empty rooms are automatically removed.
 
 See the [voice-room setup and control guide](guides/voice-rooms.md) for permissions, commands, panel controls, and recovery behavior.
 
 ## Lavalink music lounge
 
-Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and `MUSIC_*` values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts song names/links in the dedicated request text channel, and provides a public panel and standalone music commands such as `/play`, `/queue`, and `/skip`. Playback controls belong to the current song's requester. The queue and playback checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
+Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and `MUSIC_*` values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts song names/links in the dedicated request text channel, and provides a public panel and grouped music commands such as `/music play`, `/music queue`, and `/music skip`. Skip, pause, resume and volume belong to the current song's requester; stop and clear require `OWNER_ROLE_ID`. The queue and playback checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
 
 ## Development
 
@@ -115,27 +115,27 @@ The command reads `GET /api/exchange/items` through the configured Dune Console 
 
 ## Interactive command help
 
-Run `/help` to open the private Arrakis Command Center. It catalogs all 77 standalone commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
+Run `/help` to open the private Arrakis Command Center. It catalogs all 77 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
 
 ## Owner server controls
 
-Members with the configured `OWNER_ROLE_ID` can run `/start-server`, `/stop-server`, `/restart-server`, `/fix-network`, `/cleanup-images`, `/cleanup-build-cache`, `/services`, and `/restart-service service:<name>`. Each standalone owner-only command calls the matching Dune Console endpoint and responds ephemerally. `/services` lists current service status and provides the names accepted by `/restart-service`. Storage cleanup requests include the Console's exact required confirmation phrase. The Console API key must have permission to execute server operations.
+Members with the configured `OWNER_ROLE_ID` can run `/server start`, `/server stop`, `/server restart`, `/server fix-network`, `/server cleanup-images`, `/server cleanup-build-cache`, `/server services`, and `/server restart-service service:<name>`. Each owner-only subcommand calls the matching Dune Console endpoint and responds ephemerally. `/server services` lists current service status and provides the names accepted by `/server restart-service`. Storage cleanup requests include the Console's exact required confirmation phrase. The Console API key must have permission to execute server operations.
 
-`/restart-server` and `/restart-service` accept an optional `immediate` flag. Normal requests respect the Console Restart Queue and report queued `202` responses; `immediate:true` sends `restartQueue=immediate` to bypass its countdown. Concurrency-conflict `409` responses are shown in the ephemeral error panel.
+`/server restart` and `/server restart-service` accept an optional `immediate` flag. Normal requests respect the Console Restart Queue and report queued `202` responses; `immediate:true` sends `restartQueue=immediate` to bypass its countdown. Concurrency-conflict `409` responses are shown in the ephemeral error panel.
 
 ## Owner update controls
 
-Owners can use `/check-game-update`, `/apply-game-update`, `/fix-steamcmd`, `/check-stack-update`, `/apply-stack-update`, `/auto-update-status`, `/configure-auto-update`, and `/repair-runtime`. `/check-game-update` accepts the optional `fresh` flag. `/configure-auto-update` requires all documented automatic-update fields and forwards its `confirmation` value to the Console. All update responses are ephemeral.
+Owners can use `/update game check`, `/update game apply`, `/update runtime fix-steamcmd`, `/update stack check`, `/update stack apply`, `/update game auto-status`, `/update game configure-auto`, and `/update runtime repair`. `/update game check` accepts the optional `fresh` flag. `/update game configure-auto` requires all documented automatic-update fields and forwards its `confirmation` value to the Console. All update responses are ephemeral.
 
 ## Backup controls
 
-`/backups` remains the read-only overview for the backup list and automatic-backup status. Owners can use `/create-backup`, `/restore-backup`, `/download-backup`, `/delete-backup`, `/delete-all-backups`, `/import-backup`, and `/configure-auto-backup` for the remaining Console backup operations. Restore and deletion commands require an explicit `confirm:true`; responses are ephemeral.
+`/backup list` remains the read-only overview for the backup list and automatic-backup status. Owners can use `/backup create`, `/backup restore`, `/backup download`, `/backup delete`, `/backup delete-all`, `/backup import`, and `/backup configure-auto` for the remaining Console backup operations. Restore and deletion commands require an explicit `confirm:true`; responses are ephemeral.
 
 External imports require both the backup archive and its metadata as Discord attachments and are limited to 25 MB combined. Downloads are returned as ephemeral Discord attachments and are limited to 10 MB; larger archives must be retrieved directly through the Console.
 
 ## Owner player administration
 
-Owners have 38 standalone player commands covering every item/XP/skill, kick/ban/teleport, cleanup, progression, equipment, inventory-editing, and kick-all route. Examples include `/give-item`, `/add-player-xp`, `/kick-player`, `/ban-player`, `/teleport-player`, `/add-player-currency`, and `/repair-player-gear`. Player-scoped operations require the numeric Console `player-id`; disruptive operations also require `confirm:true`.
+Owners have 38 player administration subcommands covering every item/XP/skill, kick/ban/teleport, cleanup, progression, equipment, inventory-editing, and kick-all route. Examples include `/player items give-item`, `/player items add-xp`, `/player actions kick`, `/player actions ban`, `/player actions teleport`, `/player progression add-currency`, and `/player equipment repair-gear`. Player-scoped operations require the numeric Console `player-id`; disruptive operations also require `confirm:true`.
 
 Options ending in `-json` accept the documented structured value as JSON: `items-json` and `augments-json` require arrays, while `values-json` requires an object. Routes with a fixed Console confirmation phrase supply it automatically; routes whose confirmation phrase is operation-specific expose a required `confirmation` option. All responses are ephemeral.
 
@@ -154,3 +154,5 @@ The application is intentionally modular. `ArrakisClient` maps Sapphire's comman
 - Uploaded blueprint URLs are restricted to Discord CDN hosts and are size-checked before forwarding.
 - External API errors are logged internally but reduced to safe user-facing messages.
 - Automatic retries are limited to safe/idempotent Dune Console methods.
+
+See the [complete command migration table](guides/commands.md) for all 11 command groups and their actions.

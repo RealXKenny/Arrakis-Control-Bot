@@ -2,6 +2,41 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.10.4] - 2026-09-17
+
+### Added
+
+- Bundle all eight supplied game catalogs, with item, skill, vehicle/template and journey autocomplete plus `/player catalog` reference search.
+- Validate known skill levels, vehicle/template pairs and grant-item augment compatibility. Unknown identifiers remain available for newer game content.
+- Use catalog names when live market names are missing, and show Hagga sub-region labels when player data includes a matching map and area ID.
+- Add a complete command migration table and data catalog documentation. Market seed data is reference-only and never replaces live prices or creates listings.
+
+### Changed
+
+- Consolidate the bot into 11 top-level commands: `/bot`, `/player`, `/backup`, `/server`, `/update`, `/moderation`, `/music`, `/voice`, `/market`, `/storm` and `/help`.
+- Preserve action options and owner/staff checks while moving reusable implementations out of the command loader. Remove unused standalone command classes and use descriptive catalog aliases.
+- Synchronize the complete command list in one bulk update so retired commands cannot exhaust Discord's 100-command limit during migration.
+- Update help, guides and configuration examples for grouped commands.
+
+### Fixed
+
+- Start Lavalink recovery immediately and retry 10 seconds after each failed attempt, without overlapping recovery operations.
+- Preserve the current song, saved position and queue through load failures, connection drops, voice disconnections and playback exceptions instead of skipping.
+- Ignore retired-player events and protect checkpoints until restored playback starts. Reject interrupted recovery attempts instead of marking them successful.
+- Recognize Discord.js's actual `SHARDS` environment variable so only the primary shard registers commands and performs shared announcements.
+
+### Upgrade notes
+
+- Restart after deploying to synchronize the 11 command groups. Use `/help` or `guides/commands.md` to find the new names; music and voice panel buttons continue working.
+- Existing `OWNER_ROLE_ID`, music, voice and database settings remain valid. Clear Queue and Stop Playback still require the Owner role and voice membership.
+- Include the bundled `data` directory in deployments; the TypeScript build copies the JSON catalogs into `dist/data`.
+- Recovery resumes the last known position, so sudden disconnects can replay a few seconds. Permanently unavailable tracks remain queued until explicitly skipped or stopped.
+
+### Verification
+
+- Build, lint and all 366 automated tests across 55 files passed. Production dependency audit: zero vulnerabilities.
+- Offline checks cover grouped registration, per-action access, catalog schemas/options and music recovery. Live Discord, Lavalink and Console behavior still requires deployment testing.
+
 ## [1.10.3] - 2026-09-17
 
 ### Added

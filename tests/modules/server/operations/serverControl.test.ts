@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { data as restartServerData } from "../../../../src/commands/server/lifecycle/restart-server";
-import { data as startServerData } from "../../../../src/commands/server/lifecycle/start-server";
-import { data as stopServerData } from "../../../../src/commands/server/lifecycle/stop-server";
-import { data as cleanupBuildCacheData } from "../../../../src/commands/server/maintenance/cleanup-build-cache";
-import { data as cleanupImagesData } from "../../../../src/commands/server/maintenance/cleanup-images";
-import { data as fixNetworkData } from "../../../../src/commands/server/maintenance/fix-network";
-import { data as restartServiceData } from "../../../../src/commands/server/services/restart-service";
-import { data as servicesData, normalizeServiceRows } from "../../../../src/commands/server/services/services";
+import { data as restartServerData } from "../../../../src/command-actions/server/lifecycle/restart-server";
+import { data as startServerData } from "../../../../src/command-actions/server/lifecycle/start-server";
+import { data as stopServerData } from "../../../../src/command-actions/server/lifecycle/stop-server";
+import { data as cleanupBuildCacheData } from "../../../../src/command-actions/server/maintenance/cleanup-build-cache";
+import { data as cleanupImagesData } from "../../../../src/command-actions/server/maintenance/cleanup-images";
+import { data as fixNetworkData } from "../../../../src/command-actions/server/maintenance/fix-network";
+import { data as restartServiceData } from "../../../../src/command-actions/server/services/restart-service";
+import { data as servicesData, normalizeServiceRows } from "../../../../src/command-actions/server/services/services";
 import { SERVER_ACTIONS, getResponseMessage, getServerAction } from "../../../../src/modules/server/operations/serverActions";
 
 describe("owner server controls", () => {

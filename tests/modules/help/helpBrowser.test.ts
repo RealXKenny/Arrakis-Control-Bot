@@ -13,8 +13,8 @@ describe("interactive help browser", () => {
     const catalogNames = HELP_CATEGORIES.flatMap((category) => category.commands.map((command) => command.name));
 
     expect(HELP_CATEGORIES).toHaveLength(14);
-    expect(new Set(catalogNames).size).toBe(100);
-    expect(new Set(catalogNames)).toEqual(new Set(commands));
+    expect(new Set(catalogNames).size).toBe(80);
+    expect(new Set(catalogNames.map((name) => name.split(" ")[0]))).toEqual(new Set(commands));
     expect(getHelpCategory("player-progression")?.commands).toHaveLength(15);
   });
 

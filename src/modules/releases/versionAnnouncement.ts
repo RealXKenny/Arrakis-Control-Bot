@@ -1,3 +1,4 @@
+import { isPrimaryShard } from "../../shared/process/shardIdentity";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type MessageCreateOptions, type SendableChannels } from "discord.js";
 
 import { createDuneBanner } from "../../shared/discord/imageFactory";
@@ -39,7 +40,7 @@ interface Release {
 }
 
 async function announceCurrentVersion(client: Client, channelId?: string | null): Promise<void> {
-  if (!channelId || (process.env.DISCORD_SHARD_ID ?? "0") !== "0") {
+  if (!channelId || !isPrimaryShard()) {
     return;
   }
 

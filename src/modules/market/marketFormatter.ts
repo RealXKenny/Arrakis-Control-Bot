@@ -1,3 +1,4 @@
+import { catalogItemName } from "../players/administration/gameCatalogs";
 import { escapeMarkdown } from "discord.js";
 
 interface MarketItemRow {
@@ -110,7 +111,7 @@ function formatMarketNumber(value: unknown): string {
 }
 
 function formatMarketRow(row: MarketItemRow, buybackPercent: number | null = null): string {
-  const rawName = getText(row.display_name) ?? getText(row.template_id) ?? "Unknown item";
+  const rawName = getText(row.display_name) ?? catalogItemName(String(row.template_id)) ?? getText(row.template_id) ?? "Unknown item";
   const name = escapeMarkdown(rawName).slice(0, 120);
   const quality = getText(row.quality_level);
   const category = getText(row.category);
