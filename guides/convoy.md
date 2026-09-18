@@ -14,3 +14,13 @@ The endpoint returns the full server list as a JSON array without pagination. Th
 - **429:** Wait for the displayed `Retry-After` duration. Limits are shared across the account; the bot does not automatically replay requests.
 
 Requests time out after 30 seconds. Redirects are rejected, and credentials cannot be sent to another origin through a supplied route. Empty teams are shown as empty; malformed server responses are reported as failures.
+
+## Resource graphs
+
+Run `/server-usage server:<UUID> period:hour aggregation:average`. Select a server from autocomplete or paste the full UUID shown by `/server vps`.
+
+The command uses `GET /api/v1/client/servers/{server}/metrics` (Read every resource graph) to fetch CPU, memory, network in/out and disk read/write together. It supports `hour`, `day`, `week`, `month`, `year` and `average` or `maximum` aggregation. Defaults are hour and average. The same `API_URL`, `API_KEY` and `server.read` permission apply.
+
+Charts are a snapshot, with UTC sample times. CPU fractions are shown as percentages, memory as binary bytes, and network/disk rates as binary bytes per second, matching the supplied panel sample. Missing samples are gaps, not zeroes; empty windows and an unavailable metrics store are shown explicitly. The command does not poll or change the VPS. Up to 25,000 samples per resource are supported; larger replies are rejected rather than silently clipped.
+
+The reference's generated series schema labels array items as strings, but its examples and the supplied response contain timestamped objects; the parser follows those actual objects.

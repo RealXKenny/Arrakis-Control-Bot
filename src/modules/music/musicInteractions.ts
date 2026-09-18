@@ -18,7 +18,7 @@ export async function handleMusicInteraction(interaction: ButtonInteraction | Mo
         .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input)));
       return;
     }
-    if (interaction.isButton() && (interaction.customId.startsWith("music-confirm:") || action === "cancel")) await interaction.deferUpdate();
+    if (interaction.isButton() && (interaction.customId.startsWith("music-confirm:") || interaction.customId.startsWith("music:lyrics:") || action === "cancel")) await interaction.deferUpdate();
     else await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await service.authorize(interaction.guild, interaction.channelId, interaction.user.id, !["queue", "now", "lyrics", "cancel"].includes(action));
     let content: string;
@@ -30,7 +30,8 @@ export async function handleMusicInteraction(interaction: ButtonInteraction | Mo
         content = `Volume set to ${value}%.`;
       }
     } else if (action === "lyrics") {
-      await interaction.editReply(service.lyricsMessage());
+      const [, , requestId, page] = interaction.customId.split(":");
+      await interaction.editReply(await service.lyricsMessage(requestId, page === undefined ? 0 : Number(page)));
       return;
     } else if (action === "now") {
       await interaction.editReply(service.nowPlayingMessage());

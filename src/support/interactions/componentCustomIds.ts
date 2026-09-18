@@ -37,6 +37,7 @@ function matchesCustomId(customId: string, exactId: string, prefix?: string): bo
 
 function isKnownComponentInteraction(interaction: Interaction): boolean {
   if (interaction.isButton()) {
+    if (/^music:lyrics:[\w-]{1,36}:\d{1,3}$/.test(interaction.customId)) return true;
     return BUTTON_IDS.includes(interaction.customId as (typeof BUTTON_IDS)[number]) || BUTTON_PREFIXES.some((prefix) => interaction.customId.startsWith(prefix));
   }
 

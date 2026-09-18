@@ -2,6 +2,18 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.10.5] - 2026-09-17
+
+### Fixed
+
+- Recover silent music stalls after 30 seconds without playback progress, preserve the current song and position, and prevent duplicate errors from delaying retries. Allow authorized Skip, Stop and Clear Queue while Lavalink is unavailable.
+- Remove obsolete server-specific slash commands after verifying successful global command synchronization; retain context menus and report cleanup failures.
+
+### Added
+
+- Display lyrics inside Discord with private pagination, cached LRCLIB lookups, instrumental handling and a Genius fallback.
+- Add `/server-usage` with server autocomplete, all five history windows, average/maximum aggregation and four resource charts from Convoy's combined metrics endpoint.
+
 ## [1.10.4] - 2026-09-17
 
 ### Added

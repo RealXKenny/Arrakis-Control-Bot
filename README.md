@@ -155,4 +155,6 @@ The application is intentionally modular. `ArrakisClient` maps Sapphire's comman
 - External API errors are logged internally but reduced to safe user-facing messages.
 - Automatic retries are limited to safe/idempotent Dune Console methods.
 
-See the [complete command migration table](guides/commands.md) for all 11 command groups and their actions.
+See the [complete command migration table](guides/commands.md) for all command groups and their actions.
+
+Use `/server-usage` for Convoy CPU, memory, network and disk graphs. See the [Convoy guide](guides/convoy.md).

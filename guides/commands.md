@@ -1,6 +1,6 @@
 # Command groups
 
-The bot registers 11 top-level commands. Related actions are subcommands; options and access checks are preserved. Restart to synchronize the command list and remove retired standalone names.
+The bot registers 12 top-level commands. Related actions are subcommands; options and access checks are preserved. Restart to synchronize the command list and remove retired standalone names.
 
 | Previous command | New command | Access |
 | --- | --- | --- |
@@ -84,3 +84,7 @@ The bot registers 11 top-level commands. Related actions are subcommands; option
 ## Game catalogs
 
 Use `/player catalog` to search all eight bundled reference datasets. Item grants, skill modules, vehicles/templates and journey nodes offer autocomplete. See [catalog details](../data/README.md). Owner-only actions retain their permissions.
+
+`/server-usage` shows all four Convoy resource graphs, with server selection, period and aggregation options.
+
+After global registration succeeds, startup removes server-specific slash command copies owned by this bot, including old names and duplicate group names. Cleanup verifies that the current global command list is present first. Context menus and commands belonging to other applications are unaffected. A `[COMMANDS]` startup summary reports removals and any failed operations.

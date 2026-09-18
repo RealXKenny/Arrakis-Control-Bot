@@ -9,10 +9,13 @@ import { loadedTracks, musicQuery, MusicUserError } from "./musicTracks";
 import { MusicPanelPublisher } from "./musicPanel";
 import { MusicNowPlayingPanel, NOW_PLAYING_MARKER } from "./MusicNowPlayingPanel";
 
+import { MusicLyrics } from "./musicLyrics";
+
 export type MusicAction = "skip" | "pause" | "resume" | "stop" | "clear" | "volume";
 
 export class MusicService {
   private readonly backend: LavalinkConnection;
+  private readonly lyrics = new MusicLyrics();
   private readonly queue: QueueEntry[] = [];
   private current?: QueueEntry;
   private paused = false;
@@ -31,6 +34,7 @@ export class MusicService {
   private readonly panel: MusicPanelPublisher;
   private lastPanelWarning = 0;
   private position = 0;
+  private progress?: { id: string; position: number; at: number };
   private initialized = false;
   private initialization?: Promise<void>;
   private checkpointTimer?: ReturnType<typeof setInterval>;
@@ -61,7 +65,7 @@ export class MusicService {
     this.checkpointTimer = setInterval(() => {
       if (this.checkpointPending || this.stopped || !this.current || !this.client.guilds.cache.has(this.config.guildId)) return;
       this.checkpointPending = true;
-      void this.serial(async () => { this.capturePosition(); await this.commit(this.snapshot()); }, true)
+      void this.serial(async () => { this.checkProgress(); this.capturePosition(); await this.commit(this.snapshot()); }, true)
         .catch(() => {
           if (Date.now() - this.lastCheckpointWarning < 60_000) return;
           this.lastCheckpointWarning = Date.now();
@@ -101,6 +105,23 @@ export class MusicService {
     const player = this.backend.player(this.config.guildId);
     if (!this.restoringId && !this.resetConnection && this.current && player?.track === this.current.track.encoded && Number.isFinite(player.position)) {
       this.position = Math.max(0, player.position);
+    }
+  }
+
+  /** Detect silent stalls even when Lavalink never sends a stuck/exception event. */
+  private checkProgress(): void {
+    if (!this.current || this.paused || this.resetConnection || this.recovering || Date.now() < this.retryAfter) {
+      this.progress = undefined;
+      return;
+    }
+    const player = this.backend.player(this.config.guildId);
+    const position = player?.track === this.current.track.encoded && Number.isFinite(player.position) ? player.position : this.position;
+    if (!this.progress || this.progress.id !== this.current.id || position > this.progress.position) {
+      this.progress = { id: this.current.id, position, at: Date.now() };
+      return;
+    }
+    if (Date.now() - this.progress.at >= 30_000) {
+      this.interrupted(this.current.id);
     }
   }
 
@@ -175,6 +196,7 @@ export class MusicService {
       if (!this.current) {
         try { await this.advance(player); }
         catch {
+          this.interrupted();
           this.warn();
           return "Your request is queued, but playback is reconnecting. Check /music queue before resending.";
         }
@@ -189,24 +211,39 @@ export class MusicService {
       await this.authorize(guild, channelId, userId);
       if (action === "clear" || action === "stop") await this.requireOwnerRole(guild, userId);
       else this.requireRequester(userId);
+      // Saved queue controls must remain usable while the audio server is down.
+      if (action === "clear") {
+        await this.commit({ ...this.snapshot(), queue: [] });
+        this.refreshSongCard();
+        return;
+      }
+      if (action === "stop" || action === "skip") {
+        const player = this.backend.available() && !this.resetConnection && Date.now() >= this.retryAfter
+          ? this.backend.player(this.config.guildId) : undefined;
+        if (action === "stop") {
+          await this.commit({ ...this.snapshot(), current: undefined, queue: [], position: 0, paused: false });
+          this.restoringId = undefined;
+          this.pendingEnd = undefined;
+          this.progress = undefined;
+          if (!player) this.interrupted();
+          else try { await player.stopTrack(); } catch { this.interrupted(); }
+        } else {
+          await this.advance(player, true);
+        }
+        this.refreshSongCard();
+        return;
+      }
       const player = await this.ensurePlayer();
       this.capturePosition();
       if (action === "volume") {
         if (value === undefined || !Number.isInteger(value) || value < 0 || value > 100) throw new MusicUserError("Volume must be from 0 to 100.");
         await this.commit({ ...this.snapshot(), volume: value });
         try { await player.setGlobalVolume(value); } catch (error) { this.resetConnection = true; throw error; }
-      } else if (action === "clear") {
-        await this.commit({ ...this.snapshot(), queue: [] });
       } else if (action === "pause" || action === "resume") {
         if (!this.current) throw new MusicUserError("Nothing is playing right now.");
         await this.commit({ ...this.snapshot(), paused: action === "pause" });
+        this.progress = undefined;
         try { await player.setPaused(this.paused); } catch (error) { this.resetConnection = true; throw error; }
-      } else {
-        if (action === "skip" && !this.current) throw new MusicUserError("Nothing is playing right now.");
-        if (action === "stop") {
-          await this.commit({ ...this.snapshot(), current: undefined, queue: [], position: 0, paused: false });
-          try { await player.stopTrack(); } catch (error) { this.resetConnection = true; throw error; }
-        } else await this.advance(player, true);
       }
       this.refreshSongCard();
     });
@@ -249,15 +286,10 @@ export class MusicService {
     cleanup.unref();
   }
 
-  public lyricsMessage() {
-    const info = this.current?.track.info;
-    if (!info) return { content: "Nothing is playing right now. Request a song first.", components: [], allowedMentions: { parse: [] as never[] } };
-    const url = new URL("https://genius.com/search");
-    url.searchParams.set("q", `${info.title} ${info.author}`.slice(0, 400));
-    return { content: "Find lyrics for the current song on Genius. Search results may include different versions.",
-      components: [new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder()
-        .setStyle(ButtonStyle.Link).setLabel("View Lyrics on Genius").setURL(url.href))],
-      allowedMentions: { parse: [] as never[] } };
+  public async lyricsMessage(requestId?: string, page = 0) {
+    const entry = this.current;
+    if (!entry || (requestId && requestId !== entry.id)) return { content: "The song has changed or stopped. Open View Lyrics again for the current song.", embeds: [], components: [], allowedMentions: { parse: [] as never[] } };
+    return this.lyrics.message(entry.track, entry.id, page);
   }
 
   public nowPlayingMessage() {
@@ -343,15 +375,19 @@ export class MusicService {
   }
 
   private async play(player: Player, entry: QueueEntry): Promise<void> {
+    this.progress = { id: entry.id, position: this.position, at: Date.now() };
     const position = entry.track.info.isSeekable && !entry.track.info.isStream ? Math.min(this.position, Math.max(0, entry.track.info.length - 1)) : 0;
     try { await player.playTrack({ track: { encoded: entry.track.encoded, userData: { requestId: entry.id } }, position, paused: this.paused }); }
-    catch (error) { this.resetConnection = true; throw error; }
+    catch (error) { this.interrupted(entry.id); throw error; }
   }
 
-  private async advance(player: Player, stopCurrent = false): Promise<void> {
+  private async advance(player: Player | undefined, stopCurrent = false): Promise<void> {
     const [entry, ...queue] = this.queue;
     await this.commit({ ...this.snapshot(), current: entry, queue, paused: false, position: 0 });
     this.restoringId = undefined;
+    this.pendingEnd = undefined;
+    this.progress = undefined;
+    if (!player) { this.interrupted(); return; }
     if (entry) await this.play(player, entry);
     else if (stopCurrent) {
       try { await player.stopTrack(); } catch (error) { this.resetConnection = true; throw error; }
@@ -360,12 +396,15 @@ export class MusicService {
 
   private interrupted(id?: string): void {
     if (this.stopped || (id && id !== this.current?.id)) return;
+    // Duplicate failure events must not keep pushing the next attempt into the future.
+    if (this.resetConnection && Date.now() < this.retryAfter) return;
     this.interruptionVersion++;
     // Freeze the checkpoint before a dead/replacement player can report position zero.
     this.capturePosition();
     this.resetConnection = true;
     this.restoringId = this.current?.id;
     this.pendingEnd = undefined;
+    this.progress = undefined;
     this.warn();
     this.scheduleRecovery(true);
   }

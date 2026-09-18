@@ -84,3 +84,13 @@ it("allows lyrics viewing without voice membership or playback ownership", async
   expect(service.action).not.toHaveBeenCalled();
   expect(mocks.editReply).toHaveBeenCalledWith({ content: "Lyrics link", components: [] });
 });
+
+it("updates the private lyrics page and awaits lookup completion", async () => {
+  const { value, service, mocks } = interaction("music:lyrics:request:1");
+  service.lyricsMessage.mockResolvedValue({ content: "Page two", components: [] });
+  await handleMusicInteraction(value);
+  expect(mocks.deferUpdate).toHaveBeenCalledOnce();
+  expect(service.lyricsMessage).toHaveBeenCalledWith("request", 1);
+  expect(mocks.editReply).toHaveBeenCalledWith({ content: "Page two", components: [] });
+  expect(isKnownComponentInteraction({ customId: "music:lyrics:request:1", isButton: () => true } as unknown as Interaction)).toBe(true);
+});
