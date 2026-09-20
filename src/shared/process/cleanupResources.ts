@@ -3,13 +3,13 @@ interface CleanupTask {
   run: () => unknown | Promise<unknown>;
 }
 
-/** Close independent resources even when another resource fails or hangs. */
 export async function cleanupResources(
   tasks: CleanupTask[],
   onError: (name: string, error: unknown) => void,
   onTimeout: () => void,
   timeoutMs = 10_000,
 ): Promise<void> {
+  // Dev note: Everyone gets a lifeboat, even when one shutdown task sinks.
   let timer: ReturnType<typeof setTimeout> | undefined;
   const cleanup = Promise.all(tasks.map(async ({ name, run }) => {
     try {

@@ -1,5 +1,5 @@
-// Classify errors without echoing broker text, URLs, credentials or certificate details.
 export function describeChatConnectionError(error: unknown): string {
+  // Dev note: Diagnose the storm without repeating secrets carried by the wind.
   if (!error || typeof error !== "object") return "Unrecognized failure; inspect the RabbitMQ server logs.";
   const value = error as { code?: unknown; message?: unknown; errors?: unknown };
   if (Array.isArray(value.errors) && value.errors.length) {

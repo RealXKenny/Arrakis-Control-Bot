@@ -1,5 +1,5 @@
-/** Enforce limits while streaming, including when Content-Length is absent. */
 export async function readBoundedBody(response: Response, maximumBytes: number, limitMessage: string): Promise<Buffer> {
+  // Dev note: Trust Content-Length like a smuggler's manifest: verify while unloading.
   if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0) throw new RangeError("Invalid response size limit.");
   if (!response.body) return Buffer.alloc(0);
 

@@ -39,6 +39,5 @@ describe("server information panel", () => {
     expect(combined).toContain("m_BaseBackupToolMapRestriction");
     expect(combined).toContain("DuneSandbox.LandsraadSettings");
     expect(combined).toContain("m_bCrossMapRespawnDropItems=False");
-    expect(combined).toContain("Hydration.SunExposureEnabled=0");
   });
 });

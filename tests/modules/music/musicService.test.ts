@@ -110,7 +110,7 @@ it("recovers the current track after Lavalink reconnects", async () => {
   service.start();
   await vi.waitFor(() => expect(mocked.join).toHaveBeenCalledTimes(1));
   mocked.events!.ready();
-  // Startup recovery may still be active; another ready event is safe.
+  // Dev note: Startup recovery may still be active; another ready event is safe.
   await new Promise((resolve) => setTimeout(resolve, 10));
   mocked.events!.ready();
   await vi.waitFor(() => expect(mocked.player.playTrack.mock.calls.length).toBeGreaterThan(1));
@@ -236,7 +236,7 @@ it("keeps a single card across track changes and suppresses duplicate start even
   expect(send.mock.calls[0][0].embeds[0].toJSON()).toMatchObject({ image: { url: song.info.artworkUrl }, fields: [{ name: "Requested by", value: "<@user>" }] });
   expect(send.mock.calls[0][0].allowedMentions).toEqual({ parse: [] });
   await service.action(guild, "requests", "user", "skip");
-  mocked.events!.started(requestId(0)); // Late event for the old track.
+  mocked.events!.started(requestId(0)); // Dev note: The old track arrived late, like a drummer missing the count-in.
   mocked.events!.started(requestId(1));
   await vi.waitFor(() => expect(edit).toHaveBeenCalled());
   expect(send).toHaveBeenCalledTimes(1);
@@ -410,7 +410,7 @@ it.each([true, false])("preserves an already-playing song and position on interr
     mocked.player.position = 650;
     mocked.events!.failed(identified ? id : undefined);
     mocked.player.position = 0;
-    // A late end from the broken playback must not consume the request.
+    // Dev note: A broken playback ending late does not get a second bite of the queue.
     mocked.events!.ended(id);
     await vi.advanceTimersByTimeAsync(9_999);
     expect(mocked.player.playTrack).toHaveBeenCalledTimes(1);

@@ -1,11 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadEnvironment } from "../../../src/infrastructure/config/environment";
 
 const TEST_ENVIRONMENT_KEYS = ["LAVALINK_URL", "LAVALINK_PASSWORD", "MUSIC_GUILD_ID", "MUSIC_VOICE_CHANNEL_ID", "MUSIC_REQUEST_CHANNEL_ID", "MUSIC_SEARCH_SOURCE", "MUSIC_VOLUME", "MUSIC_MAX_QUEUE", "VOICE_GUILD_ID", "VOICE_JOIN_CHANNEL_ID", "VOICE_CATEGORY_ID", "VOICE_PANEL_CHANNEL_ID", "VOICE_PANEL_PUBLIC", "TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY", "NODE_ENV", "LOG_LEVEL", "TOTAL_SHARDS", "CLIENT_ID", "DATABASE_URL", "DATABASE_SSL", "TICKET_PANEL_CHANNEL_ID", "TICKET_CATEGORY_ID", "TICKET_TRANSCRIPT_CHANNEL_ID"] as const;
 
 beforeEach(clearTestEnvironment);
-afterEach(clearTestEnvironment);
+afterEach(() => {
+  clearTestEnvironment();
+  vi.unstubAllEnvs();
+});
 
 function clearTestEnvironment(): void {
   for (const key of TEST_ENVIRONMENT_KEYS) {
@@ -39,6 +42,15 @@ describe("loadEnvironment", () => {
     process.env.CLIENT_ID = "invalid";
 
     expect(() => loadEnvironment()).toThrow("CLIENT_ID must be a valid Discord ID");
+  });
+
+  it("ignores GitHub Actions IDs that are not Discord configuration", () => {
+    process.env.TOKEN = "token";
+    process.env.CONSOLE_URL = "https://localhost:3000";
+    process.env.CONSOLE_API_KEY = "dune-key";
+    vi.stubEnv("GITHUB_REPOSITORY_OWNER_ID", "1234567");
+
+    expect(() => loadEnvironment()).not.toThrow();
   });
 
   it("parses PostgreSQL SSL configuration", () => {

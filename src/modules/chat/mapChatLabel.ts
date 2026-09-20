@@ -1,4 +1,3 @@
-// Presentation only: AMQP bindings and publish routing keep their exact keys.
 const MAP_LABELS = new Map<string, string>([
   ["HaggaBasin.0", "Hagga Basin"],
   ["Survival_1.dim_1", "Hagga Basin PvP"],
@@ -10,5 +9,6 @@ const MAP_LABELS = new Map<string, string>([
 ]);
 
 export function mapChatLabel(routingKey: string): string {
+  // Dev note: Friendly labels dress the UI; routing keys keep their work clothes.
   return MAP_LABELS.get(routingKey) ?? routingKey;
 }

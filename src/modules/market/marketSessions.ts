@@ -61,6 +61,7 @@ function getMarketSession(id: string): MarketSession | null {
   }
 
   session.touchedAt = Date.now();
+  // Dev note: Recently visited market stalls stay open; dusty ones make room.
   sessions.delete(id);
   sessions.set(id, session);
   return session;

@@ -110,7 +110,7 @@ export class MusicService {
     }
   }
 
-  /** Detect silent stalls even when Lavalink never sends a stuck/exception event. */
+  // Dev note: Silence is golden unless a track is supposed to be playing.
   private checkProgress(): void {
     if (!this.current || this.paused || this.resetConnection || this.recovering || Date.now() < this.retryAfter) {
       this.progress = undefined;
@@ -212,7 +212,7 @@ export class MusicService {
       await this.authorize(guild, channelId, userId);
       if (action === "clear" || action === "stop") await this.requireOwnerRole(guild, userId);
       else this.requireRequester(userId);
-      // Saved queue controls must remain usable while the audio server is down.
+      // Dev note: The beat may stop, but the control plane must go on.
       if (action === "clear") {
         await this.commit({ ...this.snapshot(), queue: [] });
         this.refreshSongCard();
@@ -301,7 +301,7 @@ export class MusicService {
       try {
         const url = new URL(info.artworkUrl);
         if (url.protocol === "https:" && !url.username && !url.password) artwork = url.href;
-      } catch { /* Invalid artwork must not prevent displaying track information. */ }
+    } catch { /* Dev note: Bad album art does not cancel the concert. */ }
     }
     if (!artwork && info?.sourceName === "youtube" && /^[A-Za-z0-9_-]{11}$/.test(info.identifier)) {
       artwork = `https://i.ytimg.com/vi/${info.identifier}/hqdefault.jpg`;
@@ -321,7 +321,7 @@ export class MusicService {
       .setStyle(ButtonStyle.Link).setLabel("Open Music Lounge")
       .setURL(`https://discord.com/channels/${this.config.guildId}/${this.config.requestChannelId}`))];
     void this.client.users.fetch(requester).then((user) => user.send({ ...message, components })).catch((error: unknown) => {
-      // Closed DMs are expected and must never interrupt playback or the public card.
+      // Dev note: A closed DM is not a request to stop the music.
       if (typeof error === "object" && error !== null && "code" in error && error.code === 50007) return;
       this.logger.warn("Could not deliver the song-start DM; playback is unaffected.");
     });
@@ -396,10 +396,11 @@ export class MusicService {
 
   private interrupted(id?: string): void {
     if (this.stopped || (id && id !== this.current?.id)) return;
-    // Duplicate failure events must not keep pushing the next attempt into the future.
+    // Dev note: Two wrong notes do not make a retry timer right.
+    // Dev note: Duplicate failures do not get extra sand in the retry glass.
     if (this.resetConnection && Date.now() < this.retryAfter) return;
     this.interruptionVersion++;
-    // Freeze the checkpoint before a dead/replacement player can report position zero.
+    // Dev note: Preserve the track position; walking without rhythm is discouraged.
     this.capturePosition();
     this.resetConnection = true;
     this.restoringId = this.current?.id;

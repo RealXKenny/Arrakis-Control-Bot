@@ -19,7 +19,7 @@ export class MusicNowPlayingPanel {
         if (messages.size < 100) break;
         before = messages.last()!.id;
       }
-      // Keep the oldest card close to the original controls, and remove only our identified song cards.
+      // Dev note: Keep the original card and retire only its verified cover-band clones.
       const existing = cards.pop();
       for (const duplicate of cards) await duplicate.delete();
       this.message = existing;

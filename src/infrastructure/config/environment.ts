@@ -43,6 +43,58 @@ interface EnvironmentConfig {
   logLevel: string;
 }
 
+const DISCORD_ID_ENV_KEYS = [
+  "CLIENT_ID",
+  "GUILD_ID",
+  "LINK_PANEL_CHANNEL_ID",
+  "BLUEPRINT_PANEL_CHANNEL_ID",
+  "ROLE_PANEL_CHANNEL_ID",
+  "VERIFY_CHANNEL_ID",
+  "RULES_CHANNEL_ID",
+  "SERVER_INFO_CHANNEL_ID",
+  "FAQ_PANEL_CHANNEL_ID",
+  "ANNOUNCEMENT_CHANNEL_ID",
+  "TICKET_PANEL_CHANNEL_ID",
+  "TICKET_CATEGORY_ID",
+  "TICKET_TRANSCRIPT_CHANNEL_ID",
+  "STORM_CHANNEL_ID",
+  "WELCOME_CHANNEL_ID",
+  "GOODBYE_CHANNEL_ID",
+  "AUDIT_CHANNEL_ID",
+  "ACTIVITY_LOG_CHANNEL_ID",
+  "LINKED_PLAYER_ROLE_ID",
+  "VERIFIED_MEMBER_ROLE_ID",
+  "TRIAL_STAFF_ROLE_ID",
+  "MODERATOR_ROLE_ID",
+  "SENIOR_MODERATOR_ROLE_ID",
+  "ADMINISTRATOR_ROLE_ID",
+  "HEAD_ADMINISTRATOR_ROLE_ID",
+  "OWNER_ROLE_ID",
+  "ROLE_PVP_ID",
+  "ROLE_PVE_ID",
+  "ROLE_BUILDER_ID",
+  "ROLE_CRAFTER_ID",
+  "ROLE_TRADER_ID",
+  "ROLE_EXPLORER_ID",
+  "ROLE_ENDGAME_ID",
+  "ROLE_ATREIDES_ID",
+  "ROLE_HARKONNEN_ID",
+  "ROLE_FREMEN_ID",
+  "ROLE_NEUTRAL_ID",
+  "ROLE_ANNOUNCEMENTS_ID",
+  "ROLE_EVENTS_ID",
+  "ROLE_PVP_ALERTS_ID",
+  "ROLE_MARKET_ALERTS_ID",
+  "ROLE_LFG_ALERTS_ID",
+  "VOICE_GUILD_ID",
+  "VOICE_JOIN_CHANNEL_ID",
+  "VOICE_CATEGORY_ID",
+  "VOICE_PANEL_CHANNEL_ID",
+  "MUSIC_GUILD_ID",
+  "MUSIC_VOICE_CHANNEL_ID",
+  "MUSIC_REQUEST_CHANNEL_ID",
+] as const;
+
 function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<EnvironmentConfig> {
   const missingKeys = requiredKeys.filter((key) => !process.env[key]);
 
@@ -65,13 +117,9 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   validateUrl(duneConsoleUrl, "CONSOLE_URL");
   validateNoUrlCredentials(duneConsoleUrl, "CONSOLE_URL");
 
-  validateOptionalSnowflake(process.env.CLIENT_ID, "CLIENT_ID");
-  validateOptionalSnowflake(process.env.GUILD_ID, "GUILD_ID");
-
-  for (const [name, value] of Object.entries(process.env)) {
-    if (value && /(?:CHANNEL|ROLE|OWNER)_?ID$/.test(name)) {
-      validateOptionalSnowflake(value, name);
-    }
+  // Dev note: GitHub owns IDs too; validate only the snowflakes this bot consumes.
+  for (const name of DISCORD_ID_ENV_KEYS) {
+    validateOptionalSnowflake(process.env[name], name);
   }
 
   const totalShards = parseShardCount(process.env.TOTAL_SHARDS);

@@ -3,11 +3,11 @@ import type { Track } from "shoukaku";
 
 type Lyrics = { text?: string; instrumental?: boolean; unavailable?: boolean };
 
-/** Bounded, coalesced lookups; lyrics requests never enter the playback operation queue. */
 export class MusicLyrics {
   private readonly cache = new Map<string, { expires: number; result: Promise<Lyrics> }>();
 
   public async message(track: Track, requestId: string, page = 0) {
+    // Dev note: Lyrics share a chorus in cache but never cut into the playback queue.
     const artist = track.info.author.replace(/\s*-\s*Topic$/i, "").trim();
     let title = track.info.title.replace(/\s*[([](?:official\s+)?(?:music\s+)?(?:video|audio|lyrics?|visuali[sz]er)[^\])]*[\])]/gi, "").trim();
     const prefix = `${artist} - `;

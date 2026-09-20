@@ -2,7 +2,6 @@ import { PermissionFlagsBits, type Client, type VoiceState } from "discord.js";
 import type { MusicMuteStorage } from "../../infrastructure/database/music/MusicMuteRepository";
 import { scopedLogger, type Logger } from "../../client/logger";
 
-/** Tracks only mutes acquired by the lounge, including pending undo across restarts. */
 export class MusicVoiceMute {
   private readonly owned = new Set<string>();
   private readonly tasks = new Map<string, Promise<void>>();
@@ -18,6 +17,7 @@ export class MusicVoiceMute {
   }
 
   public async initialize(): Promise<void> {
+    // Dev note: We only unmute what we muted; even bots should clean up their own mess.
     await this.storage.initialize();
     for (const id of await this.storage.list(this.guildId)) this.owned.add(id);
   }
@@ -51,16 +51,16 @@ export class MusicVoiceMute {
     if (this.stopped) return;
     const guild = this.client.guilds.cache.get(this.guildId);
     if (!guild?.available) return;
-    // Voice state cache is authoritative for current connectivity, unlike member REST data.
+    // Dev note: For who is actually connected, the voice cache gets the final say.
     const voice = guild.voiceStates.cache.get(userId);
-    if (!voice?.channelId) return; // Discord cannot unmute disconnected members; retry on rejoin.
+    if (!voice?.channelId) return; // Dev note: Discord cannot unmute ghosts; retry when they reconnect.
     const expectedChannel = voice.channelId;
     const member = voice.member ?? await guild.members.fetch(userId);
     if (member.user.bot) return;
     const inside = voice.channelId === this.voiceId;
     const owned = this.owned.has(userId);
     if (!inside && !owned) return;
-    if (inside && voice.serverMute) return; // Preserve pre-existing moderator mutes.
+    if (inside && voice.serverMute) return; // Dev note: Moderator mutes outrank the DJ.
     if (!inside && !voice.serverMute) {
       await this.storage.remove(this.guildId, userId);
       this.owned.delete(userId);
@@ -69,11 +69,11 @@ export class MusicVoiceMute {
     const me = guild.members.me ?? await guild.members.fetchMe();
     if (!voice.channel?.permissionsFor(me)?.has(PermissionFlagsBits.MuteMembers)) throw new Error("Missing Mute Members permission.");
     if (!owned) {
-      // Persist intent first, so a crash after Discord accepts the mute remains recoverable.
+      // Dev note: Write the receipt before touching Discord; crashes have terrible memories.
       await this.storage.add(this.guildId, userId);
       this.owned.add(userId);
     }
-    // Re-evaluate after the database/API waits if the member moved in the meantime.
+    // Dev note: Awaited calls create plot twists, so check the channel again.
     const latest = guild.voiceStates.cache.get(userId);
     if (latest?.channelId !== expectedChannel) return;
     await latest.setMute(inside, inside ? "Music lounge: listen-only" : "Left music lounge: restore voice access");

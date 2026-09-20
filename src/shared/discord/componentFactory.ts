@@ -43,6 +43,7 @@ interface V2Response {
 }
 
 function createV2Response(components: V2Component[], files: V2File[] = []): V2Response {
+  // Dev note: Every container needs its V2 passport stamped at Discord's border.
   return {
     components,
     files,

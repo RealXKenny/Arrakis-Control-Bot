@@ -3,7 +3,6 @@ import type { DuneApi } from "../../infrastructure/http/dune-console/DuneApi";
 const PAGE_SIZE = 200;
 const MAX_PAGES = 25;
 
-/** Bounded, shared player directory: chat uses Funcom IDs, not character names. */
 export class ChatPlayerNames {
   private names = new Map<string, string>();
   private refreshAt = 0;
@@ -12,6 +11,7 @@ export class ChatPlayerNames {
   public constructor(private readonly api: Pick<DuneApi, "call">) {}
 
   public readonly resolve = async (sender: string): Promise<string> => {
+    // Dev note: Funcom IDs enter; friendly names leave; the cache guards the door.
     if (Date.now() >= this.refreshAt && !this.pending) {
       this.pending = this.refresh()
         .then(() => { this.refreshAt = Date.now() + 60_000; })
@@ -50,7 +50,7 @@ export class ChatPlayerNames {
       if (result.rows.length < PAGE_SIZE || (Number.isFinite(total) && (page + 1) * PAGE_SIZE >= total)) break;
       if (page === MAX_PAGES - 1) throw new Error("Player directory exceeds the chat lookup limit.");
     }
-    // Do not guess when an account has multiple equally eligible characters.
+    // Dev note: With equal candidates, even Mentat guessing is still guessing.
     this.names = new Map([...players].filter(([, value]) => value.names.size === 1)
       .map(([id, value]) => [id, value.names.values().next().value!]));
   }

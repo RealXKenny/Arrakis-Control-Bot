@@ -97,6 +97,7 @@ const secretKeyPattern = /(password|token|secret|cookie|authorization|session|ap
 const CLEAR_TERMINAL = "\u001B[2J\u001B[3J\u001B[H";
 
 function redact(value: unknown, key = ""): unknown {
+  // Dev note: Secrets enter the witness protection program here.
   if (secretKeyPattern.test(key)) return "[REDACTED]";
 
   if (value instanceof Error) {
@@ -149,6 +150,7 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
   const scopeColor = SCOPE_COLORS[scope] ?? SCOPE_COLORS.default;
 
   function write(level: LogLevel, message: string, details?: unknown): void {
+    // Dev note: Quiet logs are not shy; they simply missed the threshold.
     if (LEVELS[level] < threshold) {
       return;
     }
@@ -159,6 +161,7 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
     const formattedOutput = line ? `${output} ${paint(COLORS.dim, "·")} ${line}` : output;
 
     if (level === "ERROR" || level === "FATAL") {
+      // Dev note: Errors use stderr because even logs need healthy boundaries.
       console.error(formattedOutput);
       return;
     }
@@ -182,8 +185,7 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
         return;
       }
 
-      // Write the control sequence directly because hosted web terminals such as
-      // Pterodactyl may support ANSI clearing without reporting stdout as a TTY.
+      // Dev note: Even an ornithopter needs a clear runway; Pterodactyl can clear ANSI without calling stdout a TTY.
       process.stdout.write(CLEAR_TERMINAL);
       const width = 64;
       const border = "─".repeat(width);

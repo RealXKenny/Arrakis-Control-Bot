@@ -44,6 +44,7 @@ function getCommandDescription(name: string): string {
 }
 
 async function renderHelpBrowser(interaction: HelpInteraction, session: HelpSession): Promise<void> {
+  // Dev note: Discord checks V2 papers at the container border.
   await interaction.editReply({
     content: null,
     embeds: [],

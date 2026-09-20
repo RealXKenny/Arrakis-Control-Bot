@@ -40,7 +40,7 @@ export class VoiceService {
     return settings?.join_channel_id === channelId || (await this.repository.rooms(guildId)).some((room) => room.channel_id === channelId);
   }
 
-  /** Serialize a guild's creation, deletion, and controls across awaited API calls. */
+  // Dev note: One guild, one queue; otherwise every room becomes a conference call.
   private async serial<T>(guildId: string, work: () => Promise<T>): Promise<T> {
     const previous = this.queues.get(guildId) ?? Promise.resolve();
     const current = previous.catch(() => undefined).then(work);
@@ -113,7 +113,7 @@ export class VoiceService {
     const channel = await guild.channels.fetch(settings.panel_channel_id);
     if (channel?.type !== ChannelType.GuildText) throw new VoiceUserError("The configured control-panel channel is unavailable. Run /voice setup again.");
     if (this.panelPublic) {
-      // Remove only visibility/history denies, preserving unrelated permissions.
+      // Dev note: Open the curtains without rearranging the rest of the furniture.
       const publicBits = PermissionFlagsBits.ViewChannel | PermissionFlagsBits.ReadMessageHistory;
       const overwrites = channel.permissionOverwrites.cache.map((entry) => ({
         id: entry.id, type: entry.type, allow: entry.allow.bitfield, deny: entry.deny.bitfield & ~publicBits,
@@ -188,7 +188,7 @@ export class VoiceService {
         case "permit": case "reject": case "kick": {
           if (!value || value === userId || value === this.client.user?.id) throw new VoiceUserError("Choose another member, not yourself or the bot.");
           const target = await guild.members.fetch(value);
-          // Recheck after the member lookup; the owner may have left meanwhile.
+          // Dev note: Member lookups take time, and room owners have feet.
           if (member.voice.channelId !== channel.id) throw new VoiceUserError("Stay inside your room to manage members.");
           if (action === "kick") {
             if (target.voice.channelId !== channel.id) throw new VoiceUserError("That member is not in your room.");
@@ -218,7 +218,7 @@ export class VoiceService {
     const overwrites = channel.permissionOverwrites.cache.map((entry) => ({ id: entry.id, type: entry.type, allow: entry.allow.bitfield, deny: entry.deny.bitfield }));
     if (!overwrites.some((entry) => entry.id === channel.guild.id)) overwrites.push({ id: channel.guild.id, type: 0, allow: 0n, deny: 0n });
     for (const entry of overwrites) {
-      if (entry.type !== 0) continue; // Explicitly permitted members retain access.
+      if (entry.type !== 0) continue; // Dev note: Explicit invitations survive the lock change.
       const baseline = room.role_permissions.find((role) => role.id === entry.id);
       entry.allow = (entry.allow & ~bit) | (deny ? 0n : BigInt(baseline?.allow ?? "0") & bit);
       entry.deny = (entry.deny & ~bit) | (deny ? bit : BigInt(baseline?.deny ?? "0") & bit);
@@ -247,8 +247,7 @@ export class VoiceService {
       role_permissions: category.permissionOverwrites.cache.filter((entry) => entry.type === 0).map((entry) => ({ id: entry.id, type: 0, allow: entry.allow.bitfield.toString(), deny: entry.deny.bitfield.toString() })),
     };
     if (!await this.repository.reserve(room)) return;
-    // The persisted random name lets recovery find a channel if the process dies
-    // after Discord creates it but before its ID reaches PostgreSQL.
+    // Dev note: The random name marks a trail through Discord/PostgreSQL crash country.
     const overwrites = category.permissionOverwrites.cache.filter((entry) => entry.id !== member.id && entry.id !== this.client.user!.id).map((entry) => ({ id: entry.id, type: entry.type, allow: entry.allow.bitfield, deny: entry.deny.bitfield }));
     overwrites.push({ id: member.id, type: 1, allow: PermissionFlagsBits.ViewChannel | PermissionFlagsBits.Connect | PermissionFlagsBits.Speak | PermissionFlagsBits.Stream, deny: 0n });
     overwrites.push({ id: this.client.user!.id, type: 1, allow: PermissionFlagsBits.ViewChannel | PermissionFlagsBits.Connect | PermissionFlagsBits.ManageChannels | PermissionFlagsBits.ManageRoles | PermissionFlagsBits.MoveMembers, deny: 0n });
@@ -292,7 +291,7 @@ export class VoiceService {
     if (this.reconciling || this.stopped) return;
     this.reconciling = true;
     try {
-      // Guild cache contains only guilds owned by this shard.
+      // Dev note: Each shard patrols only its own slice of Arrakis.
       for (const guild of this.client.guilds.cache.values()) {
         if (this.stopped) break;
         if (!guild.available) continue;

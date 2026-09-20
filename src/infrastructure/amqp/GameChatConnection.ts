@@ -92,7 +92,7 @@ export class GameChatConnection {
           .then(() => { channel.ack(message); })
           .catch(() => {
             this.warn("Game chat could not be delivered to Discord; message discarded to avoid an endless retry loop.");
-            try { channel.nack(message, false, false); } catch { /* Connection already closed. */ }
+            try { channel.nack(message, false, false); } catch { /* Dev note: The connection left before signing the rejection slip. */ }
           });
       });
       if (this.stopped || this.connection !== current) { await current.close().catch(() => undefined); return; }
@@ -109,7 +109,7 @@ export class GameChatConnection {
 
   public publish(map: string, id: string, body: Buffer): Promise<void> {
     const properties: Options.Publish = {
-      // Match the live game's AMQP properties; this is not an HTTP MIME type.
+      // Dev note: AMQP calls this a type; HTTP's MIME department is not invited.
       contentType: "Content", type: "text_chat", appId: "fls_backend",
       headers: { redirect_exchange: Buffer.from("chat.map") },
       userId: this.config.username, messageId: id, mandatory: true, expiration: "60000",

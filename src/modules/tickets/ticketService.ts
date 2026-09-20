@@ -85,6 +85,7 @@ async function createTicket(interaction: ModalSubmitInteraction, intake: TicketI
     return { created: true, ticket: activeTicket, channel };
   } catch (error) {
     if (channel) {
+      // Dev note: If storage loses the ticket, Discord does not keep the receipt.
       await channel.delete("Rolling back a failed ticket creation").catch(() => undefined);
     }
 

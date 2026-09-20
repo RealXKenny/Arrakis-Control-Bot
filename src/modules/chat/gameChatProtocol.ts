@@ -15,7 +15,7 @@ export function encodeMapChat(funcomId: string, message: string, displayName?: s
     m_OriginLocation: { X: 0, Y: 0, Z: 0 },
     m_HasSeenMessage: false,
   };
-  // The supplied game protocol requires decimal tokens, which JSON.stringify otherwise normalizes to integers.
+  // Dev note: The game insists on decimal robes, even when the number underneath is whole.
   const content = JSON.stringify(payload).replace('"m_OriginLocation":{"X":0,"Y":0,"Z":0}', '"m_OriginLocation":{"X":0.0,"Y":0.0,"Z":0.0}');
   return { id, body: Buffer.from(JSON.stringify({ Type: "TextChat", content })) };
 }

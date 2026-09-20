@@ -58,7 +58,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
       .setAccentColor(0xc58b45)
       .addTextDisplayComponents((text) => text.setContent("### 🏜️ CONFIGURATION 02 • ENGINE SETTINGS"))
       .addTextDisplayComponents((text) => text.setContent("**Path:** `%LOCALAPPDATA%\\DuneSandbox\\Saved\\Config\\Windows\\Engine.ini`\n\nOpen `Engine.ini` and add:"))
-      .addTextDisplayComponents((text) => text.setContent("```ini\n[ConsoleVariables]\nHydration.SunExposureEnabled=0\nVehicle.MaxVehiclesPerPlayer=50\n```")),
+      .addTextDisplayComponents((text) => text.setContent("```ini\n[ConsoleVariables]\nVehicle.MaxVehiclesPerPlayer=50\n```")),
 
     new ContainerBuilder()
       .setAccentColor(0xc58b45)
@@ -78,6 +78,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
 
   const bannerName = banner.name ?? PANEL_IMAGE_NAME;
 
+  // Dev note: Two panels share the load because Discord also fears a wall of text.
   const primaryResponse = createV2Response(containers.slice(0, 2), [
     {
       attachment: banner.attachment,

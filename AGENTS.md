@@ -172,6 +172,7 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Await promises or deliberately handle them with `void` plus an error path. Type-aware ESLint rejects floating promises and invalid awaits.
 - Use shared limit/formatting helpers instead of duplicating Discord constraints.
 - Route framework/client logs through `scopedLogger` with the owning subsystem (`GATEWAY`, `COMMANDS`, `MUSIC`, `VOICE`, `PLAYERS`, `MARKET`, `SERVER`, and so on). Do not embed a second `[SCOPE]` prefix in the message or fall back to the generic Sapphire scope.
+- Keep `Dev note:` easter eggs inside executable source code beside real logic. Never place them in file headers or non-code artifacts. Add them selectively, permit more than one in a complex file only when each belongs to its nearby code path, and mix restrained dad jokes with developer and Dune humor.
 - Never edit `dist/`; it is recreated by `npm run build`.
 - Do not hand-edit `package-lock.json`. Change dependencies with npm so the manifest and lockfile remain synchronized.
 

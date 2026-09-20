@@ -2,7 +2,7 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
-## [Unreleased]
+## [1.10.6] - 2026-09-20
 
 ### Added
 
@@ -24,10 +24,11 @@ All notable changes to Arrakis Control Bot are documented here.
 ### Fixed
 
 - Declare `MessageFlags.IsComponentsV2` on the edited `/help` response rather than on the deferred acknowledgement, preventing Discord from rejecting the top-level container as a legacy component row.
+- Restrict Discord snowflake validation to the bot's declared ID settings so GitHub Actions variables such as `GITHUB_REPOSITORY_OWNER_ID` cannot break configuration tests or startup validation.
 
 ### Verification
 
-- TypeScript build, ESLint, all 391 automated tests across 58 files, workflow YAML parsing, changelog/version validation and `git diff --check` pass locally. The production dependency audit reports zero vulnerabilities.
+- TypeScript build, ESLint, all 392 automated tests across 58 files, workflow YAML parsing, changelog/version validation and `git diff --check` pass locally. The production dependency audit reports zero vulnerabilities.
 - Live Discord presentation, Pterodactyl terminal clearing and the first GitHub Actions CI/release run still require deployment verification.
 
 ## [1.10.5] - 2026-09-17

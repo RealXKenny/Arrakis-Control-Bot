@@ -25,11 +25,11 @@ export interface VoiceRoom {
   role_permissions: VoiceRolePermission[];
 }
 
-/** Uses the application's existing PostgreSQL pool and shutdown lifecycle. */
 export class VoiceRepository {
   public constructor(private readonly pool: Pool) {}
 
   public async initialize(): Promise<void> {
+    // Dev note: One shared pool keeps the database from becoming a swimming complex.
     await this.pool.query(`
       CREATE TABLE IF NOT EXISTS bot_voice_settings (
         guild_id TEXT PRIMARY KEY,

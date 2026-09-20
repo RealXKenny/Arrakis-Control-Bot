@@ -26,8 +26,8 @@ class ConvoyClient {
     this.apiKey = apiKey.trim();
   }
 
-  /** The v1 server list is an unpaginated array scoped to the API key's team. */
   async listServers(): Promise<Record<string, unknown>[]> {
+    // Dev note: The v1 list brings the whole team roster in one unpaginated caravan.
     const response = await this.request("GET", "/api/v1/client/servers");
     if (!Array.isArray(response) || !response.every(isRecord)) {
       throw new ConvoyApiError("Convoy returned an unexpected server list.", 200, null);
@@ -73,6 +73,7 @@ class ConvoyClient {
 
     if (response.status === 204) return null;
     if (response.status === 429) {
+      // Dev note: When Convoy says wait, even fast servers observe the speed limit.
       const seconds = response.headers.get("retry-after");
       const retryAfter = seconds && /^\d+$/.test(seconds) && Number.isSafeInteger(Number(seconds)) ? Number(seconds) : undefined;
       throw new ConvoyApiError("Convoy API rate limit reached. Try again later.", 429, null, retryAfter);

@@ -48,6 +48,7 @@ function getHelpSession(id: string): HelpSession | null {
     return null;
   }
   session.touchedAt = Date.now();
+  // Dev note: A touched session moves forward in line—polite queue cutting.
   sessions.delete(id);
   sessions.set(id, session);
   return session;

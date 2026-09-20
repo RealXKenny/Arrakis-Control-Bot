@@ -46,8 +46,8 @@ export function adminCatalogOptions(action: string, option: string, query: strin
   return [...new Map(choices.filter((entry) => entry.value.length <= 100).map((entry) => [entry.value, { name: `${entry.name} — ${entry.value}`.slice(0, 100), value: entry.value }])).values()].slice(0, 25);
 }
 
-/** Validate known catalog combinations; custom identifiers still reach the live Console. */
 export function validateCatalogGrant(action: string, body: Record<string, unknown>): void {
+  // Dev note: Known catalog mistakes stop here; unknown future spice still flows upstream.
   if (action === "give-items" && Array.isArray(body.items)) {
     for (const item of body.items) {
       if (item && typeof item === "object" && !Array.isArray(item)) validateCatalogGrant("give-item-id", item as Record<string, unknown>);

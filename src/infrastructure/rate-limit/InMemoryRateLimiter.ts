@@ -28,6 +28,7 @@ export class InMemoryRateLimitStore implements RateLimitStore {
 
   set(key: string, expiresAt: number): void {
     if (this.entries.size >= this.maxEntries && !this.entries.has(key)) {
+      // Dev note: The oldest cooldown leaves first; even queues need an exit strategy.
       const oldestKey = this.entries.keys().next().value;
 
       if (oldestKey !== undefined) {

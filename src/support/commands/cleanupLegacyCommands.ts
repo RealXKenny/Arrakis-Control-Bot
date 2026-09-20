@@ -1,8 +1,8 @@
 import { ApplicationCommandType, type Client } from "discord.js";
 import { scopedLogger } from "../../client/logger";
 
-/** All current slash commands are global; guild copies can shadow the new definitions. */
 export async function cleanupLegacyCommands(client: Client, expected: ReadonlySet<string>): Promise<void> {
+  // Dev note: Guild command ghosts can still overshadow their global descendants.
   const logger = scopedLogger(client.logger, "COMMANDS");
   if (!client.application || !expected.size) return;
   const globals = await client.application.commands.fetch();
@@ -16,6 +16,7 @@ export async function cleanupLegacyCommands(client: Client, expected: ReadonlySe
   for (let page = 0; page < 100; page++) {
     const guilds = await client.guilds.fetch({ limit: 200, ...(after ? { after } : {}) });
     for (const guild of guilds.values()) {
+      // Dev note: Old commands are like sand: harmless until they get everywhere.
       try {
         const commands = await client.application.commands.fetch({ guildId: guild.id });
         for (const command of commands.values()) {

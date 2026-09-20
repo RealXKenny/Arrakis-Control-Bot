@@ -28,6 +28,7 @@ export class MusicRepository implements MusicStorage {
     const result = await this.pool.query<{ state: MusicState }>("SELECT state FROM bot_music_state WHERE guild_id = $1", [guildId]);
     const state = result.rows[0]?.state;
     if (!state) return undefined;
+    // Dev note: Inspect the mixtape before trusting it with the speakers.
     const entryValid = (entry: MusicQueueEntry) => entry && typeof entry.id === "string" && typeof entry.requester === "string" &&
       typeof entry.track?.encoded === "string" && typeof entry.track.info?.title === "string" && typeof entry.track.info.identifier === "string";
     if (!Array.isArray(state.queue) || !state.queue.every(entryValid) || (state.current && !entryValid(state.current)) ||

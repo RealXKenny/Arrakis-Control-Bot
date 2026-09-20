@@ -56,7 +56,7 @@ export function loadChatBridgeConfig(env: NodeJS.ProcessEnv): ChatBridgeConfig |
   } catch {
     throw new Error("CHAT_BRIDGE_ROUTES must be a JSON array of unique Discord channel/map mappings: {guildId, channelId, map}, with valid Discord IDs and an exact map key such as HaggaBasin.0.");
   }
-  // Explicitly encode the root vhost; heartbeat detects broken remote connections.
+  // Dev note: Encode the root vhost and keep a heartbeat; even bridges need a pulse.
   if (!url.pathname || url.pathname === "/") url.pathname = "/%2F";
   url.searchParams.set("heartbeat", "30");
   return { url: url.toString(), username, funcomId, displayName, routes, caFile: env.RABBITMQ_CA_FILE?.trim() || undefined, tlsServername };

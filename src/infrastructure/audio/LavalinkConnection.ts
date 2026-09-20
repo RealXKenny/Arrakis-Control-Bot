@@ -32,7 +32,7 @@ export class LavalinkConnection {
     if (!player) return undefined;
     const snapshot = await player.node.rest.updatePlayer({ guildId, playerOptions: { paused: true } });
     if (!snapshot?.track || trackRequestId({ track: snapshot.track }) !== requestId) return undefined;
-    // Lavalink v4 includes player state, omitted from this Shoukaku version's REST types.
+    // Dev note: Lavalink knows the state; Shoukaku's types are fashionably late.
     const position = (snapshot as typeof snapshot & { state?: { position?: number } }).state?.position ?? snapshot.track.info.position;
     return Number.isFinite(position) && position >= 0 ? position : undefined;
   }

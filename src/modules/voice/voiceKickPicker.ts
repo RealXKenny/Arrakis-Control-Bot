@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, type VoiceChannel } from "discord.js";
 
-/** Discord user selectors search the guild; this list is limited to the room. */
 export function voiceKickPicker(channel: VoiceChannel, ownerId: string, panelId: string, requestedPage = 0) {
+  // Dev note: The guild is a big party; this guest list stays inside the room.
   const members = [...channel.members.values()].filter((member) => member.id !== ownerId && member.id !== channel.client.user?.id);
   if (!members.length) return { content: "There are no other members in your room to disconnect.", components: [] };
   const pages = Math.ceil(members.length / 25);

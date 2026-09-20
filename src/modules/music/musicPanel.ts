@@ -25,13 +25,13 @@ export function musicPanel(voiceChannelId: string) {
     flags: MessageFlags.IsComponentsV2 as const, allowedMentions: { parse: [] as never[] } };
 }
 
-/** Rediscover the existing panel after restarts without requiring a database. */
 export class MusicPanelPublisher {
   private pending?: Promise<void>;
   public ready = false;
   public constructor(private readonly client: Client, private readonly channelId: string, private readonly voiceId: string) {}
 
   public publish(): Promise<void> {
+    // Dev note: The panel leaves breadcrumbs so restarts do not redecorate the lounge.
     if (this.pending) return this.pending;
     this.pending = this.update().then(() => { this.ready = true; }).finally(() => { this.pending = undefined; });
     return this.pending;
@@ -41,7 +41,7 @@ export class MusicPanelPublisher {
     const channel = await this.client.channels.fetch(this.channelId);
     if (!channel?.isTextBased() || !channel.isSendable() || channel.isDMBased()) throw new Error("Music panel requires a server text channel.");
     let before: string | undefined;
-    // Do not create duplicates when the panel is buried beneath song requests.
+    // Dev note: One music panel is a feature; two is a duet nobody requested.
     for (let page = 0; page < 100; page++) {
       const messages = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
       const existing = messages.find((message) => message.author.id === this.client.user?.id &&

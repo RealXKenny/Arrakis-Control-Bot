@@ -9,6 +9,7 @@ const DISCORD_LIMITS = {
 const DEFAULT_TRUNCATION_SUFFIX = "\n\n_Additional content omitted to fit Discord's display limit._";
 
 function truncateDiscordText(value: string, maximumLength: number, suffix = DEFAULT_TRUNCATION_SUFFIX): string {
+  // Dev note: Discord has limits; our prose has ambition.
   const characters = Array.from(value);
 
   if (characters.length <= maximumLength) return value;
@@ -26,6 +27,7 @@ function truncateDiscordText(value: string, maximumLength: number, suffix = DEFA
 }
 
 function countDisplayableText(value: unknown): number {
+  // Dev note: Components V2 counts every visible grain of text in the sandbox.
   if (Array.isArray(value)) return value.reduce((total, child) => total + countDisplayableText(child), 0);
   if (!value || typeof value !== "object") return 0;
 

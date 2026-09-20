@@ -134,6 +134,7 @@ class DuneConsoleClient {
 
     let response: Response | undefined;
 
+    // Dev note: Safe requests get three thumpers; mutations get no accidental encore.
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         response = await fetch(url, {

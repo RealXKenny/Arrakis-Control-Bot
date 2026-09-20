@@ -23,7 +23,7 @@ export class DiscordGameChatBridge {
 
   public start(): void {
     if (this.connection) return;
-    // Only the shard that owns the configured guild consumes its routes.
+    // Dev note: Only the shard holding the map gets to lead the caravan.
     const routes = this.config.routes.filter((route) => this.client.guilds.cache.has(route.guildId));
     if (!routes.length) {
       this.info("Chat bridge inactive on this shard: no configured guilds are present.");
@@ -57,8 +57,8 @@ export class DiscordGameChatBridge {
       if (text.length > 2_000) throw new Error("Message too long.");
       if (!this.connection) throw new Error("Chat bridge offline.");
       const failedMaps: string[] = [];
-      // Separate IDs keep each map's confirmation independent. Attempt every route,
-      // including when an earlier publish fails; never retry uncertain deliveries.
+      // Dev note: Prescience is unavailable, so each map gets an independent ID.
+      // Dev note: Visit every route once; uncertain deliveries get no time-travel retries.
       for (const route of routes) {
         const encoded = encodeMapChat(this.config.funcomId, text, this.config.displayName);
         try {
@@ -95,7 +95,7 @@ export class DiscordGameChatBridge {
         if (!channel?.isSendable() || !("guildId" in channel) || channel.guildId !== route.guildId) throw new Error("Invalid chat destination.");
         const prefix = `**[${escapeMarkdown(mapChatLabel(map))}] ${escapeMarkdown(playerName.slice(0, 100))}:** `;
         const content = prefix + escapeMarkdown(chat.text);
-        // Bounded output prevents one game message from flooding Discord.
+        // Dev note: The water discipline also applies to message length.
         await channel.send({ content: content.length > 2_000 ? content.slice(0, 1_999) + "…" : content, allowedMentions: { parse: [] } });
         this.seen.add(key);
         if (this.seen.size > 5_000) this.seen.delete(this.seen.values().next().value!);

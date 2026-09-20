@@ -36,13 +36,7 @@ async function ensureVerificationPanel(client: Client, channelId?: string | null
     detail: "WELCOME TO ARRAKIS",
   });
 
-  /*
-   * createDuneBanner() returns an AttachmentBuilder.
-   *
-   * If createV2Response() currently expects the project's V2File
-   * shape, normalize the AttachmentBuilder here so its `name`
-   * cannot be `null`.
-   */
+  // Dev note: Normalize the banner name because null is a terrible attachment label.
   const bannerFile = {
     attachment: banner.attachment,
     name: banner.name ?? PANEL_IMAGE_NAME,
@@ -60,13 +54,7 @@ async function ensureVerificationPanel(client: Client, channelId?: string | null
   const existing = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
 
   if (existing) {
-    /*
-     * Do not spread `payload` here.
-     *
-     * MessageCreateOptions and MessageEditOptions have different
-     * flag types. There is also no reason to resend the create
-     * payload wholesale when editing an existing message.
-     */
+    // Dev note: Create and edit payloads are cousins, not identical twins.
     const editPayload: MessageEditOptions = {
       content: null,
       embeds: [],
