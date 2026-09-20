@@ -1,6 +1,7 @@
 import { container } from "@sapphire/framework";
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
@@ -182,7 +183,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   } catch (error: unknown) {
     const errorMessage = getErrorMessage(error);
 
-    container.logger.error(`Unable to retrieve the Dune server status: ${errorMessage}`, error);
+    scopedLogger(container.logger, "SERVER").error(`Unable to retrieve the Dune server status: ${errorMessage}`, error);
 
     await interaction.editReply({
       content: null,

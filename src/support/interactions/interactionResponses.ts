@@ -1,5 +1,6 @@
 import { container } from "@sapphire/framework";
 import { MessageFlags, type Interaction } from "discord.js";
+import { scopedLogger } from "../../client/logger";
 const INTERACTION_ERROR_MESSAGE = "There was an error while handling this interaction.";
 
 async function respondWithInteractionError(interaction: Interaction): Promise<void> {
@@ -7,7 +8,7 @@ async function respondWithInteractionError(interaction: Interaction): Promise<vo
     try {
       await interaction.respond([]);
     } catch (error: unknown) {
-      container.logger.error("Unable to send autocomplete fallback.", error);
+      scopedLogger(container.logger, "INTERACTIONS").error("Unable to send autocomplete fallback.", error);
     }
     return;
   }
@@ -21,7 +22,7 @@ async function respondWithInteractionError(interaction: Interaction): Promise<vo
       await interaction.reply({ content: INTERACTION_ERROR_MESSAGE, flags: MessageFlags.Ephemeral });
     }
   } catch (error: unknown) {
-    container.logger.error("Unable to send interaction error response.", error);
+    scopedLogger(container.logger, "INTERACTIONS").error("Unable to send interaction error response.", error);
   }
 }
 

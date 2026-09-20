@@ -1,6 +1,7 @@
 import type { Client } from "discord.js";
 import { Connectors, Shoukaku, type Player } from "shoukaku";
 import type { MusicConfig } from "../config/music";
+import { scopedLogger } from "../../client/logger";
 
 export interface MusicEvents {
   ready: () => void;
@@ -15,10 +16,11 @@ export class LavalinkConnection {
   private readonly retiring = new WeakSet<Player>();
 
   public constructor(client: Client, config: MusicConfig, private readonly events: MusicEvents) {
+    const logger = scopedLogger(client.logger, "LAVALINK");
     this.manager = new Shoukaku(new Connectors.DiscordJS(client), [
       { name: "music", url: config.url, auth: config.password, secure: config.secure },
     ], { resume: false, resumeByLibrary: false, reconnectTries: Number.MAX_SAFE_INTEGER, reconnectInterval: 10, restTimeout: 15, voiceConnectionTimeout: 15 });
-    this.manager.on("error", () => client.logger.warn("Lavalink connection error; check its address, TLS, password, and server logs."));
+    this.manager.on("error", () => logger.warn("Lavalink connection error; check its address, TLS, password, and server logs."));
     this.manager.on("ready", () => events.ready());
     this.manager.on("close", () => events.failed());
   }

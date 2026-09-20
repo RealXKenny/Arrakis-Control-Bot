@@ -1,6 +1,7 @@
 import { container } from "@sapphire/framework";
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { formatPlayers } from "../../../modules/players/directory/playerFormatter";
 import type { PlayerResponse } from "../../../modules/players/directory/playerFormatter";
 import { createV2Response } from "../../../shared/discord/componentFactory";
@@ -145,7 +146,7 @@ const command = {
         },
       });
 
-      container.logger.error("Unable to retrieve Dune player lists.", error);
+      scopedLogger(container.logger, "PLAYERS").error("Unable to retrieve Dune player lists.", error);
     }
   },
 };

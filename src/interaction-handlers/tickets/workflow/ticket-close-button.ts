@@ -1,6 +1,7 @@
 import { InteractionHandler, InteractionHandlerTypes, container } from "@sapphire/framework";
 import { ChannelType, MessageFlags, type ButtonInteraction } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { TicketClaimedByAnotherStaffError, TicketPermissionError, closeTicket } from "../../../modules/tickets/ticketService";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { matchesCustomId } from "../../../support/interactions/componentCustomIds";
@@ -32,7 +33,7 @@ const handler = {
       try {
         await interaction.channel.delete(`Ticket #${result.ticket.id} closed by ${member.user.tag}`);
       } catch (error) {
-        container.logger.error(`Ticket #${result.ticket.id} closed, but channel ${interaction.channel.id} could not be deleted.`, error);
+        scopedLogger(container.logger, "TICKETS").error(`Ticket #${result.ticket.id} closed, but channel ${interaction.channel.id} could not be deleted.`, error);
 
         await interaction.followUp({
           content: "The transcript was saved, but Discord could not delete this channel automatically. Staff can delete it manually.",

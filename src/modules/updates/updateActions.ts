@@ -1,6 +1,7 @@
 import { container } from "@sapphire/framework";
 import { ContainerBuilder, MessageFlags, SeparatorSpacingSize, type ChatInputCommandInteraction } from "discord.js";
 
+import { scopedLogger } from "../../client/logger";
 import { createV2Response } from "../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../shared/discord/discordLimits";
 
@@ -59,7 +60,7 @@ async function executeUpdateAction(interaction: ChatInputCommandInteraction, act
   } catch (error: unknown) {
     const detail = error instanceof Error ? error.message : "The Console did not provide an error message.";
 
-    container.logger.error(`Unable to run /${actionName}.`, error);
+    scopedLogger(container.logger, "UPDATES").error(`Unable to run /${actionName}.`, error);
     await interaction.editReply({
       ...createV2Response([createUpdateCard(`❌ ${actionName} failed`, detail, false)]),
       allowedMentions: { parse: [] },

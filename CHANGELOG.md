@@ -2,6 +2,34 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Add repository-wide `AGENTS.md` guidance covering the current project layout, architectural ownership, Sapphire store rules, Discord Components V2 constraints, security requirements, feature invariants, testing, documentation, Git safety and completion criteria. Retire the superseded `PROJECT_STRUCTURE.md` and link the new guide from the README.
+- Add a `CI` GitHub Actions workflow for Node.js 24 dependency installation, linting, build/tests and production dependency auditing on pushes and pull requests targeting `main`.
+- Add a post-CI `Release` workflow that publishes only successful `main` revisions with a new stable `package.json` version and matching non-empty changelog section. Existing tags, failed CI runs and pull-request runs are skipped safely.
+- Add cached subsystem child loggers with dedicated colors and scopes for system startup, configuration, storage, Sapphire, Discord gateway, community tasks, commands, chat bridge, music, Lavalink, voice, players, market, moderation, server operations, backups, updates, tickets, releases and interactions.
+- Add recursive structured-log redaction for passwords, tokens, cookies, authorization values, sessions and API keys, with production-safe error serialization and request-context logger support.
+
+### Changed
+
+- Redesign console output with severity icons, colored subsystem scopes, compact JSON details and a boxed Arrakis Control startup banner while preserving plain formatted log lines when color is disabled and honoring configured log thresholds.
+- Clear the terminal screen, scrollback and cursor position before printing the startup banner by writing terminal control sequences directly, including for hosted Pterodactyl consoles that do not report stdout as a TTY.
+- Route every framework/client logging call through its owning subsystem instead of the generic `[BOT]` scope, while retaining Sapphire compatibility and cached logger instances for frequent event paths.
+- Make `/help` public while keeping its category/page controls bound to the requesting member and its 15-minute session expiration.
+- Silence expected music recovery-loop warnings and successful RabbitMQ per-message publish summaries. Recovery, preserved playback state, partial-delivery warnings and failed-delivery notices remain active.
+- Synchronize README guidance with version `1.10.5`, the public 81-command help catalog, production-only dependency auditing and the automatic release process.
+
+### Fixed
+
+- Declare `MessageFlags.IsComponentsV2` on the edited `/help` response rather than on the deferred acknowledgement, preventing Discord from rejecting the top-level container as a legacy component row.
+
+### Verification
+
+- TypeScript build, ESLint, all 391 automated tests across 58 files, workflow YAML parsing, changelog/version validation and `git diff --check` pass locally. The production dependency audit reports zero vulnerabilities.
+- Live Discord presentation, Pterodactyl terminal clearing and the first GitHub Actions CI/release run still require deployment verification.
+
 ## [1.10.5] - 2026-09-17
 
 ### Fixed

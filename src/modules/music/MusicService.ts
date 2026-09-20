@@ -10,6 +10,7 @@ import { MusicPanelPublisher } from "./musicPanel";
 import { MusicNowPlayingPanel, NOW_PLAYING_MARKER } from "./MusicNowPlayingPanel";
 
 import { MusicLyrics } from "./musicLyrics";
+import { scopedLogger, type Logger } from "../../client/logger";
 
 export type MusicAction = "skip" | "pause" | "resume" | "stop" | "clear" | "volume";
 
@@ -30,7 +31,6 @@ export class MusicService {
   private restoringId?: string;
   private resetConnection = false;
   private interruptionVersion = 0;
-  private lastWarning = 0;
   private readonly panel: MusicPanelPublisher;
   private lastPanelWarning = 0;
   private position = 0;
@@ -44,8 +44,10 @@ export class MusicService {
   private lastAnnouncedId?: string;
   private announcements: Promise<void> = Promise.resolve();
   private readonly nowPlayingPanel: MusicNowPlayingPanel;
+  private readonly logger: Logger;
 
   public constructor(private readonly client: Client, public readonly config: MusicConfig, private readonly storage: MusicStorage, private readonly voiceMute?: MusicVoiceMute) {
+    this.logger = scopedLogger(client.logger, "MUSIC");
     this.volume = config.volume;
     this.panel = new MusicPanelPublisher(client, config.requestChannelId, config.voiceChannelId);
     this.nowPlayingPanel = new MusicNowPlayingPanel(client, config.requestChannelId);
@@ -69,7 +71,7 @@ export class MusicService {
         .catch(() => {
           if (Date.now() - this.lastCheckpointWarning < 60_000) return;
           this.lastCheckpointWarning = Date.now();
-          this.client.logger.warn("Music checkpoint failed; restart recovery will use the last saved position.");
+          this.logger.warn("Music checkpoint failed; restart recovery will use the last saved position.");
         })
         .finally(() => { this.checkpointPending = false; });
     }, 5_000);
@@ -144,7 +146,7 @@ export class MusicService {
             ]);
             if (position !== undefined) this.position = position;
           } catch {
-            this.client.logger.warn("Could not capture the final Lavalink position; using the last known playback position.");
+            this.logger.warn("Could not capture the final Lavalink position; using the last known playback position.");
           } finally { clearTimeout(timer); }
         }
         await this.commit(this.snapshot());
@@ -197,7 +199,6 @@ export class MusicService {
         try { await this.advance(player); }
         catch {
           this.interrupted();
-          this.warn();
           return "Your request is queued, but playback is reconnecting. Check /music queue before resending.";
         }
       }
@@ -280,7 +281,7 @@ export class MusicService {
     const reply = await message.reply({ content, allowedMentions: { parse: [], repliedUser: false } });
     const cleanup = setTimeout(() => {
       void Promise.allSettled([message.delete(), reply.delete()]).then((results) => {
-        if (results.some((result) => result.status === "rejected")) this.client.logger.warn("Music request cleanup failed. Check Manage Messages in the request channel.");
+        if (results.some((result) => result.status === "rejected")) this.logger.warn("Music request cleanup failed. Check Manage Messages in the request channel.");
       });
     }, 15_000);
     cleanup.unref();
@@ -322,7 +323,7 @@ export class MusicService {
     void this.client.users.fetch(requester).then((user) => user.send({ ...message, components })).catch((error: unknown) => {
       // Closed DMs are expected and must never interrupt playback or the public card.
       if (typeof error === "object" && error !== null && "code" in error && error.code === 50007) return;
-      this.client.logger.warn("Could not deliver the song-start DM; playback is unaffected.");
+      this.logger.warn("Could not deliver the song-start DM; playback is unaffected.");
     });
   }
 
@@ -334,13 +335,12 @@ export class MusicService {
       if (this.current) message.embeds[0].addFields({ name: "Requested by", value: `<@${this.current.requester}>` });
       await this.nowPlayingPanel.update(message);
     }).catch(() => {
-      this.client.logger.warn("Could not update the song card. Check Read Message History, Send Messages and Embed Links in the music request channel.");
+      this.logger.warn("Could not update the song card. Check Read Message History, Send Messages and Embed Links in the music request channel.");
     });
   }
 
   public errorMessage(error: unknown): string {
     if (error instanceof MusicUserError) return error.message;
-    this.warn();
     return "Music is temporarily unavailable. Check Lavalink, enabled audio sources, and the bot's voice permissions.";
   }
 
@@ -405,7 +405,6 @@ export class MusicService {
     this.restoringId = this.current?.id;
     this.pendingEnd = undefined;
     this.progress = undefined;
-    this.warn();
     this.scheduleRecovery(true);
   }
 
@@ -423,7 +422,7 @@ export class MusicService {
       await this.advance(player);
       if (!this.current) this.refreshSongCard();
       this.pendingEnd = undefined;
-    }, true).catch(() => this.warn());
+    }, true).catch(() => undefined);
   }
 
   private scheduleRecovery(failed = false): void {
@@ -439,11 +438,11 @@ export class MusicService {
     if (!this.panel.ready) void this.panel.publish().then(() => this.refreshSongCard()).catch(() => {
       if (Date.now() - this.lastPanelWarning < 60_000) return;
       this.lastPanelWarning = Date.now();
-      this.client.logger.warn("Music panel unavailable. Check View Channel, Send Messages, Read Message History, and Attach Files in the music request channel.");
+      this.logger.warn("Music panel unavailable. Check View Channel, Send Messages, Read Message History, and Attach Files in the music request channel.");
     });
     if (Date.now() < this.retryAfter) return;
     clearTimeout(this.timer);
-    if (!this.backend.available()) { this.warn(); this.scheduleRecovery(true); return; }
+    if (!this.backend.available()) { this.scheduleRecovery(true); return; }
     this.recovering = true;
     let failed = false;
     void this.serial(async () => {
@@ -452,12 +451,6 @@ export class MusicService {
         await this.advance(player);
         this.pendingEnd = undefined;
       } else if (!this.current && this.queue.length) await this.advance(player);
-    }, true).catch(() => { failed = true; this.warn(); }).finally(() => { this.recovering = false; this.scheduleRecovery(failed); });
-  }
-
-  private warn(): void {
-    if (Date.now() - this.lastWarning < 60_000) return;
-    this.lastWarning = Date.now();
-    this.client.logger.warn("Music playback unavailable or interrupted; the current song is preserved and recovery retries after 10 seconds. Check Lavalink sources, connectivity, and voice permissions.");
+    }, true).catch(() => { failed = true; }).finally(() => { this.recovering = false; this.scheduleRecovery(failed); });
   }
 }

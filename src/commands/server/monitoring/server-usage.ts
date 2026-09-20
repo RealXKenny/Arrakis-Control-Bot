@@ -4,6 +4,7 @@ import { registerApplicationCommand } from "../../../support/commands/registerAp
 import { ConvoyApiError, type ConvoyClient } from "../../../infrastructure/http/convoy/ConvoyClient";
 import { METRIC_PERIODS, METRIC_AGGREGATIONS, parseServerMetrics } from "../../../modules/server/usage/serverMetrics";
 import { serverUsageImage } from "../../../modules/server/usage/serverUsageImage";
+import { scopedLogger } from "../../../client/logger";
 
 export const data = new SlashCommandBuilder().setName("server-usage").setDescription("View CPU, memory, network and disk resource graphs.")
   .addStringOption((option) => option.setName("server").setDescription("Convoy server UUID (choose a server or paste its UUID)").setRequired(true).setAutocomplete(true))
@@ -34,7 +35,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       : status === 404 ? "Server not found in this API key's team. Check the UUID."
       : status === 429 ? `Convoy is rate limiting requests. ${error instanceof ConvoyApiError && error.retryAfterSeconds !== undefined ? `Retry in ${error.retryAfterSeconds} seconds.` : "Try again shortly."}`
       : "Resource graphs are unavailable. Check Convoy connectivity and its metrics store, then try again.";
-    interaction.client.logger.warn(`Server usage request failed${status !== undefined ? ` (HTTP ${status})` : " (invalid metrics or chart failure)"}.`);
+    scopedLogger(interaction.client.logger, "SERVER").warn(`Server usage request failed${status !== undefined ? ` (HTTP ${status})` : " (invalid metrics or chart failure)"}.`);
     await interaction.editReply({ content: message, allowedMentions: { parse: [] } });
   }
 }

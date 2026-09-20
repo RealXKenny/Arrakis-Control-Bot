@@ -1,5 +1,6 @@
 import { Command, container } from "@sapphire/framework";
 import { ContainerBuilder, MessageFlags, SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
+import { scopedLogger } from "../../../client/logger";
 import { buildStormPanel, parseCoriolisEnd, stormWindowFromEnd } from "../../../modules/world/storms/stormAnnouncement";
 import { registerApplicationCommand } from "../../../support/commands/registerApplicationCommand";
 
@@ -19,7 +20,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       allowedMentions: { parse: [] },
     });
   } catch (error: unknown) {
-    container.logger.error("Unable to retrieve the Coriolis storm schedule.", error);
+    scopedLogger(container.logger, "CORIOLIS STORM").error("Unable to retrieve the Coriolis storm schedule.", error);
     const card = new ContainerBuilder()
       .setAccentColor(0x8f3025)
       .addTextDisplayComponents((text) => text.setContent("## Coriolis Storm Schedule"))

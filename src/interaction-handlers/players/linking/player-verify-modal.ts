@@ -1,6 +1,7 @@
 import { InteractionHandler, InteractionHandlerTypes, container } from "@sapphire/framework";
 import { MessageFlags, ModalSubmitInteraction } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createActorContext } from "../../../shared/actors/createActorContext";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
@@ -82,8 +83,8 @@ async function applyLinkedMemberProfile(interaction: ModalSubmitInteraction, res
       await member.setNickname(characterName, "Dune character account linked");
     }
 
-    container.logger.info(`Applied linked role and nickname for ${interaction.user.tag}.`);
+    scopedLogger(container.logger, "PLAYERS").info(`Applied linked role and nickname for ${interaction.user.tag}.`);
   } catch (error: unknown) {
-    container.logger.warn(`Could not update Discord member profile for ${interaction.user.tag}; ` + "linking itself succeeded.", error);
+    scopedLogger(container.logger, "PLAYERS").warn(`Could not update Discord member profile for ${interaction.user.tag}; ` + "linking itself succeeded.", error);
   }
 }

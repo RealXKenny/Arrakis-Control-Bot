@@ -2,6 +2,7 @@ import { container } from "@sapphire/framework";
 import { filterNullish } from "@sapphire/utilities";
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
@@ -166,7 +167,7 @@ async function loadGuildMemberships(guildRows: GuildRow[]): Promise<GuildMembers
       const guildId = guildRow.guild_id ?? guildRow.guildId ?? guildRow.id;
 
       if (!guildId) {
-        container.logger.warn("Guild row did not contain a valid guild ID:", JSON.stringify(guildRow));
+        scopedLogger(container.logger, "PLAYERS").warn("Guild row did not contain a valid guild ID:", JSON.stringify(guildRow));
         return null;
       }
 
@@ -177,7 +178,7 @@ async function loadGuildMemberships(guildRows: GuildRow[]): Promise<GuildMembers
           },
         });
 
-        container.logger.debug(`Profile guild members response (${guildId}):`, JSON.stringify(membersResponse, null, 2));
+        scopedLogger(container.logger, "PLAYERS").debug(`Profile guild members response (${guildId}):`, JSON.stringify(membersResponse, null, 2));
 
         return {
           guildRow,
@@ -186,7 +187,7 @@ async function loadGuildMemberships(guildRows: GuildRow[]): Promise<GuildMembers
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
 
-        container.logger.warn(`Unable to load members for guild ${guildId}: ${message}`);
+        scopedLogger(container.logger, "PLAYERS").warn(`Unable to load members for guild ${guildId}: ${message}`);
 
         return null;
       }
@@ -208,13 +209,13 @@ async function loadProfileData(playerId: string | number): Promise<ProfileData> 
           },
         });
 
-        container.logger.debug(`Profile response ${endpoint}:`, JSON.stringify(response, null, 2));
+        scopedLogger(container.logger, "PLAYERS").debug(`Profile response ${endpoint}:`, JSON.stringify(response, null, 2));
 
         return [endpoint, response] as const;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
 
-        container.logger.warn(`Profile endpoint ${endpoint} unavailable: ${message}`);
+        scopedLogger(container.logger, "PLAYERS").warn(`Profile endpoint ${endpoint} unavailable: ${message}`);
 
         return [endpoint, null] as const;
       }
@@ -327,7 +328,7 @@ const command = {
       return;
     }
 
-    container.logger.debug(`Profile player ID: ${playerId}`);
+    scopedLogger(container.logger, "PLAYERS").debug(`Profile player ID: ${playerId}`);
 
     try {
       const guildResponse = await client.duneApi.call("GET", "/api/guilds", {
@@ -337,7 +338,7 @@ const command = {
         },
       });
 
-      container.logger.debug("Profile guild response:", JSON.stringify(guildResponse, null, 2));
+      scopedLogger(container.logger, "PLAYERS").debug("Profile guild response:", JSON.stringify(guildResponse, null, 2));
 
       const guildRows = getGuildRows(guildResponse);
       const guildMembers = await loadGuildMemberships(guildRows);
@@ -364,7 +365,7 @@ const command = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
 
-      container.logger.error(`Unable to load Dune profile: ${message}`, error);
+      scopedLogger(container.logger, "PLAYERS").error(`Unable to load Dune profile: ${message}`, error);
 
       await interaction.editReply({
         content: "Unable to retrieve your Dune profile right now. Please try again later.",

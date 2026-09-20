@@ -1,4 +1,5 @@
 import { container } from "@sapphire/framework";
+import { scopedLogger } from "../../client/logger";
 import {
   ButtonBuilder,
   ButtonStyle,
@@ -94,7 +95,7 @@ async function renderMarketBrowser(interaction: MarketInteraction, session: Mark
       }),
       session.buybackPercent === undefined
         ? container.client.duneApi.call("GET", "/api/exchange/market").catch((error: unknown) => {
-            container.logger.warn("Unable to retrieve the Market Bot buyback configuration.", error);
+            scopedLogger(container.logger, "MARKET").warn("Unable to retrieve the Market Bot buyback configuration.", error);
             return null;
           })
         : null,
@@ -131,7 +132,7 @@ async function renderMarketBrowser(interaction: MarketInteraction, session: Mark
 
     await interaction.editReply({ content: null, embeds: [], components: [card], allowedMentions: { parse: [] } });
   } catch (error: unknown) {
-    container.logger.error("Unable to retrieve CHOAM Exchange listings.", error);
+    scopedLogger(container.logger, "MARKET").error("Unable to retrieve CHOAM Exchange listings.", error);
     await interaction.editReply({
       content: null,
       embeds: [],

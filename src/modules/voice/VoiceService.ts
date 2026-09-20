@@ -3,6 +3,7 @@ import { ChannelType, PermissionFlagsBits, type Client, type Guild, type GuildMe
 import { VoiceRepository, type VoiceRoom } from "../../infrastructure/database/voice/VoiceRepository";
 import { voicePanel } from "./voicePanel";
 import type { VoiceSetupConfig } from "../../infrastructure/config/voiceRooms";
+import { scopedLogger, type Logger } from "../../client/logger";
 
 export class VoiceUserError extends Error {}
 export type VoiceAction = "rename" | "limit" | "lock" | "unlock" | "hide" | "show" | "permit" | "reject" | "kick" | "delete" | "reset";
@@ -21,13 +22,16 @@ export class VoiceService {
   private timer?: ReturnType<typeof setInterval>;
   private stopped = false;
   private reconciling = false;
+  private readonly logger: Logger;
 
   public constructor(
     private readonly client: Client,
     private readonly repository: VoiceRepository,
     private readonly panelPublic = true,
     private readonly setupConfig?: VoiceSetupConfig,
-  ) {}
+  ) {
+    this.logger = scopedLogger(client.logger, "VOICE");
+  }
 
   public async initialize(): Promise<void> { await this.repository.initialize(); }
 
@@ -296,7 +300,7 @@ export class VoiceService {
           await this.serial(guild.id, async () => {
             for (const room of await this.repository.rooms(guild.id)) {
               try { await this.removeIfEmpty(guild, room); }
-              catch (error) { this.client.logger.error(`Unable to recover temporary voice room in guild ${guild.id}.`, error); }
+              catch (error) { this.logger.error(`Unable to recover temporary voice room in guild ${guild.id}.`, error); }
             }
             const settings = await this.repository.settings(guild.id);
             if (!settings?.enabled) return;
@@ -305,11 +309,11 @@ export class VoiceService {
             for (const member of join.members.values()) {
               if (!member.user.bot) {
                 try { await this.createRoom(member, join.id, settings.category_id); }
-                catch (error) { this.client.logger.error(`Unable to create temporary voice room in guild ${guild.id}.`, error); }
+                catch (error) { this.logger.error(`Unable to create temporary voice room in guild ${guild.id}.`, error); }
               }
             }
           });
-        } catch (error) { this.client.logger.error(`Unable to reconcile voice rooms in guild ${guild.id}.`, error); }
+        } catch (error) { this.logger.error(`Unable to reconcile voice rooms in guild ${guild.id}.`, error); }
       }
     } finally { this.reconciling = false; }
   }

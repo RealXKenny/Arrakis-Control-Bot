@@ -2,6 +2,7 @@ import { validateCatalogGrant } from "./gameCatalogs";
 import { container } from "@sapphire/framework";
 import { ContainerBuilder, MessageFlags, SeparatorSpacingSize, type ChatInputCommandInteraction } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import type { HttpMethod } from "../../../infrastructure/http/dune-console/DuneConsoleClient";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
@@ -158,7 +159,7 @@ async function executePlayerAdminAction(interaction: ChatInputCommandInteraction
     await interaction.editReply({ ...createV2Response([resultCard(`✅ ${action.description}`, formatPlayerAdminResponse(response), true)]), allowedMentions: { parse: [] } });
   } catch (error: unknown) {
     const detail = error instanceof Error ? error.message : "The Console did not provide an error message.";
-    container.logger.error(`Unable to run /player-admin ${action.group} ${action.name}.`, error);
+    scopedLogger(container.logger, "PLAYERS").error(`Unable to run /player-admin ${action.group} ${action.name}.`, error);
     await interaction.editReply({ ...createV2Response([resultCard(`❌ ${action.name} failed`, detail, false)]), allowedMentions: { parse: [] } });
   }
 }

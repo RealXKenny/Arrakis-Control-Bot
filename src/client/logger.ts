@@ -36,6 +36,14 @@ const LEVEL_COLORS: Record<LogLevel, string> = Object.freeze({
   FATAL: COLORS.red,
 });
 
+const LEVEL_ICONS: Record<LogLevel, string> = Object.freeze({
+  DEBUG: "◆",
+  INFO: "●",
+  WARN: "▲",
+  ERROR: "✖",
+  FATAL: "✖",
+});
+
 const SCOPE_COLORS: Record<string, string> = Object.freeze({
   BOT: COLORS.brightYellow,
   DISCORD: COLORS.brightCyan,
@@ -50,9 +58,77 @@ const SCOPE_COLORS: Record<string, string> = Object.freeze({
   "DISCORD ADAPTER": COLORS.brightCyan,
   "DISCORD AUDIT": COLORS.brightGreen,
   "DISCORD AUDIT LOG": COLORS.brightMagenta,
+  SYSTEM: COLORS.brightYellow,
+  CONFIG: COLORS.brightBlue,
+  STORAGE: COLORS.brightGreen,
+  SAPPHIRE: COLORS.magenta,
+  GATEWAY: COLORS.brightCyan,
+  COMMUNITY: COLORS.brightGreen,
+  "CHAT BRIDGE": COLORS.yellow,
+  MUSIC: COLORS.brightMagenta,
+  LAVALINK: COLORS.magenta,
+  VOICE: COLORS.brightCyan,
+  PLAYERS: COLORS.brightGreen,
+  MARKET: COLORS.brightOrange,
+  MODERATION: COLORS.red,
+  SERVER: COLORS.yellow,
+  BACKUPS: COLORS.brightBlue,
+  UPDATES: COLORS.brightYellow,
+  RELEASES: COLORS.brightOrange,
+  "CONVOY API": COLORS.brightBlue,
+  "VERSION ANNOUNCEMENTS": COLORS.brightOrange,
+  "TICKET ARCHIVE": COLORS.yellow,
+  "TICKET PANEL": COLORS.brightGreen,
+  TICKETS: COLORS.green,
+  "CORIOLIS STORM": COLORS.brightOrange,
   DASHBOARD: COLORS.brightOrange,
   default: COLORS.white,
 });
+
+type LogContext = {
+  requestId?: string;
+  route?: string;
+  method?: string;
+  statusCode?: number;
+  [key: string]: unknown;
+};
+
+const secretKeyPattern = /(password|token|secret|cookie|authorization|session|api[-_]?key|access[-_]?token)/i;
+const CLEAR_TERMINAL = "\u001B[2J\u001B[3J\u001B[H";
+
+function redact(value: unknown, key = ""): unknown {
+  if (secretKeyPattern.test(key)) return "[REDACTED]";
+
+  if (value instanceof Error) {
+    const operationalError = ["DuneConsoleApiError", "DiscordAdapterApiError"].includes(value.name);
+    const production = process.env.NODE_ENV === "production";
+
+    return {
+      name: value.name,
+      message: production && !operationalError ? "Internal error" : value.message,
+      stack: production || operationalError ? undefined : value.stack,
+    };
+  }
+
+  if (Array.isArray(value)) return value.map((item) => redact(item));
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([entryKey, entryValue]) => [entryKey, redact(entryValue, entryKey)]));
+  }
+
+  return value;
+}
+
+function formatDetails(details: unknown): string {
+  if (details === undefined) return "";
+  if (typeof details === "string") return details;
+
+  try {
+    return JSON.stringify(details);
+  } catch {
+    return String(details);
+  }
+}
 
 interface Logger {
   header(title: string, subtitle?: string): void;
@@ -78,54 +154,43 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
     }
 
     const timestamp = formatTimestamp(new Date());
-
-    const output = `${paint(COLORS.dim, `[${timestamp}]`)} ${paint(LEVEL_COLORS[level], `[${level}]`)} ${paint(scopeColor, `[${scope}]`)} ${message}`;
+    const output = `${paint(COLORS.dim, `[${timestamp}]`)} ${paint(LEVEL_COLORS[level], `${LEVEL_ICONS[level]} [${level}]`)} ${paint(scopeColor, `[${scope}]`)} ${message}`;
+    const line = formatDetails(redact(details));
+    const formattedOutput = line ? `${output} ${paint(COLORS.dim, "·")} ${line}` : output;
 
     if (level === "ERROR" || level === "FATAL") {
-      if (details === undefined) {
-        console.error(output);
-      } else {
-        console.error(output, details instanceof Error ? details.message : details);
-      }
-
+      console.error(formattedOutput);
       return;
     }
 
     if (level === "WARN") {
-      if (details === undefined) {
-        console.warn(output);
-      } else {
-        console.warn(output, details);
-      }
-
+      console.warn(formattedOutput);
       return;
     }
 
-    if (details === undefined) {
-      console.log(output);
-    } else {
-      console.log(output, details);
+    if (level === "DEBUG") {
+      console.debug(formattedOutput);
+      return;
     }
+
+    console.info(formattedOutput);
   }
 
   return Object.freeze({
-    header(title: string, subtitle = "Discord control bot"): void {
+    header(title: string, subtitle = "Dune: Awakening Discord control bot"): void {
       if (LEVELS.INFO < threshold) {
         return;
       }
 
-      const lines = [
-        "            /\\",
-        "       ____/  \\____       A R R A K I S",
-        "      /    /\\    \\          C O N T R O L",
-        "     /____/  \\____\\",
-        "",
-        "     THE SPICE FLOWS. THE WATCH CONTINUES.",
-      ];
-      const border = `  +${"-".repeat(56)}+`;
-      const banner = [border, ...lines.map((line) => `  |${line.padEnd(56)}|`), border].join("\n");
-      console.log(`\n${paint(COLORS.yellow, banner)}`);
-      console.log(`  ${paint(COLORS.cyan, title)} | ${subtitle}\n`);
+      // Write the control sequence directly because hosted web terminals such as
+      // Pterodactyl may support ANSI clearing without reporting stdout as a TTY.
+      process.stdout.write(CLEAR_TERMINAL);
+      const width = 64;
+      const border = "─".repeat(width);
+      console.log(`\n${paint(COLORS.brightOrange, `╭${border}╮`)}`);
+      console.log(`${paint(COLORS.brightOrange, "│")} ${paint(COLORS.brightYellow, title.padEnd(width - 1))}${paint(COLORS.brightOrange, "│")}`);
+      console.log(`${paint(COLORS.brightOrange, "│")} ${paint(COLORS.dim, subtitle.padEnd(width - 1))}${paint(COLORS.brightOrange, "│")}`);
+      console.log(`${paint(COLORS.brightOrange, `╰${border}╯`)}\n`);
     },
 
     debug: (message: string, details?: unknown) => write("DEBUG", message, details),
@@ -140,8 +205,32 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
   });
 }
 
-function createSapphireLogger(scope: string, minimumLevel: string = process.env.LOG_LEVEL ?? "INFO"): ILogger {
+interface ScopedSapphireLogger extends ILogger {
+  scope(scope: string): Logger;
+}
+
+function createRequestLogger(context: LogContext, scope = "REQUEST"): Logger {
+  const requestLogger = createLogger(scope);
+  const mergeDetails = (details: unknown): LogContext =>
+    details && typeof details === "object" && !Array.isArray(details)
+      ? { ...context, ...(details as LogContext) }
+      : { ...context, details };
+
+  const logger: Logger = {
+    header: requestLogger.header,
+    debug: (message, details) => requestLogger.debug(message, mergeDetails(details)),
+    info: (message, details) => requestLogger.info(message, mergeDetails(details)),
+    warn: (message, details) => requestLogger.warn(message, mergeDetails(details)),
+    error: (message, error) => requestLogger.error(message, { ...context, error }),
+    fatal: (message, error) => requestLogger.fatal(message, { ...context, error }),
+  };
+
+  return Object.freeze(logger);
+}
+
+function createSapphireLogger(scope: string, minimumLevel: string = process.env.LOG_LEVEL ?? "INFO"): ScopedSapphireLogger {
   const logger = createLogger(scope, minimumLevel);
+  const childLoggers = new Map<string, Logger>();
   const normalizedLevel = minimumLevel.toUpperCase() as LogLevel;
   const threshold = LEVELS[normalizedLevel] ?? LEVELS.INFO;
 
@@ -187,6 +276,15 @@ function createSapphireLogger(scope: string, minimumLevel: string = process.env.
     }
   }
 
+  function childLogger(childScope: string): Logger {
+    let child = childLoggers.get(childScope);
+    if (!child) {
+      child = createLogger(childScope, minimumLevel);
+      childLoggers.set(childScope, child);
+    }
+    return child;
+  }
+
   return Object.freeze({
     has(level: SapphireLogLevel): boolean {
       const resolvedLevel = resolveLevel(level);
@@ -199,7 +297,29 @@ function createSapphireLogger(scope: string, minimumLevel: string = process.env.
     error: (...values: readonly unknown[]) => forward("ERROR", values),
     fatal: (...values: readonly unknown[]) => forward("FATAL", values),
     write,
+    scope: childLogger,
   });
+}
+
+function scopedLogger(source: ILogger, scope: string): Logger {
+  const scoped = source as ILogger & { scope?: (childScope: string) => Logger };
+  if (typeof scoped.scope === "function") return scoped.scope(scope);
+
+  const forward = (method: "debug" | "info" | "warn" | "error" | "fatal", message: string, details?: unknown): void => {
+    if (details === undefined) source[method](message);
+    else source[method](message, details);
+  };
+
+  const logger: Logger = {
+    header: () => undefined,
+    debug: (message, details) => forward("debug", message, details),
+    info: (message, details) => forward("info", message, details),
+    warn: (message, details) => forward("warn", message, details),
+    error: (message, details) => forward("error", message, details),
+    fatal: (message, details) => forward("fatal", message, details),
+  };
+
+  return Object.freeze(logger);
 }
 
 const timestampFormatter = new Intl.DateTimeFormat("en-US", {
@@ -221,6 +341,6 @@ function formatTimestamp(date: Date): string {
   return `${values.month}/${values.day}/${values.year} ` + `${values.hour}:${values.minute}:${values.second} ` + `${values.dayPeriod}`;
 }
 
-export { createLogger, createSapphireLogger, formatTimestamp };
+export { createLogger, createRequestLogger, createSapphireLogger, formatTimestamp, scopedLogger };
 
-export type { LogLevel, Logger };
+export type { LogContext, LogLevel, Logger, ScopedSapphireLogger };

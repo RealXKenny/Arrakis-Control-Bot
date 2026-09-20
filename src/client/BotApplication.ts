@@ -56,36 +56,39 @@ interface BotConfig {
 }
 
 function createBotApplication(config: BotConfig) {
-  const logger = createLogger("BOT", config.logLevel);
+  const systemLogger = createLogger("SYSTEM", config.logLevel);
+  const configLogger = createLogger("CONFIG", config.logLevel);
+  const storageLogger = createLogger("STORAGE", config.logLevel);
+  const discordLogger = createLogger("DISCORD", config.logLevel);
 
-  logger.header("ARRAKIS CONTROL", "Dune: Awakening Discord control bot");
+  systemLogger.header("ARRAKIS CONTROL", "Dune: Awakening Discord control bot");
 
   const client = createClient(config.logLevel);
 
   configureIntegrations(client, config);
 
-  logger.info("[01 / SYSTEM] Loading commands, events and integrations.");
+  systemLogger.info("[01] Loading commands, events and integrations.");
 
-  logger.info(`[CONFIG] Player links: ${client.discordAdapter ? "enabled" : "off"} | Game chat: ${client.chatBridge ? "enabled" : "off"} | Voice rooms: ${client.voiceRooms ? "enabled" : "off"} | Music: ${client.music ? "enabled" : "off"}`);
+  configLogger.info(`Player links: ${client.discordAdapter ? "enabled" : "off"} | Game chat: ${client.chatBridge ? "enabled" : "off"} | Voice rooms: ${client.voiceRooms ? "enabled" : "off"} | Music: ${client.music ? "enabled" : "off"}`);
 
   let isShuttingDown = false;
 
   async function start(): Promise<void> {
-    logger.info("[02 / STORAGE] Preparing persistent state.");
+    storageLogger.info("[02] Preparing persistent state.");
     if (client.tickets) {
       await client.tickets.initialize();
-      logger.debug("PostgreSQL ticket storage is ready.");
+      storageLogger.debug("PostgreSQL ticket storage is ready.");
     }
     await client.voiceRooms?.initialize();
     await client.music?.initialize();
 
-    logger.info(`[STORAGE] ${client.tickets ? "PostgreSQL initialized" : "Not configured"}.`);
-    logger.debug(`Dune Console API key configured; ${client.duneApi.endpoints.length} endpoints catalogued.`);
-    logger.info("[03 / DISCORD] Connecting to the gateway.");
+    storageLogger.info(`${client.tickets ? "PostgreSQL initialized" : "Not configured"}.`);
+    configLogger.debug(`Dune Console API key configured; ${client.duneApi.endpoints.length} endpoints catalogued.`);
+    discordLogger.info("[03] Connecting to the gateway.");
 
     await client.login(config.discordToken);
 
-    logger.debug("Discord login request completed.");
+    discordLogger.debug("Discord login request completed.");
   }
 
   async function shutdown(signal: string, exitCode = 0): Promise<void> {
@@ -95,7 +98,7 @@ function createBotApplication(config: BotConfig) {
 
     isShuttingDown = true;
 
-    logger.debug(`Received ${signal}; starting graceful shutdown.`);
+    systemLogger.debug(`Received ${signal}; starting graceful shutdown.`);
 
     if (client.auditLogInterval) clearInterval(client.auditLogInterval);
     if (client.presenceInterval) clearInterval(client.presenceInterval);
@@ -118,8 +121,8 @@ function createBotApplication(config: BotConfig) {
           }
         } },
       ],
-      (name, error) => logger.error(`Unable to close the ${name} cleanly.`, error),
-      () => logger.warn("Graceful shutdown timed out; forcing process exit."),
+      (name, error) => systemLogger.error(`Unable to close the ${name} cleanly.`, error),
+      () => systemLogger.warn("Graceful shutdown timed out; forcing process exit."),
     );
 
     process.exitCode = exitCode;
@@ -135,7 +138,7 @@ function createBotApplication(config: BotConfig) {
 function createClient(logLevel?: string): BotClient {
   return new ArrakisClient({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates],
-    logger: { instance: createSapphireLogger("BOT", logLevel) },
+    logger: { instance: createSapphireLogger("SAPPHIRE", logLevel) },
   });
 }
 
@@ -143,10 +146,11 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   if (config.chatBridge) {
     const chatNames = new ChatPlayerNames(client.duneApi);
+    const chatLogger = createLogger("CHAT BRIDGE", config.logLevel);
     client.chatBridge = new DiscordGameChatBridge(
       client, config.chatBridge,
-      (message) => client.logger.warn(message),
-      (message) => client.logger.info(message),
+      (message) => chatLogger.warn(message),
+      (message) => chatLogger.info(message),
       process.env.OWNER_ROLE_ID, chatNames.resolve,
     );
   }

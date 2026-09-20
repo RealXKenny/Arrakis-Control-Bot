@@ -1,12 +1,14 @@
 import { ApplicationCommandType, type Client } from "discord.js";
+import { scopedLogger } from "../../client/logger";
 
 /** All current slash commands are global; guild copies can shadow the new definitions. */
 export async function cleanupLegacyCommands(client: Client, expected: ReadonlySet<string>): Promise<void> {
+  const logger = scopedLogger(client.logger, "COMMANDS");
   if (!client.application || !expected.size) return;
   const globals = await client.application.commands.fetch();
   const names = new Set(globals.filter((command) => command.type === ApplicationCommandType.ChatInput).map((command) => command.name));
   if (names.size !== expected.size || [...expected].some((name) => !names.has(name))) {
-    client.logger.warn("[COMMANDS] Cleanup deferred: the current global command list is not confirmed.");
+    logger.warn("Cleanup deferred: the current global command list is not confirmed.");
     return;
   }
   let removed = 0, failures = 0;
@@ -24,11 +26,11 @@ export async function cleanupLegacyCommands(client: Client, expected: ReadonlySe
       } catch { failures++; }
     }
     if (guilds.size < 200) {
-      client.logger.info(`[COMMANDS] ${names.size} global slash commands synchronized; removed ${removed} obsolete server-specific command(s).`);
-      if (failures) client.logger.warn(`[COMMANDS] ${failures} cleanup operation(s) failed; startup will retry next time.`);
+      logger.info(`${names.size} global slash commands synchronized; removed ${removed} obsolete server-specific command(s).`);
+      if (failures) logger.warn(`${failures} cleanup operation(s) failed; startup will retry next time.`);
       return;
     }
     after = guilds.last()!.id;
   }
-  client.logger.warn("[COMMANDS] Cleanup reached its server-list limit; some server-specific commands may remain.");
+  logger.warn("Cleanup reached its server-list limit; some server-specific commands may remain.");
 }

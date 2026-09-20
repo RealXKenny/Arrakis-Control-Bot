@@ -1,6 +1,7 @@
 import { container } from "@sapphire/framework";
 import { ContainerBuilder, MessageFlags, SeparatorSpacingSize, type Attachment, type ChatInputCommandInteraction } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { DISCORD_LIMITS, truncateDiscordText } from "../../../shared/discord/discordLimits";
 
@@ -91,7 +92,7 @@ async function readBoundedAttachment(response: Response, maximumBytes: number): 
 
 async function replyBackupError(interaction: ChatInputCommandInteraction, actionName: string, error: unknown): Promise<void> {
   const detail = error instanceof Error ? error.message : "The Console did not provide an error message.";
-  container.logger.error(`Unable to run /${actionName}.`, error);
+  scopedLogger(container.logger, "BACKUPS").error(`Unable to run /${actionName}.`, error);
   await interaction.editReply({ ...createV2Response([createBackupActionCard(`❌ ${actionName} failed`, detail, false)]), allowedMentions: { parse: [] } });
 }
 

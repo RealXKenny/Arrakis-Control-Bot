@@ -2,6 +2,7 @@ import { Events, Listener } from "@sapphire/framework";
 import type { Interaction } from "discord.js";
 
 import { describeInteraction } from "../../support/interactions/interactionResponses";
+import { scopedLogger } from "../../client/logger";
 
 class InteractionCreate extends Listener<typeof Events.InteractionCreate> {
   public constructor(context: Listener.LoaderContext) {
@@ -10,7 +11,7 @@ class InteractionCreate extends Listener<typeof Events.InteractionCreate> {
 
   public override async run(interaction: Interaction): Promise<void> {
     const interactionType = describeInteraction(interaction);
-    this.container.logger.debug("Interaction received.", {
+    scopedLogger(this.container.logger, "INTERACTIONS").debug("Interaction received.", {
       type: interactionType,
       interactionId: interaction.id,
       userId: interaction.user?.id,

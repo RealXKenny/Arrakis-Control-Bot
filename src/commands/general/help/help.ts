@@ -1,5 +1,5 @@
 import { Command } from "@sapphire/framework";
-import { MessageFlags, SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 
 import { HELP_CATEGORIES, getHelpCategory } from "../../../modules/help/helpCatalog";
 import { renderHelpBrowser } from "../../../modules/help/helpBrowser";
@@ -13,7 +13,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   const requestedCategory = interaction.options.getString("category") ?? "general";
   const categoryId = getHelpCategory(requestedCategory)?.id ?? "general";
   const session = createHelpSession({ ownerId: interaction.user.id, requestedBy: interaction.user.tag, categoryId });
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 });
+  await interaction.deferReply();
   await renderHelpBrowser(interaction, session);
 }
 

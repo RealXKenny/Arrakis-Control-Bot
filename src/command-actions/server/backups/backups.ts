@@ -2,6 +2,7 @@ import { container } from "@sapphire/framework";
 import { isObject } from "@sapphire/utilities";
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
@@ -155,7 +156,7 @@ const command = {
         },
       });
 
-      container.logger.error(`Unable to retrieve Dune server backup information. ${details.message}`, error);
+      scopedLogger(container.logger, "BACKUPS").error(`Unable to retrieve Dune server backup information. ${details.message}`, error);
     }
   },
 };

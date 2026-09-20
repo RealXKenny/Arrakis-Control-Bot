@@ -1,6 +1,7 @@
 import { InteractionHandler, InteractionHandlerTypes, container } from "@sapphire/framework";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, ModalSubmitInteraction, SeparatorSpacingSize } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createActorContext } from "../../../shared/actors/createActorContext";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
@@ -37,7 +38,7 @@ const handler = {
 
     const result = (await discordAdapter.linkPlayer(actor, characterName)) as LinkPlayerResult;
 
-    container.logger.debug("Link request response received.", {
+    scopedLogger(container.logger, "PLAYERS").debug("Link request response received.", {
       ok: result?.ok ?? false,
       message: result?.message ?? null,
       characterName: result?.characterName ?? result?.character_name ?? characterName,

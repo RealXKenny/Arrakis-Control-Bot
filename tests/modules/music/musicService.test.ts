@@ -118,11 +118,12 @@ it("recovers the current track after Lavalink reconnects", async () => {
 });
 
 it("keeps a request queued if playback fails and does not expose server errors", async () => {
-  const { service, guild } = setup();
+  const { service, guild, client } = setup();
   mocked.player.playTrack.mockRejectedValueOnce(new Error("secret credential"));
   await expect(service.request(guild, "requests", "user", "song")).resolves.toContain("queued, but playback is reconnecting");
   expect(service.describeQueue()).toContain("Song");
   expect(service.errorMessage(new Error("secret credential"))).not.toContain("secret credential");
+  expect(client.logger.warn).not.toHaveBeenCalled();
 });
 
 it("supports pause/resume, skip and bounded volume", async () => {

@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { MessageFlags, type ChatInputCommandInteraction } from "discord.js";
 
-import { data } from "../../../src/commands/general/help/help";
+import { data, execute } from "../../../src/commands/general/help/help";
 import { HELP_CATEGORIES, getHelpCategory } from "../../../src/modules/help/helpCatalog";
 import { createHelpCard } from "../../../src/modules/help/helpBrowser";
 import { createHelpSession, getHelpSession, sweepHelpSessions } from "../../../src/modules/help/helpSessions";
@@ -36,5 +37,24 @@ describe("interactive help browser", () => {
     expect(getHelpSession(session.id)?.ownerId).toBe("owner");
     sweepHelpSessions(session.touchedAt + 16 * 60 * 1_000);
     expect(getHelpSession(session.id)).toBeNull();
+  });
+
+  it("publishes a public Components V2 reply", async () => {
+    const deferReply = vi.fn().mockResolvedValue(undefined);
+    const editReply = vi.fn().mockResolvedValue(undefined);
+    const interaction = {
+      user: { id: "owner", tag: "Tester" },
+      options: { getString: () => null },
+      deferReply,
+      editReply,
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(interaction);
+
+    expect(deferReply).toHaveBeenCalledWith();
+    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+      components: expect.any(Array),
+      flags: MessageFlags.IsComponentsV2,
+    }));
   });
 });

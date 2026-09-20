@@ -10,10 +10,12 @@ import {
 } from "@sapphire/framework";
 
 import { describeInteraction, formatError, respondWithInteractionError } from "../../support/interactions/interactionResponses";
+import { scopedLogger } from "../../client/logger";
 
 async function handleInteractionError(error: unknown, interaction: ChatInputCommandErrorPayload["interaction"] | AutocompleteInteractionPayload["interaction"] | InteractionHandlerErrorPayload["interaction"]): Promise<void> {
-  container.logger.error(`Unhandled ${describeInteraction(interaction)} interaction error. ${formatError(error)}`);
-  container.logger.error("Interaction handler failed with full context.", {
+  const logger = scopedLogger(container.logger, "INTERACTIONS");
+  logger.error(`Unhandled ${describeInteraction(interaction)} interaction error. ${formatError(error)}`);
+  logger.error("Interaction handler failed with full context.", {
     interaction: describeInteraction(interaction),
     interactionId: interaction.id,
     userId: interaction.user?.id,
@@ -66,7 +68,7 @@ class ListenerError extends Listener<typeof Events.ListenerError> {
     super(context, { event: Events.ListenerError, name: "ListenerError" });
   }
   public override run(error: unknown, { piece }: ListenerErrorPayload): void {
-    this.container.logger.error(`Listener ${piece.name} failed. ${formatError(error)}`);
+    scopedLogger(this.container.logger, "SAPPHIRE").error(`Listener ${piece.name} failed. ${formatError(error)}`);
   }
 }
 

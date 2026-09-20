@@ -4,6 +4,7 @@ import type { ModalSubmitInteraction } from "discord.js";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { isKnownComponentInteraction } from "../../../support/interactions/componentCustomIds";
 import { respondWithUnavailableControl } from "./unavailable-component";
+import { scopedLogger } from "../../../client/logger";
 
 class UnavailableModal extends RateLimitedInteractionHandler<ModalSubmitInteraction> {
   public constructor(context: InteractionHandler.LoaderContext, options: InteractionHandler.Options) {
@@ -15,7 +16,7 @@ class UnavailableModal extends RateLimitedInteractionHandler<ModalSubmitInteract
   }
 
   protected override async handle(interaction: ModalSubmitInteraction): Promise<void> {
-    this.container.logger.warn(`No modal form handler registered for ${interaction.customId}.`);
+    scopedLogger(this.container.logger, "INTERACTIONS").warn(`No modal form handler registered for ${interaction.customId}.`);
     await respondWithUnavailableControl(interaction);
   }
 }

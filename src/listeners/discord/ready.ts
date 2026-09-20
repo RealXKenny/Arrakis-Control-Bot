@@ -12,6 +12,7 @@ import { ensureVerificationPanel } from "../../modules/community/verification/ve
 import { ensureTicketPanel } from "../../modules/tickets/ticketPanel";
 import { announceCurrentVersion } from "../../modules/releases/versionAnnouncement";
 import { startStormAnnouncements } from "../../modules/world/storms/stormAnnouncement";
+import { scopedLogger } from "../../client/logger";
 
 const PRESENCE_INTERVAL_MS = 30_000;
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
@@ -52,9 +53,12 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
   public override async run(): Promise<void> {
     const { client } = this.container;
+    const gatewayLogger = scopedLogger(this.container.logger, "GATEWAY");
+    const communityLogger = scopedLogger(this.container.logger, "COMMUNITY");
+    const systemLogger = scopedLogger(this.container.logger, "SYSTEM");
 
     if (!client.user) {
-      this.container.logger.error("Client reported ready, but no Discord user is available.");
+      gatewayLogger.error("Client reported ready, but no Discord user is available.");
       return;
     }
 
@@ -86,8 +90,8 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
     client.presenceInterval = setInterval(updatePresence, PRESENCE_INTERVAL_MS);
 
-    this.container.logger.info(`[GATEWAY] Connected as ${botUser.tag} | ${client.guilds.cache.size} server(s).`);
-    this.container.logger.info("[04 / COMMUNITY] Restoring voice rooms and synchronizing panels.");
+    gatewayLogger.info(`Connected as ${botUser.tag} | ${client.guilds.cache.size} server(s).`);
+    communityLogger.info("[04] Restoring voice rooms and synchronizing panels.");
 
     client.auditLogInterval = startAuditLogForwarder(client);
     await runReadyTask("recover temporary voice rooms", async () => { await client.voiceRooms?.start(); });
@@ -98,7 +102,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
     await ensurePanels();
     await runReadyTask("configure version announcements", setupVersionAnnouncements);
-    this.container.logger.info("[WATCH ACTIVE] Startup tasks finished. Check any service warnings above.");
+    systemLogger.info("[WATCH ACTIVE] Startup tasks finished. Check any service warnings above.");
   }
 }
 
@@ -121,7 +125,7 @@ async function runReadyTask(label: string, task: () => Promise<unknown>): Promis
   try {
     await task();
   } catch (error: unknown) {
-    container.logger.error(`Unable to ${label}.`, error);
+    scopedLogger(container.logger, "COMMUNITY").error(`Unable to ${label}.`, error);
   }
 }
 
@@ -142,7 +146,7 @@ async function setupVersionAnnouncements(): Promise<void> {
     if (checking) return;
     checking = true;
     announceCurrentVersion(client, channelId).catch((error: unknown) => {
-      container.logger.error("Unable to check for new version announcements.", error);
+      scopedLogger(container.logger, "RELEASES").error("Unable to check for new version announcements.", error);
     }).finally(() => { checking = false; });
   }, intervalMinutes * 60_000);
 }

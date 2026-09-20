@@ -1,6 +1,7 @@
 import { container } from "@sapphire/framework";
 import { ContainerBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { parseServices } from "../monitoring/status";
@@ -64,7 +65,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
 
     await interaction.editReply({ ...createV2Response([createServicesCard(rows)]), allowedMentions: { parse: [] } });
   } catch (error: unknown) {
-    container.logger.error("Unable to retrieve Dune server services.", error);
+    scopedLogger(container.logger, "SERVER").error("Unable to retrieve Dune server services.", error);
     await interaction.editReply({
       ...createV2Response([
         new ContainerBuilder()

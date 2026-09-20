@@ -2,9 +2,9 @@
 
 Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: Awakening community administration, player linking, moderation, server operations, panels, and external service integrations.
 
-See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the ownership map of the codebase. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
+See [AGENTS.md](AGENTS.md) for the repository structure, ownership boundaries, development rules, and verification workflow. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.10.1.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.10.5.
 
 ## Requirements
 
@@ -56,8 +56,10 @@ Before starting a release, run the same checks used by CI/deployment:
 npm run build
 npm run lint
 npm test
-npm audit
+npm audit --omit=dev
 ```
+
+Pushes and pull requests targeting `main` run the `CI` GitHub Actions workflow. After a successful push to `main`, the `Release` workflow reads the stable semantic version from `package.json`. If its `v<version>` tag does not exist, the workflow requires a matching non-empty `## [<version>]` section in `CHANGELOG.md`, creates the tag at the exact CI-verified commit, and publishes an `Arrakis Control Bot <version>` GitHub release from those notes. Commits that do not bump the version safely skip release creation.
 
 ## Production
 
@@ -115,7 +117,7 @@ The command reads `GET /api/exchange/items` through the configured Dune Console 
 
 ## Interactive command help
 
-Run `/help` to open the private Arrakis Command Center. It catalogs all 77 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
+Run `/help` to open the public Arrakis Command Center. It catalogs all 81 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
 
 ## Owner server controls
 

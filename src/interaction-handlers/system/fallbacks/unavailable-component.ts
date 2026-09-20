@@ -3,6 +3,7 @@ import { MessageFlags, type AnySelectMenuInteraction, type ButtonInteraction, ty
 
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { isKnownComponentInteraction } from "../../../support/interactions/componentCustomIds";
+import { scopedLogger } from "../../../client/logger";
 const UNAVAILABLE_MESSAGE = "This control is no longer available. Please use the latest bot panel and try again.";
 
 type SupportedMessageComponent = ButtonInteraction | AnySelectMenuInteraction;
@@ -24,7 +25,7 @@ class UnavailableMessageComponent extends RateLimitedInteractionHandler<Supporte
 
   protected override async handle(interaction: SupportedMessageComponent): Promise<void> {
     const label = interaction.isButton() ? "button" : "select menu";
-    this.container.logger.warn(`No ${label} handler registered for ${interaction.customId}.`);
+    scopedLogger(this.container.logger, "INTERACTIONS").warn(`No ${label} handler registered for ${interaction.customId}.`);
     await respondWithUnavailableControl(interaction);
   }
 }

@@ -203,7 +203,7 @@ describe("Discord chat routing", () => {
       expect(decodeMapChat(call[2])).toMatchObject({ sender: config.funcomId, text: "[Discord] [Owner] Kenny: hello" });
     }
     expect(getCurrentPlayer).not.toHaveBeenCalled();
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("RabbitMQ accepted 7/7 map publishes."));
+    expect(info.mock.calls.flat().join(" ")).not.toContain("RabbitMQ accepted");
     expect(info.mock.calls.flat().join(" ")).not.toContain("game-client display is not confirmed");
     roles.clear();
     await bridge.sendToGame(message as unknown as Message);
@@ -262,7 +262,7 @@ describe("Discord chat routing", () => {
     await bridge.sendToGame({ id: "345678901234567890", guildId: route.guildId, channelId: route.channelId, content: "hello", author: { bot: false, username: "Kenny" }, reply } as unknown as Message);
     expect(channel.publish.mock.calls.map((call) => call[1])).toEqual(maps);
     expect(new Set(channel.publish.mock.calls.map((call) => call[3].messageId)).size).toBe(7);
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("RabbitMQ accepted 6/7"));
+    expect(info.mock.calls.flat().join(" ")).not.toContain("RabbitMQ accepted");
     expect(reply).toHaveBeenCalledTimes(1);
     expect(reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Hagga Basin PvP") }));
     expect(info.mock.calls.flat().join(" ")).not.toContain("Kenny: hello");
@@ -324,7 +324,7 @@ describe("Discord chat routing", () => {
     const payload = JSON.parse(JSON.parse(channel.publish.mock.calls[0][2].toString()).content);
     expect(payload.m_bUseSpoofedUserName).toBe(true);
     expect(payload.m_SpoofedUserNameFrom.m_UnlocalizedName).toBe("Arrakis Control");
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("RabbitMQ accepted 1/1 map publishes."));
+    expect(info.mock.calls.flat().join(" ")).not.toContain("RabbitMQ accepted");
     expect(info.mock.calls.flat().join(" ")).not.toContain("Kenny: hello");
     await bridge.sendToGame({ ...message, author: { bot: true } } as unknown as Message);
     await bridge.sendToGame({ ...message, channelId: "other" } as unknown as Message);

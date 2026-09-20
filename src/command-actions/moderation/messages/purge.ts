@@ -1,6 +1,7 @@
 import { container } from "@sapphire/framework";
 import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
+import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 
 const COLORS = {
@@ -58,7 +59,7 @@ const command = {
 
       await replyWithCard(interaction, createCard("## 🧹 Messages Purged", ["### 📋 Purge Summary", `**Requested:** ${amount}`, `**Deleted:** ${deleted.size}`], COLORS.success, `-# Purged by ${interaction.user.tag}`));
     } catch (error: unknown) {
-      container.logger.error("Failed to purge messages", {
+      scopedLogger(container.logger, "MODERATION").error("Failed to purge messages", {
         error,
         guildId: interaction.guildId,
         channelId: interaction.channelId,

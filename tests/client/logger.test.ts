@@ -18,7 +18,7 @@ afterEach(() => {
 describe("Sapphire logger adapter", () => {
   it("formats framework messages with the Arrakis timestamp, level, and scope", () => {
     const output: unknown[][] = [];
-    vi.spyOn(console, "log").mockImplementation((...values: unknown[]) => {
+    vi.spyOn(console, "info").mockImplementation((...values: unknown[]) => {
       output.push(values);
     });
 
@@ -27,7 +27,7 @@ describe("Sapphire logger adapter", () => {
 
     expect(output).toHaveLength(1);
     expect(stripAnsi(String(output[0]?.[0]))).toMatch(
-      /^\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} [AP]M\] \[INFO\] \[BOT\] ApplicationCommandRegistries: Initializing\.\.\.$/,
+      /^\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} [AP]M\] ● \[INFO\] \[BOT\] ApplicationCommandRegistries: Initializing\.\.\.$/,
     );
   });
 
@@ -40,6 +40,17 @@ describe("Sapphire logger adapter", () => {
     expect(logger.has(LogLevel.Error)).toBe(true);
     expect(logger.has(LogLevel.None)).toBe(false);
   });
+
+  it("creates subsystem loggers without retaining the framework scope", () => {
+    vi.stubEnv("NO_COLOR", "1");
+    const output = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const logger = createSapphireLogger("SAPPHIRE", "INFO");
+
+    logger.scope("GATEWAY").info("Connected.");
+
+    expect(output).toHaveBeenCalledWith(expect.stringContaining("[INFO] [GATEWAY] Connected."));
+    expect(output.mock.calls.flat().join(" ")).not.toContain("[SAPPHIRE] Connected.");
+  });
 });
 
 
@@ -47,19 +58,36 @@ describe("startup presentation", () => {
   it("keeps redirected logs plain and preserves warning severity", () => {
     vi.stubEnv("NO_COLOR", "1");
     vi.stubEnv("FORCE_COLOR", "1");
+    const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const output = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const logger = createLogger("BOT", "INFO");
     logger.header("ARRAKIS CONTROL");
     logger.warn("Music unavailable; retrying.");
     expect(output.mock.calls.flat().join("\n")).not.toContain(String.fromCharCode(27));
-    expect(output.mock.calls.flat().join("\n")).toContain("THE SPICE FLOWS");
-    expect(warning).toHaveBeenCalledWith(expect.stringContaining("[WARN] [BOT] Music unavailable; retrying."));
+    expect(output.mock.calls.flat().join("\n")).toContain("Dune: Awakening Discord control bot");
+    expect(write).toHaveBeenCalledWith("\u001B[2J\u001B[3J\u001B[H");
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining("▲ [WARN] [BOT] Music unavailable; retrying."));
   });
 
   it("does not print the startup banner at warning-only verbosity", () => {
+    const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const output = vi.spyOn(console, "log").mockImplementation(() => undefined);
     createLogger("BOT", "WARN").header("ARRAKIS CONTROL");
     expect(output).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("formats structured details and redacts nested secrets", () => {
+    vi.stubEnv("NO_COLOR", "1");
+    const output = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    createLogger("BOT", "INFO").info("Authenticated.", {
+      userId: "123",
+      credentials: { accessToken: "do-not-print", label: "Arrakis Control" },
+    });
+
+    expect(output).toHaveBeenCalledWith(expect.stringContaining('· {"userId":"123","credentials":{"accessToken":"[REDACTED]","label":"Arrakis Control"}}'));
+    expect(output.mock.calls.flat().join(" ")).not.toContain("do-not-print");
   });
 });

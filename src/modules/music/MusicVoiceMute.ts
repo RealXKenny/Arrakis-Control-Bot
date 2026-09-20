@@ -1,5 +1,6 @@
 import { PermissionFlagsBits, type Client, type VoiceState } from "discord.js";
 import type { MusicMuteStorage } from "../../infrastructure/database/music/MusicMuteRepository";
+import { scopedLogger, type Logger } from "../../client/logger";
 
 /** Tracks only mutes acquired by the lounge, including pending undo across restarts. */
 export class MusicVoiceMute {
@@ -9,9 +10,12 @@ export class MusicVoiceMute {
   private stopped = false;
   private recovering = false;
   private lastWarning = 0;
+  private readonly logger: Logger;
 
   public constructor(private readonly client: Client, private readonly guildId: string,
-    private readonly voiceId: string, private readonly storage: MusicMuteStorage) {}
+    private readonly voiceId: string, private readonly storage: MusicMuteStorage) {
+    this.logger = scopedLogger(client.logger, "MUSIC");
+  }
 
   public async initialize(): Promise<void> {
     await this.storage.initialize();
@@ -92,6 +96,6 @@ export class MusicVoiceMute {
   private warn(): void {
     if (Date.now() - this.lastWarning < 60_000) return;
     this.lastWarning = Date.now();
-    this.client.logger.warn("Music lounge mute/unmute failed; recovery will retry. Check Mute Members permissions and PostgreSQL.");
+    this.logger.warn("Music lounge mute/unmute failed; recovery will retry. Check Mute Members permissions and PostgreSQL.");
   }
 }

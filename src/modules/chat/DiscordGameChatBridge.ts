@@ -67,7 +67,6 @@ export class DiscordGameChatBridge {
           failedMaps.push(route.map);
         }
       }
-      this.info(`Chat bridge Discord message ${message.id}: RabbitMQ accepted ${routes.length - failedMaps.length}/${routes.length} map publishes.`);
       if (failedMaps.length) {
         this.warn(`Chat bridge delivery unconfirmed for maps: ${failedMaps.join(", ")}.`);
         const destinations = failedMaps.map(mapChatLabel).join(", ");
