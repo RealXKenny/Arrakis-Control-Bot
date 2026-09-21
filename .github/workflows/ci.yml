@@ -74,13 +74,26 @@ jobs:
         env:
           IMAGE: ${{ steps.image.outputs.name }}
         run: |
-          docker run --rm --entrypoint node "$IMAGE:latest" -e '
+          docker run --rm --workdir /opt/arrakis --entrypoint node "$IMAGE:latest" -e '
             const fs = require("node:fs");
             require("canvas");
             for (const path of ["dist/src/index.js", "data/images/panel-welcome.png"]) {
               if (!fs.existsSync(path)) throw new Error(`Missing runtime file: ${path}`);
             }
           '
+
+      - name: Check Pterodactyl startup contract
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          docker run --rm --entrypoint sh "$IMAGE:latest" -c '
+            test "$(id -un)" = container &&
+            test "$HOME" = /home/container &&
+            test "$PWD" = /home/container &&
+            test -f /opt/arrakis/dist/src/index.js
+          '
+          test "$(docker run --rm -e STARTUP='printf pterodactyl-ready' "$IMAGE:latest")" = pterodactyl-ready
 
       - name: Log in to GitHub Container Registry
         shell: bash

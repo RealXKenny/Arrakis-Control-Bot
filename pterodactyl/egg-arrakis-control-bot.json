@@ -1,0 +1,962 @@
+{
+  "_comment": "Import this PTDL_v2 egg into a Pterodactyl nest. Generated from .env.example by scripts/generate-pterodactyl-egg.mjs.",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2026-09-21T00:00:00+00:00",
+  "name": "Arrakis Control Bot",
+  "author": "realxkenny@users.noreply.github.com",
+  "description": "Arrakis Control Discord bot. Runs the prebuilt GitHub Container Registry image; configure secrets and optional integrations using the egg variables.",
+  "features": null,
+  "docker_images": {
+    "Arrakis Control Bot (GHCR)": "ghcr.io/realxkenny/arrakis-control-bot:latest"
+  },
+  "file_denylist": [],
+  "startup": "cd /opt/arrakis && exec node dist/src/index.js",
+  "config": {
+    "files": "{}",
+    "startup": "{\"done\":\"Discord shard\"}",
+    "logs": "{}",
+    "stop": "^C"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/sh\nset -eu\nmkdir -p /mnt/server\necho 'Arrakis Control Bot is bundled in the Docker image. No files to install.'\n",
+      "container": "ghcr.io/pterodactyl/installers:alpine",
+      "entrypoint": "ash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Discord Bot Token",
+      "description": "Required. Discord bot token. Treat as a secret.",
+      "env_variable": "TOKEN",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Discord Application ID",
+      "description": "Optional bot setting (CLIENT_ID). See .env.example in the repository.",
+      "env_variable": "CLIENT_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Discord Server ID",
+      "description": "Optional bot setting (GUILD_ID). See .env.example in the repository.",
+      "env_variable": "GUILD_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Total Shards",
+      "description": "Optional bot setting (TOTAL_SHARDS). See .env.example in the repository.",
+      "env_variable": "TOTAL_SHARDS",
+      "default_value": "auto",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Dune Console URL",
+      "description": "Required HTTPS base URL for the Dune Console.",
+      "env_variable": "CONSOLE_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Dune Console API Key",
+      "description": "Required scoped Dune Console API key. Treat as a secret.",
+      "env_variable": "CONSOLE_API_KEY",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Adapter Token",
+      "description": "Optional bot setting (ADAPTER_TOKEN). See .env.example in the repository.",
+      "env_variable": "ADAPTER_TOKEN",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Api Url",
+      "description": "Optional bot setting (API_URL). See .env.example in the repository.",
+      "env_variable": "API_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Api Key",
+      "description": "Optional bot setting (API_KEY). See .env.example in the repository.",
+      "env_variable": "API_KEY",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Link Panel Channel ID",
+      "description": "Optional bot setting (LINK_PANEL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "LINK_PANEL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Blueprint Panel Channel ID",
+      "description": "Optional bot setting (BLUEPRINT_PANEL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "BLUEPRINT_PANEL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Panel Channel ID",
+      "description": "Optional bot setting (ROLE_PANEL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_PANEL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Verify Channel ID",
+      "description": "Optional bot setting (VERIFY_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "VERIFY_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Rules Channel ID",
+      "description": "Optional bot setting (RULES_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "RULES_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Server Info Channel ID",
+      "description": "Optional bot setting (SERVER_INFO_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "SERVER_INFO_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Faq Panel Channel ID",
+      "description": "Optional bot setting (FAQ_PANEL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "FAQ_PANEL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Announcement Channel ID",
+      "description": "Optional bot setting (ANNOUNCEMENT_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "ANNOUNCEMENT_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Ticket Panel Channel ID",
+      "description": "Optional bot setting (TICKET_PANEL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "TICKET_PANEL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Bot Control Channel ID",
+      "description": "Optional bot setting (BOT_CONTROL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "BOT_CONTROL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Ticket Category ID",
+      "description": "Optional bot setting (TICKET_CATEGORY_ID). See .env.example in the repository.",
+      "env_variable": "TICKET_CATEGORY_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Ticket Transcript Channel ID",
+      "description": "Optional bot setting (TICKET_TRANSCRIPT_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "TICKET_TRANSCRIPT_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Storm Channel ID",
+      "description": "Optional bot setting (STORM_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "STORM_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Welcome Channel ID",
+      "description": "Optional bot setting (WELCOME_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "WELCOME_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Goodbye Channel ID",
+      "description": "Optional bot setting (GOODBYE_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "GOODBYE_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "PostgreSQL URL",
+      "description": "Optional PostgreSQL connection URL. Required for tickets, leveling, music state, and other persistent features.",
+      "env_variable": "DATABASE_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Database Ssl",
+      "description": "Optional bot setting (DATABASE_SSL). See .env.example in the repository.",
+      "env_variable": "DATABASE_SSL",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Leveling Enabled",
+      "description": "Optional bot setting (LEVELING_ENABLED). See .env.example in the repository.",
+      "env_variable": "LEVELING_ENABLED",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Audit Channel ID",
+      "description": "Optional bot setting (AUDIT_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "AUDIT_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Activity Log Channel ID",
+      "description": "Optional bot setting (ACTIVITY_LOG_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "ACTIVITY_LOG_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Linked Player Role ID",
+      "description": "Optional bot setting (LINKED_PLAYER_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "LINKED_PLAYER_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Verified Member Role ID",
+      "description": "Optional bot setting (VERIFIED_MEMBER_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "VERIFIED_MEMBER_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Trial Staff Role ID",
+      "description": "Optional bot setting (TRIAL_STAFF_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "TRIAL_STAFF_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Moderator Role ID",
+      "description": "Optional bot setting (MODERATOR_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "MODERATOR_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Senior Moderator Role ID",
+      "description": "Optional bot setting (SENIOR_MODERATOR_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "SENIOR_MODERATOR_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Administrator Role ID",
+      "description": "Optional bot setting (ADMINISTRATOR_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "ADMINISTRATOR_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Head Administrator Role ID",
+      "description": "Optional bot setting (HEAD_ADMINISTRATOR_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "HEAD_ADMINISTRATOR_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Owner Role ID",
+      "description": "Optional bot setting (OWNER_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "OWNER_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Staff Application Panel Channel ID",
+      "description": "Optional bot setting (STAFF_APPLICATION_PANEL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "STAFF_APPLICATION_PANEL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Staff Application Review Channel ID",
+      "description": "Optional bot setting (STAFF_APPLICATION_REVIEW_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "STAFF_APPLICATION_REVIEW_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Staff Application Reviewer Role ID",
+      "description": "Optional bot setting (STAFF_APPLICATION_REVIEWER_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "STAFF_APPLICATION_REVIEWER_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Staff Application Pending Role ID",
+      "description": "Optional bot setting (STAFF_APPLICATION_PENDING_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "STAFF_APPLICATION_PENDING_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Staff Application Accepted Role ID",
+      "description": "Optional bot setting (STAFF_APPLICATION_ACCEPTED_ROLE_ID). See .env.example in the repository.",
+      "env_variable": "STAFF_APPLICATION_ACCEPTED_ROLE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Staff Application Cooldown Days",
+      "description": "Optional bot setting (STAFF_APPLICATION_COOLDOWN_DAYS). See .env.example in the repository.",
+      "env_variable": "STAFF_APPLICATION_COOLDOWN_DAYS",
+      "default_value": "7",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Announcement Channel ID",
+      "description": "Optional bot setting (LEVEL_ANNOUNCEMENT_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ANNOUNCEMENT_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Arrakis Wanderer ID",
+      "description": "Optional bot setting (LEVEL_ROLE_ARRAKIS_WANDERER_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_ARRAKIS_WANDERER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Sietch Dweller ID",
+      "description": "Optional bot setting (LEVEL_ROLE_SIETCH_DWELLER_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_SIETCH_DWELLER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Desert Survivor ID",
+      "description": "Optional bot setting (LEVEL_ROLE_DESERT_SURVIVOR_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_DESERT_SURVIVOR_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Sand Warrior ID",
+      "description": "Optional bot setting (LEVEL_ROLE_SAND_WARRIOR_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_SAND_WARRIOR_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Spice Hunter ID",
+      "description": "Optional bot setting (LEVEL_ROLE_SPICE_HUNTER_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_SPICE_HUNTER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Fremen Initiate ID",
+      "description": "Optional bot setting (LEVEL_ROLE_FREMEN_INITIATE_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_FREMEN_INITIATE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Desert Master ID",
+      "description": "Optional bot setting (LEVEL_ROLE_DESERT_MASTER_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_DESERT_MASTER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Level Role Chosen Of Arrakis ID",
+      "description": "Optional bot setting (LEVEL_ROLE_CHOSEN_OF_ARRAKIS_ID). See .env.example in the repository.",
+      "env_variable": "LEVEL_ROLE_CHOSEN_OF_ARRAKIS_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Pvp ID",
+      "description": "Optional bot setting (ROLE_PVP_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_PVP_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Pve ID",
+      "description": "Optional bot setting (ROLE_PVE_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_PVE_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Builder ID",
+      "description": "Optional bot setting (ROLE_BUILDER_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_BUILDER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Crafter ID",
+      "description": "Optional bot setting (ROLE_CRAFTER_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_CRAFTER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Trader ID",
+      "description": "Optional bot setting (ROLE_TRADER_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_TRADER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Explorer ID",
+      "description": "Optional bot setting (ROLE_EXPLORER_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_EXPLORER_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Endgame ID",
+      "description": "Optional bot setting (ROLE_ENDGAME_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_ENDGAME_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Atreides ID",
+      "description": "Optional bot setting (ROLE_ATREIDES_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_ATREIDES_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Harkonnen ID",
+      "description": "Optional bot setting (ROLE_HARKONNEN_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_HARKONNEN_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Fremen ID",
+      "description": "Optional bot setting (ROLE_FREMEN_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_FREMEN_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Neutral ID",
+      "description": "Optional bot setting (ROLE_NEUTRAL_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_NEUTRAL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Announcements ID",
+      "description": "Optional bot setting (ROLE_ANNOUNCEMENTS_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_ANNOUNCEMENTS_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Events ID",
+      "description": "Optional bot setting (ROLE_EVENTS_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_EVENTS_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Pvp Alerts ID",
+      "description": "Optional bot setting (ROLE_PVP_ALERTS_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_PVP_ALERTS_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Market Alerts ID",
+      "description": "Optional bot setting (ROLE_MARKET_ALERTS_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_MARKET_ALERTS_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Role Lfg Alerts ID",
+      "description": "Optional bot setting (ROLE_LFG_ALERTS_ID). See .env.example in the repository.",
+      "env_variable": "ROLE_LFG_ALERTS_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Server Name",
+      "description": "Optional bot setting (SERVER_NAME). See .env.example in the repository.",
+      "env_variable": "SERVER_NAME",
+      "default_value": "Arrakis Community Server",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Log Level",
+      "description": "Optional bot setting (LOG_LEVEL). See .env.example in the repository.",
+      "env_variable": "LOG_LEVEL",
+      "default_value": "INFO",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Version Announcement Interval Minutes",
+      "description": "Optional bot setting (VERSION_ANNOUNCEMENT_INTERVAL_MINUTES). See .env.example in the repository.",
+      "env_variable": "VERSION_ANNOUNCEMENT_INTERVAL_MINUTES",
+      "default_value": "5",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Interaction Cooldown Ms",
+      "description": "Optional bot setting (INTERACTION_COOLDOWN_MS). See .env.example in the repository.",
+      "env_variable": "INTERACTION_COOLDOWN_MS",
+      "default_value": "2000",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Rate Limit Max Entries",
+      "description": "Optional bot setting (RATE_LIMIT_MAX_ENTRIES). See .env.example in the repository.",
+      "env_variable": "RATE_LIMIT_MAX_ENTRIES",
+      "default_value": "10000",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "RabbitMQ URL",
+      "description": "Optional AMQP(S) URL with encoded credentials. Treat as a secret.",
+      "env_variable": "RABBITMQ_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chat Bridge Funcom ID",
+      "description": "Optional bot setting (CHAT_BRIDGE_FUNCOM_ID). See .env.example in the repository.",
+      "env_variable": "CHAT_BRIDGE_FUNCOM_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chat Bridge Display Name",
+      "description": "Optional bot setting (CHAT_BRIDGE_DISPLAY_NAME). See .env.example in the repository.",
+      "env_variable": "CHAT_BRIDGE_DISPLAY_NAME",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chat Bridge Routes",
+      "description": "JSON array of {guildId, channelId, map} routes; required when RabbitMQ chat is enabled.",
+      "env_variable": "CHAT_BRIDGE_ROUTES",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "RabbitMQ CA File",
+      "description": "Absolute path to a public CA PEM uploaded under /home/container. For example, /home/container/rabbitmq-ca.pem.",
+      "env_variable": "RABBITMQ_CA_FILE",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Rabbitmq Tls Servername",
+      "description": "Optional bot setting (RABBITMQ_TLS_SERVERNAME). See .env.example in the repository.",
+      "env_variable": "RABBITMQ_TLS_SERVERNAME",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Voice Guild ID",
+      "description": "Optional Discord server ID override for voice rooms; otherwise GUILD_ID is used.",
+      "env_variable": "VOICE_GUILD_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Voice Join Channel ID",
+      "description": "Optional bot setting (VOICE_JOIN_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "VOICE_JOIN_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Voice Category ID",
+      "description": "Optional bot setting (VOICE_CATEGORY_ID). See .env.example in the repository.",
+      "env_variable": "VOICE_CATEGORY_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Voice Panel Channel ID",
+      "description": "Optional bot setting (VOICE_PANEL_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "VOICE_PANEL_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Voice Panel Public",
+      "description": "Optional bot setting (VOICE_PANEL_PUBLIC). See .env.example in the repository.",
+      "env_variable": "VOICE_PANEL_PUBLIC",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Music Guild ID",
+      "description": "Optional Discord server ID override for music; otherwise GUILD_ID is used.",
+      "env_variable": "MUSIC_GUILD_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Lavalink URL",
+      "description": "Optional bot setting (LAVALINK_URL). See .env.example in the repository.",
+      "env_variable": "LAVALINK_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Lavalink Password",
+      "description": "Optional bot setting (LAVALINK_PASSWORD). See .env.example in the repository.",
+      "env_variable": "LAVALINK_PASSWORD",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Music Voice Channel ID",
+      "description": "Optional bot setting (MUSIC_VOICE_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "MUSIC_VOICE_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Music Request Channel ID",
+      "description": "Optional bot setting (MUSIC_REQUEST_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "MUSIC_REQUEST_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Music Idle Playlist Url",
+      "description": "Optional bot setting (MUSIC_IDLE_PLAYLIST_URL). See .env.example in the repository.",
+      "env_variable": "MUSIC_IDLE_PLAYLIST_URL",
+      "default_value": "https://open.spotify.com/album/1LwWQxFI1bS42McjRrQlRw",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Music Search Source",
+      "description": "Optional bot setting (MUSIC_SEARCH_SOURCE). See .env.example in the repository.",
+      "env_variable": "MUSIC_SEARCH_SOURCE",
+      "default_value": "spsearch",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Music Volume",
+      "description": "Optional bot setting (MUSIC_VOLUME). See .env.example in the repository.",
+      "env_variable": "MUSIC_VOLUME",
+      "default_value": "100",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Music Max Queue",
+      "description": "Optional bot setting (MUSIC_MAX_QUEUE). See .env.example in the repository.",
+      "env_variable": "MUSIC_MAX_QUEUE",
+      "default_value": "100",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    }
+  ]
+}

@@ -8,6 +8,11 @@ All notable changes to Arrakis Control Bot are documented here.
 
 - Package the compiled bot and bundled artwork as a production Docker image for custom Pterodactyl eggs.
 - Publish `latest` and commit-SHA images to GitHub Container Registry after successful CI on `main`, with a runtime image smoke check before upload.
+- Provide an importable PTDL_v2 Pterodactyl egg covering the bot's environment settings and a setup guide.
+
+### Changed
+
+- Make the Docker image follow Pterodactyl's `container` user and `/home/container` startup contract while keeping the bundled bot under `/opt/arrakis`.
 
 ## [1.10.9] - 2026-09-20
 

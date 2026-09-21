@@ -106,6 +106,8 @@ tests/                                     Mirrors the source ownership boundari
 └── support/
 
 guides/                                    Operator and feature setup guides
+pterodactyl/                               Importable PTDL_v2 bot egg
+docker/                                    Pterodactyl-compatible image entrypoint
 data/                                      Bundled runtime/reference data
 certificates/                              Local certificate material; never add private keys
 .github/workflows/                         CI, GHCR image publication, and automatic GitHub release automation
@@ -248,7 +250,8 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Never commit, tag, push, publish a release, or open a pull request unless the user asks.
 - Before a release, re-read the current version and changelog; do not reuse old test counts, commit IDs, tags, or release metadata.
 - `.github/workflows/ci.yml` verifies pushes and pull requests targeting `main`. A successful push to `main` triggers `.github/workflows/release.yml`; a new stable `package.json` version and matching non-empty `CHANGELOG.md` section create the GitHub release automatically.
-- After verification on a push to `main`, CI builds and smoke-checks the Docker image, then publishes `latest` and `sha-<full commit SHA>` to `ghcr.io/realxkenny/arrakis-control-bot`. The image runs from `/opt/arrakis`; a Pterodactyl egg must start it with `cd /opt/arrakis && node dist/src/index.js`.
+- After verification on a push to `main`, CI builds and smoke-checks the Docker image, then publishes `latest` and `sha-<full commit SHA>` to `ghcr.io/realxkenny/arrakis-control-bot`. The image runs from `/opt/arrakis`; a Pterodactyl egg must start it with `cd /opt/arrakis && exec node dist/src/index.js`.
+- Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The image must retain the `container` user, `/home/container` working directory, and entrypoint that executes Pterodactyl's `STARTUP` command.
 - Do not create a tag manually for an automatic release: an existing `v<version>` tag intentionally causes the release workflow to skip that version.
 
 ## Definition of Done
