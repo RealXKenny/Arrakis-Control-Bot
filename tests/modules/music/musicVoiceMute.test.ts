@@ -34,6 +34,19 @@ it("records ownership before muting and restores it when moving to another chann
   expect(storage.remove).toHaveBeenCalledWith("guild", "user");
 });
 
+it("immediately reapplies a lounge mute after an administrator unmutes the member", async () => {
+  const { service, voice, move } = await setup();
+  await move(null, "music");
+  expect(voice.serverMute).toBe(true);
+  voice.serverMute = false;
+  await service.onVoiceState(
+    { channelId: "music", serverMute: true } as VoiceState,
+    { id: "user", guild: { id: "guild" }, channelId: "music", serverMute: false } as unknown as VoiceState,
+  );
+  expect(voice.setMute).toHaveBeenLastCalledWith(true, "Music lounge: listen-only");
+  expect(voice.serverMute).toBe(true);
+});
+
 it("never takes ownership of or clears an existing server mute", async () => {
   const { voice, storage, move } = await setup();
   voice.serverMute = true;

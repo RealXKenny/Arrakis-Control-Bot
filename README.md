@@ -4,7 +4,7 @@ Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: A
 
 See [AGENTS.md](AGENTS.md) for the repository structure, ownership boundaries, development rules, and verification workflow. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-branch version is 1.10.5.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.10.8.
 
 ## Requirements
 
@@ -22,6 +22,14 @@ The ticket system is enabled when `DATABASE_URL` is configured. On startup, the 
 
 Ticket transcripts require the Discord **Message Content Intent**. Enable it for the bot application in the Discord Developer Portal; the runtime now requests both `GuildMessages` and `MessageContent` gateway intents.
 
+## Message archive and edit/delete logs
+
+When `DATABASE_URL` is configured, every new guild message is archived in PostgreSQL with its author, channel, text, attachments, embeds, components, stickers, reply reference, flags, webhook identity, and Discord timestamps. Edits preserve before-and-after revisions, while deletions mark the stored message instead of removing its content. Individual edits, deletes, and bulk deletes are reported to `ACTIVITY_LOG_CHANNEL_ID`; generated log cards disable mentions and recover content from the database when Discord emits only a partial uncached message. Discord's message-delete event does not reliably include the person who performed the deletion, so the bot records the deleted message and its author without guessing the deletion actor.
+
+## Staff applications
+
+Configure `STAFF_APPLICATION_PANEL_CHANNEL_ID` and the private `STAFF_APPLICATION_REVIEW_CHANNEL_ID` together to enable the application system. Members complete a five-question Discord form; leadership receives a private review card with accept and deny controls. `STAFF_APPLICATION_REVIEWER_ROLE_ID` can grant review access in addition to the existing staff roles and server administrators. Optional pending and accepted roles are managed automatically, decisions are sent to the applicant by DM when possible, and `STAFF_APPLICATION_COOLDOWN_DAYS` controls reapplication timing. Applications and decisions are stored in PostgreSQL, so `DATABASE_URL` is required. See the [staff application setup guide](guides/staff-applications.md).
+
 ## Community leveling
 
 Community leveling is enabled automatically when `DATABASE_URL` is configured; set `LEVELING_ENABLED=false` to turn it off. Meaningful guild messages earn a variable 8–25 base XP based on their length, vocabulary, attachments, and reply context. An atomic short anti-spam window and recent-message fingerprint check prevent rapid or repeated farming without imposing a one-minute reward lock. Members also earn 15 XP per minute in a non-AFK voice channel when at least two eligible human members are participating; bots and members who are self-deafened, server-deafened, or suppressed do not count. Message and voice protections are stored independently in PostgreSQL.
@@ -30,7 +38,9 @@ Level thresholds use a demanding `250 × level²` cumulative XP curve, so every 
 
 Server boosters always earn 2× message and voice XP. Manage Server administrators can schedule a persistent server-wide 2× window with `/level event schedule duration-minutes:<15–10080> [starts-at:<ISO date/time>]`, inspect it with `/level event status`, and cancel it with `/level event stop`. Booster and event bonuses stack multiplicatively for 4× XP. The optional start time may be up to 30 days ahead; omitting it starts the event immediately.
 
-The bot replies with a personalized desert rank card when a member crosses a level boundary. Use `/level rank` to view the same avatar-backed card with a member's tier, server rank, message/voice activity, current multiplier, progress, and XP. `/level leaderboard` uses its own night-desert artwork to render the server's top ten as a separate themed image with member avatars, tiers, levels, and XP. Leveling uses the existing Message Content and Voice States intents and creates or upgrades its tables automatically; no manual SQL is required.
+Set `LEVEL_ANNOUNCEMENT_CHANNEL_ID` to the one server channel that should receive every progression celebration. Level-ups use original golden-ascension banner artwork and the message “The sands recognize you…” whether the final XP came from chat or voice. Achievements use their own custom artwork: copper spice trails for **King of Spam** at 100/500/2,000 rewarded messages, moonlit cyan resonance for **Voice of the Sietch** at 60/300/1,200 rewarded voice minutes, and a violet celestial path for **Path of the Kwisatz** at levels 5/25/50. Each track awards Bronze, Silver, and Gold once; unlocks are stored atomically so restarts and multiple shards cannot announce the same achievement twice.
+
+Use `/level rank` to view the avatar-backed profile card with a member's tier, server rank, message/voice activity, current multiplier, progress, and XP. `/level leaderboard` uses its own night-desert artwork to render the server's top ten as a separate themed image with member avatars, tiers, levels, and XP. Leveling uses the existing Message Content and Voice States intents and creates or upgrades its tables automatically; no manual SQL is required.
 
 ## Discord ↔ game chat over RabbitMQ
 
@@ -44,7 +54,7 @@ See the [voice-room setup and control guide](guides/voice-rooms.md) for permissi
 
 ## Lavalink music lounge
 
-Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and music channel values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts Spotify, Apple Music, Deezer and traditional song links, and ranks searches for clean title/artist matches. The supplied LavaSrc profile searches Spotify metadata, mirrors playback through SoundCloud, and uses quality-focused encoding and buffering settings. The public panel and grouped `/music` commands provide queue controls, progress and lyrics; queue checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
+Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and music channel values from `.env.example` to enable a permanent music voice channel. `MUSIC_IDLE_PLAYLIST_URL` plays a separate waiting-music album whenever the request queue is empty; member requests take priority immediately and the idle rotation is never persisted as a user's song. The bot accepts Spotify, Apple Music, Deezer and traditional song links, and ranks searches for clean title/artist matches. The supplied LavaSrc profile searches Spotify metadata, mirrors playback through SoundCloud, and uses quality-focused encoding and buffering settings. The public panel and grouped `/music` commands provide queue controls, player-style progress and lyrics; queue checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
 
 ## Development
 
@@ -57,6 +67,8 @@ npm run dev
 ```
 
 `npm run dev` runs one bot shard directly for the smallest local process tree. Use `npm run dev:watch` when automatic TypeScript restarts are useful. Stop either mode with `Ctrl+C` so the bot can close Discord and PostgreSQL cleanly.
+
+Use `npm run env:migrate -- --check` to preview whether a production `.env` needs the current boxed layout, then run `npm run env:migrate` to apply it. The script creates a timestamped backup, preserves existing values without printing them, carries forward unknown custom keys, and adds new template settings safely.
 
 `LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FATAL`. `TOTAL_SHARDS` accepts `auto` or a positive integer. `INTERACTION_COOLDOWN_MS` and `RATE_LIMIT_MAX_ENTRIES` configure the bounded process-local limiter. In production, integration URLs must use HTTPS.
 
@@ -134,6 +146,8 @@ Run `/help` to open the public Arrakis Command Center. It catalogs all 87 groupe
 
 Members with the configured `OWNER_ROLE_ID` can run `/server start`, `/server stop`, `/server restart`, `/server fix-network`, `/server cleanup-images`, `/server cleanup-build-cache`, `/server services`, and `/server restart-service service:<name>`. Each owner-only subcommand calls the matching Dune Console endpoint and responds ephemerally. `/server services` lists current service status and provides the names accepted by `/server restart-service`. Storage cleanup requests include the Console's exact required confirmation phrase. The Console API key must have permission to execute server operations.
 
+Set `BOT_CONTROL_CHANNEL_ID` to a private staff channel to publish the persistent **Arrakis Control Center**. The Discord server owner and members with `OWNER_ROLE_ID` can inspect live bot health, update every persistent panel in place, reload command/component modules, resynchronize game chat, voice, leveling, and music controls, or restart every bot shard after confirmation. Actions respond privately and are recorded in the configured activity log. Keep the channel hidden from regular members even though authorization is rechecked for every button press.
+
 `/server restart` and `/server restart-service` accept an optional `immediate` flag. Normal requests respect the Console Restart Queue and report queued `202` responses; `immediate:true` sends `restartQueue=immediate` to bypass its countdown. Concurrency-conflict `409` responses are shown in the ephemeral error panel.
 
 ## Owner update controls
@@ -159,6 +173,8 @@ Set `FAQ_PANEL_CHANNEL_ID` to publish the persistent Crimson Skies FAQ and banne
 ## Architecture
 
 The application is intentionally modular. `ArrakisClient` maps Sapphire's command, interaction-handler, listener, and precondition stores directly to the top-level directories under `src/`; there are no custom dynamic loaders. Client composition lives in `src/client/`, infrastructure clients own external I/O, domain behavior lives under `src/modules/`, and reusable primitives remain under `src/shared/`.
+
+Every image-bearing Discord panel uses dedicated cinematic artwork from `data/images/`. The shared renderer selects a typed panel-specific background, applies consistent aspect-cover cropping and text-safe shading, then layers dynamic server names, counts, statuses, release versions, member avatars, and accessibility descriptions without baking live data into the source image.
 
 ## Security notes
 

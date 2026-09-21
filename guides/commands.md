@@ -79,7 +79,7 @@ The bot registers 13 top-level commands. Related actions are subcommands; option
 | `/apply-stack-update` | `/update stack apply` | Owner |
 | `/check-stack-update` | `/update stack check` | Owner |
 
-`/help`, `/level`, `/music`, `/voice`, `/market` and `/storm` remain available. `/level rank` shows a member's message/voice activity card and `/level leaderboard` renders the server's top ten as an avatar-backed image. The eight `.env`-configured roles are earned only at milestone levels 1, 10, 20, 30, 40, 50, 60, and 70. Manage Server members configure double-XP windows with `/level event schedule|status|stop` and inspect reward-role readiness with `/level roles status`. Music and voice retain their existing subcommands and panel controls.
+`/help`, `/level`, `/music`, `/voice`, `/market` and `/storm` remain available. `/level rank` shows a member's message/voice activity card and `/level leaderboard` renders the server's top ten as an avatar-backed image. The eight `.env`-configured roles are earned only at milestone levels 1, 10, 20, 30, 40, 50, 60, and 70. Level-ups and Bronze/Silver/Gold message, voice, and level achievements are posted with dedicated images to `LEVEL_ANNOUNCEMENT_CHANNEL_ID`. Manage Server members configure double-XP windows with `/level event schedule|status|stop` and inspect reward-role readiness with `/level roles status`. Music and voice retain their existing subcommands and panel controls. `BOT_CONTROL_CHANNEL_ID` publishes an owner-only Discord control center for health, panel refreshes, module reloads, service resynchronization, and confirmed bot restarts.
 
 ## Game catalogs
 

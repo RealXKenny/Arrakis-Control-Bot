@@ -67,7 +67,7 @@ const getRandomAccentColor = (): number => DUNE_COLORS[Math.floor(Math.random() 
 const createBackupCard = (serverName: string, backups: BackupDisplay, autoBackup: AutoBackupDisplay, requestedBy: string): ContainerBuilder => {
   return new ContainerBuilder()
     .setAccentColor(getRandomAccentColor())
-    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`)))
+    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`).setDescription("Arrakis server backup archive")))
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Backups"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
@@ -693,6 +693,7 @@ function getErrorDetails(error: unknown): {
 
 function createBackupBanner({ serverName, count }: { serverName: string; count: number }) {
   return createDuneBanner({
+    artwork: "backups",
     filename: IMAGE_NAME,
     title: "Backups",
     subtitle: `${count} AVAILABLE`,

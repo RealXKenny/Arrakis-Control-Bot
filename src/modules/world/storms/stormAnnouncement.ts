@@ -34,7 +34,7 @@ export function buildStormPanel(start: number, end: number, now = Date.now()): M
   const active = now >= start && now < end;
   const ended = now >= end;
   const filename = "coriolis-storm.png";
-  const banner = createDuneBanner({ filename, title: "Coriolis Storm", subtitle: "DEEP DESERT WATCH", detail: "PLAN YOUR JOURNEY. KNOW THE STORM." });
+  const banner = createDuneBanner({ artwork: "storm", filename, title: "Coriolis Storm", subtitle: "DEEP DESERT WATCH", detail: "PLAN YOUR JOURNEY. KNOW THE STORM." });
   const card = new ContainerBuilder()
     .setAccentColor(active ? 0xd05c3c : 0xc58b45)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${filename}`).setDescription("Coriolis Storm — Dune: Awakening storm announcement")))
@@ -105,4 +105,10 @@ export function startStormAnnouncements(client: Client): NodeJS.Timeout | undefi
   const tick = (): void => { void announce().catch((error: unknown) => logger.error("Unable to update the Coriolis storm panel; will retry.", error)); };
   tick();
   return setInterval(tick, 60_000);
+}
+
+export async function refreshStormAnnouncement(client: Client): Promise<void> {
+  const channelId = readStormChannelId();
+  if (!channelId || !isPrimaryShard()) return;
+  await createStormAnnouncer(client, channelId)();
 }

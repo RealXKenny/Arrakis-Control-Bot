@@ -27,7 +27,7 @@ function button(action: VoiceButtonAction): ButtonBuilder {
 export function voicePanel(joinChannelId?: string) {
   const joinChannel = joinChannelId ? `<#${joinChannelId}>` : "the **Join to Create** channel";
   const filename = "voice-lounge.png";
-  const banner = createDuneBanner({ filename, title: "Voice Lounge", subtitle: "ARRAKIS CONTROL", detail: "YOUR ROOM. YOUR CREW." });
+  const banner = createDuneBanner({ artwork: "voice", filename, title: "Voice Lounge", subtitle: "ARRAKIS CONTROL", detail: "YOUR ROOM. YOUR CREW." });
   const panel = new ContainerBuilder().setAccentColor(0xc58b45)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder()
       .setURL(`attachment://${filename}`).setDescription("Arrakis Control — Voice Lounge")))

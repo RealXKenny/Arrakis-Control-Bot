@@ -26,7 +26,7 @@ const services: MusicService[] = [];
 function track(title = "Song"): Track {
   return { encoded: title, info: { title, author: "Artist", identifier: title, isSeekable: true, isStream: false, length: 1000, position: 0, sourceName: "soundcloud" }, pluginInfo: {} };
 }
-function setup(saved?: MusicState) {
+function setup(saved?: MusicState, configOverrides: Partial<MusicConfig> = {}) {
   const user = { voice: { channelId: "voice" }, roles: { cache: new Collection([["owner-role", {}]]) } };
   const me = { voice: { channelId: "voice" } };
   const guild = { id: "guild", available: true, shardId: 0, members: { fetch: vi.fn().mockResolvedValue(user), fetchMe: vi.fn().mockResolvedValue(me) },
@@ -37,7 +37,7 @@ function setup(saved?: MusicState) {
   const client = { users: { fetch: vi.fn().mockResolvedValue({ send: dm }) }, channels: { fetch: vi.fn().mockResolvedValue({ isSendable: () => true, isDMBased: () => false, guildId: "guild", messages: { fetch: vi.fn().mockResolvedValue(new Collection()) }, send }) },
     guilds: { cache: new Collection([["guild", guild]]) }, logger: { warn: vi.fn() }, interactionRateLimiter: { allow: () => true } };
   const storage = { initialize: vi.fn().mockResolvedValue(undefined), load: vi.fn().mockResolvedValue(saved), save: vi.fn().mockResolvedValue(undefined) };
-  const service = new MusicService(client as unknown as Client, config, storage);
+  const service = new MusicService(client as unknown as Client, { ...config, ...configOverrides }, storage);
   services.push(service);
   return { service, guild: guild as unknown as Guild, user, me, client, storage, send, edit, dm };
 }
@@ -63,6 +63,46 @@ it("joins the permanent channel, sets volume and plays the first search result",
   expect(mocked.player.setGlobalVolume).toHaveBeenCalledWith(30);
   expect(mocked.player.playTrack).toHaveBeenCalledTimes(1);
   expect(service.describeQueue()).toContain("Song");
+});
+
+it("plays the configured waiting album while idle and gives real requests immediate priority", async () => {
+  const idleOne = track("Waiting One");
+  const idleTwo = track("Waiting Two");
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.PLAYLIST, data: { tracks: [idleOne, idleTwo] } });
+  const { service, guild, storage } = setup(undefined, { idlePlaylistUrl: "https://open.spotify.com/album/1LwWQxFI1bS42McjRrQlRw" });
+
+  service.start();
+  await vi.waitFor(() => expect(mocked.player.playTrack).toHaveBeenCalledTimes(1));
+  expect(mocked.resolve).toHaveBeenNthCalledWith(1, "https://open.spotify.com/album/1LwWQxFI1bS42McjRrQlRw");
+  expect(service.describeQueue()).toContain("Waiting music");
+  expect(service.describeQueue()).toContain("Waiting One");
+  expect(storage.save).not.toHaveBeenCalled();
+
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [track("Requested Song")] });
+  await service.request(guild, "requests", "user", "requested song");
+  expect(mocked.player.playTrack).toHaveBeenLastCalledWith(expect.objectContaining({ track: expect.objectContaining({ encoded: "Requested Song" }) }));
+  expect(service.describeQueue()).toContain("Requested Song");
+  expect(service.describeQueue()).not.toContain("Waiting music");
+});
+
+it("returns to waiting music and advances its album after requested playback ends", async () => {
+  const idleOne = track("Waiting One");
+  const idleTwo = track("Waiting Two");
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.PLAYLIST, data: { tracks: [idleOne, idleTwo] } });
+  const { service, guild } = setup(undefined, { idlePlaylistUrl: "https://open.spotify.com/album/1LwWQxFI1bS42McjRrQlRw" });
+  service.start();
+  await vi.waitFor(() => expect(mocked.player.playTrack).toHaveBeenCalledTimes(1));
+  const firstIdleId = requestId(0);
+  mocked.events!.ended(firstIdleId);
+  await vi.waitFor(() => expect(mocked.player.playTrack).toHaveBeenCalledTimes(2));
+  expect(mocked.player.playTrack).toHaveBeenLastCalledWith(expect.objectContaining({ track: expect.objectContaining({ encoded: "Waiting Two" }) }));
+
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [track("Requested Song")] });
+  await service.request(guild, "requests", "user", "requested song");
+  const request = requestId(2);
+  mocked.events!.ended(request);
+  await vi.waitFor(() => expect(mocked.player.playTrack).toHaveBeenCalledTimes(4));
+  expect(service.describeQueue()).toContain("Waiting music");
 });
 
 it("normalizes a quoted title and artist and queues the best search match", async () => {
@@ -473,8 +513,9 @@ it("shows the latest Lavalink position in the now-playing progress bar", async (
   mocked.player.position = 90_000;
 
   const description = service.nowPlayingMessage().embeds[0].toJSON().description;
-  expect(description).toContain("▰▰▰▰▰▰▱▱");
-  expect(description).toContain("1:30 / 4:00");
+  expect(description).toContain("━━━━━━━●");
+  expect(description).toContain("**1:30**");
+  expect(description).toContain("**4:00**");
 });
 
 it("recovers when playback is accepted but never starts", async () => {

@@ -8,6 +8,7 @@ export interface MusicConfig {
   searchPrefix: "scsearch" | "ytsearch" | "ytmsearch" | "spsearch" | "amsearch" | "dzsearch";
   volume: number;
   maxQueue: number;
+  idlePlaylistUrl?: string;
 }
 
 export function loadMusicConfig(env: NodeJS.ProcessEnv): MusicConfig | undefined {
@@ -40,8 +41,23 @@ export function loadMusicConfig(env: NodeJS.ProcessEnv): MusicConfig | undefined
   if (!Number.isInteger(maxQueue) || maxQueue < 1 || maxQueue > 500) throw new Error("MUSIC_MAX_QUEUE must be an integer from 1 to 500.");
   const voiceChannelId = id("MUSIC_VOICE_CHANNEL_ID");
   if (voiceChannelId === env.VOICE_JOIN_CHANNEL_ID) throw new Error("The music voice channel must be separate from Join to Create.");
+  const idlePlaylistUrl = optionalIdlePlaylistUrl(env.MUSIC_IDLE_PLAYLIST_URL);
   return {
     guildId, voiceChannelId, requestChannelId: id("MUSIC_REQUEST_CHANNEL_ID"),
-    url: url.host, password, secure: url.protocol === "https:", searchPrefix: searchPrefix as MusicConfig["searchPrefix"], volume, maxQueue,
+    url: url.host, password, secure: url.protocol === "https:", searchPrefix: searchPrefix as MusicConfig["searchPrefix"], volume, maxQueue, idlePlaylistUrl,
   };
+}
+
+function optionalIdlePlaylistUrl(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  let url: URL;
+  try { url = new URL(normalized); }
+  catch { throw new Error("MUSIC_IDLE_PLAYLIST_URL must be a supported HTTPS album or playlist URL."); }
+  const hosts = ["open.spotify.com", "music.apple.com", "deezer.com", "soundcloud.com"];
+  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443") ||
+      !hosts.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) {
+    throw new Error("MUSIC_IDLE_PLAYLIST_URL must be a supported HTTPS Spotify, Apple Music, Deezer, or SoundCloud album or playlist URL.");
+  }
+  return url.toString();
 }

@@ -60,6 +60,7 @@ async function ensureTicketPanel(client: Client, channelId?: string | null): Pro
     const payload: MessageEditOptions = {
       content: null,
       embeds: [],
+      attachments: [],
       components: [buildTicketPanel()],
       files: [createTicketBanner()],
     };

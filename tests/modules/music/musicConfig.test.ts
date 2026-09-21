@@ -10,6 +10,9 @@ it("disables music without a URL and validates complete configuration", () => {
   expect(loadMusicConfig(env)).toMatchObject({ secure: true, url: "audio.example.com:2333", volume: 100, maxQueue: 100 });
   expect(loadMusicConfig({ ...env, MUSIC_SEARCH_SOURCE: "spsearch" })).toMatchObject({ searchPrefix: "spsearch" });
   expect(loadMusicConfig({ ...env, MUSIC_VOLUME: "30" })).toMatchObject({ volume: 30 });
+  expect(loadMusicConfig({ ...env, MUSIC_IDLE_PLAYLIST_URL: "https://open.spotify.com/album/1LwWQxFI1bS42McjRrQlRw" })).toMatchObject({
+    idlePlaylistUrl: "https://open.spotify.com/album/1LwWQxFI1bS42McjRrQlRw",
+  });
   expect(() => loadMusicConfig({ ...env, LAVALINK_PASSWORD: "" })).toThrow("PASSWORD");
   expect(() => loadMusicConfig({ ...env, MUSIC_REQUEST_CHANNEL_ID: "" })).toThrow("CHANNEL_ID");
   expect(() => loadMusicConfig({ ...env, LAVALINK_URL: "https://user:pass@audio.example.com" })).toThrow("without credentials");
@@ -17,6 +20,7 @@ it("disables music without a URL and validates complete configuration", () => {
   expect(() => loadMusicConfig({ ...env, MUSIC_MAX_QUEUE: "0" })).toThrow("MAX_QUEUE");
   expect(() => loadMusicConfig({ ...env, MUSIC_SEARCH_SOURCE: "magicsearch" })).toThrow("spsearch");
   expect(() => loadMusicConfig({ ...env, VOICE_JOIN_CHANNEL_ID: env.MUSIC_VOICE_CHANNEL_ID })).toThrow("separate");
+  expect(() => loadMusicConfig({ ...env, MUSIC_IDLE_PLAYLIST_URL: "http://127.0.0.1/waiting" })).toThrow("supported HTTPS");
 });
 it("accepts the legacy music-specific guild ID during migration", () => {
   expect(loadMusicConfig({ ...env, GUILD_ID: undefined, MUSIC_GUILD_ID: env.GUILD_ID })?.guildId).toBe(env.GUILD_ID);

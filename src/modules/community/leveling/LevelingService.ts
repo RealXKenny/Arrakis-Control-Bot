@@ -9,10 +9,12 @@ import {
   type Guild,
   type GuildMember,
   type Message,
+  type MessageCreateOptions,
 } from "discord.js";
 import type { LevelRoleConfig } from "../../../infrastructure/config/leveling";
 import type { LevelEvent, LevelProfile, LevelStorage } from "../../../infrastructure/database/leveling/LevelRepository";
-import { LEVEL_CARD_FILENAME, createLevelRankCard } from "./levelCard";
+import { achievementProgressLabel, achievementsByIds, eligibleAchievements, highestAchievementPerKind, type LevelAchievement } from "./achievements";
+import { ACHIEVEMENT_CARD_FILENAMES, LEVEL_UP_CARD_FILENAME, createAchievementCard, createLevelUpCard } from "./announcementCards";
 import { LEVEL_ROLE_TIERS, roleTierForLevel } from "./levelRoles";
 import { MESSAGE_REPEAT_WINDOW_MS, MESSAGE_XP_COOLDOWN_MS, VOICE_XP_COOLDOWN_MS, XP_PER_VOICE_MINUTE, levelForXp, messageXp } from "./levelProgress";
 
@@ -23,6 +25,7 @@ class LevelingService {
   private voiceTimer?: ReturnType<typeof setInterval>;
   private voiceTickRunning = false;
   private readonly eventCache = new Map<string, { event: LevelEvent | null; expiresAt: number }>();
+  private readonly invalidAnnouncementChannelWarnings = new Set<string>();
 
   public constructor(
     private readonly client: Client,
@@ -109,25 +112,7 @@ class LevelingService {
     const newLevel = levelForXp(profile.xp);
     const previousLevel = levelForXp(Math.max(0, profile.xp - awardedXp));
     await this.syncMemberRole(message.member, newLevel);
-    if (newLevel <= previousLevel) return;
-
-    const displayName = message.member.displayName;
-    const image = await createLevelRankCard({ user: message.author, displayName, profile, multiplier });
-    const card = new ContainerBuilder()
-      .setAccentColor(0xe7ad55)
-      .addTextDisplayComponents((text) => text.setContent(`## 🌟 ${escapeMarkdown(displayName)} reached Level ${newLevel}!`))
-      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
-        new MediaGalleryItemBuilder()
-          .setURL(`attachment://${LEVEL_CARD_FILENAME}`)
-          .setDescription(`${displayName}'s Arrakis community card after reaching level ${newLevel}`),
-      ));
-
-    await message.reply({
-      components: [card],
-      files: [image],
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: { parse: [], repliedUser: false },
-    });
+    await this.announceProgress(message.member, profile, previousLevel, newLevel);
   }
 
   public async awardVoiceActivity(): Promise<void> {
@@ -152,13 +137,82 @@ class LevelingService {
       for (const member of members) {
         try {
           const multiplier = activityMultiplier(member, event, Date.now());
-          const profile = await this.storage.awardVoiceXp(guild.id, member.id, XP_PER_VOICE_MINUTE * multiplier, VOICE_XP_COOLDOWN_MS);
-          if (profile) await this.syncMemberRole(member, levelForXp(profile.xp));
+          const awardedXp = XP_PER_VOICE_MINUTE * multiplier;
+          const profile = await this.storage.awardVoiceXp(guild.id, member.id, awardedXp, VOICE_XP_COOLDOWN_MS);
+          if (profile) {
+            const newLevel = levelForXp(profile.xp);
+            const previousLevel = levelForXp(Math.max(0, profile.xp - awardedXp));
+            await this.syncMemberRole(member, newLevel);
+            await this.announceProgress(member, profile, previousLevel, newLevel);
+          }
         } catch (error: unknown) {
           this.reportError(`Unable to award voice XP to member ${member.id} in guild ${guild.id}.`, error);
         }
       }
     }
+  }
+
+  private async announceProgress(
+    member: GuildMember,
+    profile: LevelProfile,
+    previousLevel: number,
+    newLevel: number,
+  ): Promise<void> {
+    const destination = this.announcementDestination(member.guild);
+    if (!destination) return;
+    const eligible = eligibleAchievements(profile);
+    const claimedIds = await this.storage.claimAchievements(profile.guildId, profile.userId, eligible.map((achievement) => achievement.id));
+    const achievements = highestAchievementPerKind(achievementsByIds(claimedIds));
+
+    if (newLevel > previousLevel) await this.sendLevelUpAnnouncement(destination, member, profile, newLevel);
+    for (const achievement of achievements) await this.sendAchievementAnnouncement(destination, member, achievement);
+  }
+
+  private announcementDestination(guild: Guild): AnnouncementDestination | null {
+    const channelId = this.roleConfig.announcementChannelId;
+    if (!channelId) return null;
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel?.isSendable()) {
+      const warningKey = `${guild.id}:${channelId}`;
+      // Dev note: One warning is enough; shouting into a missing channel does not make it more present.
+      if (!this.invalidAnnouncementChannelWarnings.has(warningKey)) {
+        this.invalidAnnouncementChannelWarnings.add(warningKey);
+        this.reportError(`Level announcement channel ${channelId} is missing or not sendable in guild ${guild.id}.`, new Error("Invalid level announcement channel"));
+      }
+      return null;
+    }
+    this.invalidAnnouncementChannelWarnings.delete(`${guild.id}:${channelId}`);
+    return channel;
+  }
+
+  private async sendLevelUpAnnouncement(destination: AnnouncementDestination, member: GuildMember, profile: LevelProfile, level: number): Promise<void> {
+    const displayName = member.displayName;
+    const image = await createLevelUpCard({ user: member.user, displayName, profile, level });
+    const card = new ContainerBuilder()
+      .setAccentColor(0xe7ad55)
+      .addTextDisplayComponents((text) => text.setContent(`## 🌟 The sands recognize you, ${escapeMarkdown(displayName)}. You have advanced to level ${level}.`))
+      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder()
+          .setURL(`attachment://${LEVEL_UP_CARD_FILENAME}`)
+          .setDescription(`${displayName} advanced to Arrakis community level ${level}`),
+      ));
+    await destination.send(announcementPayload(card, image));
+  }
+
+  private async sendAchievementAnnouncement(destination: AnnouncementDestination, member: GuildMember, achievement: LevelAchievement): Promise<void> {
+    const displayName = member.displayName;
+    const image = await createAchievementCard({ user: member.user, displayName, achievement });
+    const card = new ContainerBuilder()
+      .setAccentColor(achievementColor(achievement))
+      .addTextDisplayComponents((text) => text.setContent(
+        `## 🏆 The sands honor ${escapeMarkdown(displayName)} — achievement unlocked: ${escapeMarkdown(achievement.name)} (${achievement.tier})!\n-# ${achievementProgressLabel(achievement)}`,
+      ))
+      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder()
+          .setURL(`attachment://${ACHIEVEMENT_CARD_FILENAMES[achievement.kind]}`)
+          .setDescription(`${displayName} unlocked ${achievement.name} (${achievement.tier})`),
+      ));
+    await destination.send(announcementPayload(card, image));
   }
 
   private async syncMemberRole(member: GuildMember, level: number): Promise<void> {
@@ -191,6 +245,25 @@ class LevelingService {
     this.eventCache.set(guildId, { event, expiresAt: Math.min(now + EVENT_CACHE_MS, event?.endsAt.getTime() ?? now + EVENT_CACHE_MS) });
     return event;
   }
+}
+
+interface AnnouncementDestination {
+  send(options: MessageCreateOptions): Promise<unknown>;
+}
+
+function announcementPayload(card: ContainerBuilder, image: Awaited<ReturnType<typeof createLevelUpCard>>): MessageCreateOptions {
+  return {
+    components: [card],
+    files: [image],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
+  };
+}
+
+function achievementColor(achievement: LevelAchievement): number {
+  if (achievement.kind === "message") return 0xd9823b;
+  if (achievement.kind === "voice") return 0x66c7d5;
+  return 0xb48cff;
 }
 
 function activityMultiplier(member: GuildMember, event: LevelEvent | null, now: number): number {

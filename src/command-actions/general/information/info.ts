@@ -47,6 +47,7 @@ const getRandomDuneColor = (): number => DUNE_COLORS[Math.floor(Math.random() * 
 
 const createBanner = (serverName: string) =>
   createDuneBanner({
+    artwork: "bot-info",
     filename: "dune-server-info.png",
     title: "Arrakis Control",
     subtitle: "BOT INFORMATION",
@@ -66,7 +67,7 @@ const createInfoCard = (interaction: ChatInputCommandInteraction, serverName: st
   return new ContainerBuilder()
     .setAccentColor(getRandomDuneColor())
 
-    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-info.png")))
+    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-info.png").setDescription("Arrakis Control bot information command center")))
 
     .addTextDisplayComponents((text) => text.setContent(`## 🏜️ ${client.user.username}`))
 

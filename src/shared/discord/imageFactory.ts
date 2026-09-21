@@ -1,7 +1,41 @@
+import fs from "node:fs";
+import path from "node:path";
 import { AttachmentBuilder, type GuildMember } from "discord.js";
-import { createCanvas, loadImage, type CanvasRenderingContext2D } from "canvas";
+import { createCanvas, Image, loadImage, type CanvasRenderingContext2D } from "canvas";
+
+type PanelArtworkKey = "backups" | "blueprint" | "bot-control" | "bot-info" | "faq" | "goodbye" | "market" | "music" | "ping" | "player-link" | "players" | "profile" | "release" | "roles" | "rules" | "server-info" | "server-status" | "staff-application" | "storm" | "tickets" | "verification" | "voice" | "vps" | "welcome";
+
+const PANEL_ARTWORK: Readonly<Record<PanelArtworkKey, string>> = Object.freeze({
+  backups: "panel-backups.png",
+  blueprint: "panel-blueprint.png",
+  "bot-control": "panel-bot-control.png",
+  "bot-info": "panel-bot-info.png",
+  faq: "panel-faq.png",
+  goodbye: "panel-goodbye.png",
+  market: "panel-market.png",
+  music: "panel-music.png",
+  ping: "panel-ping.png",
+  "player-link": "panel-player-link.png",
+  players: "panel-players.png",
+  profile: "panel-profile.png",
+  release: "panel-release.png",
+  roles: "panel-roles.png",
+  rules: "panel-rules.png",
+  "server-info": "panel-server-info.png",
+  "server-status": "panel-server-status.png",
+  "staff-application": "panel-staff-application.png",
+  storm: "panel-storm.png",
+  tickets: "panel-tickets.png",
+  verification: "panel-verification.png",
+  voice: "panel-voice.png",
+  vps: "panel-vps.png",
+  welcome: "panel-welcome.png",
+});
+const artworkCache = new Map<PanelArtworkKey, Image>();
+const PANEL_ARTWORK_KEYS = Object.freeze(Object.keys(PANEL_ARTWORK) as PanelArtworkKey[]);
 
 interface DuneBannerOptions {
+  artwork: PanelArtworkKey;
   filename: string;
   title: string;
   subtitle?: string;
@@ -9,6 +43,7 @@ interface DuneBannerOptions {
 }
 
 interface MemberBannerOptions {
+  artwork: "goodbye" | "welcome";
   filename: string;
   title: string;
   member: GuildMember;
@@ -19,37 +54,37 @@ interface TicketSupportBannerOptions {
   categories: readonly string[];
 }
 
-function drawDuneBanner(context: CanvasRenderingContext2D, width: number, height: number, { title, subtitle, detail }: Omit<DuneBannerOptions, "filename">): void {
-  const gradient = context.createLinearGradient(0, 0, 0, height);
-
-  gradient.addColorStop(0, "#180f0a");
-  gradient.addColorStop(0.55, "#6f3d20");
-  gradient.addColorStop(1, "#d2a85a");
-
-  context.fillStyle = gradient;
+function drawDuneBanner(context: CanvasRenderingContext2D, width: number, height: number, { artwork, title, subtitle, detail }: Omit<DuneBannerOptions, "filename">): void {
+  drawImageCover(context, panelArtwork(artwork), width, height);
+  const shade = context.createLinearGradient(0, 0, width, 0);
+  shade.addColorStop(0, "rgba(5, 4, 3, 0.92)");
+  shade.addColorStop(0.52, "rgba(8, 5, 3, 0.72)");
+  shade.addColorStop(0.76, "rgba(8, 5, 3, 0.18)");
+  shade.addColorStop(1, "rgba(8, 5, 3, 0.04)");
+  context.fillStyle = shade;
   context.fillRect(0, 0, width, height);
 
-  context.fillStyle = "rgba(8, 5, 3, 0.78)";
-  context.fillRect(0, 0, 760, height);
-
   context.fillStyle = "#f3d39b";
-  context.font = "bold 52px sans-serif";
+  setFittedFont(context, title.toUpperCase(), 52, 30, 650, "bold");
   context.fillText(title.toUpperCase(), 64, 110);
 
   context.fillStyle = "#e6bd79";
-  context.font = "26px sans-serif";
-  context.fillText((subtitle ?? "ARRAKIS").toUpperCase(), 67, 160);
+  const subtitleText = (subtitle ?? "ARRAKIS").toUpperCase();
+  setFittedFont(context, subtitleText, 26, 18, 650, "normal");
+  context.fillText(subtitleText, 67, 160);
 
   context.fillStyle = "#ead5ad";
-  context.font = "22px sans-serif";
-  context.fillText(detail ?? "DUNE: AWAKENING", 67, 235);
+  const detailText = detail ?? "DUNE: AWAKENING";
+  setFittedFont(context, detailText, 22, 16, 650, "normal");
+  context.fillText(detailText, 67, 235);
 }
 
-function createDuneBanner({ filename, title, subtitle, detail }: DuneBannerOptions): AttachmentBuilder {
+function createDuneBanner({ artwork, filename, title, subtitle, detail }: DuneBannerOptions): AttachmentBuilder {
   const canvas = createCanvas(1200, 400);
   const context = canvas.getContext("2d");
 
   drawDuneBanner(context, 1200, 400, {
+    artwork,
     title,
     subtitle,
     detail,
@@ -65,13 +100,7 @@ function createTicketSupportBanner({ filename, categories }: TicketSupportBanner
   const height = 560;
   const canvas = createCanvas(width, height);
   const context = canvas.getContext("2d");
-  const background = context.createLinearGradient(0, 0, width, height);
-
-  background.addColorStop(0, "#100b08");
-  background.addColorStop(0.52, "#2d190f");
-  background.addColorStop(1, "#8f542c");
-  context.fillStyle = background;
-  context.fillRect(0, 0, width, height);
+  drawImageCover(context, panelArtwork("tickets"), width, height);
 
   const glow = context.createRadialGradient(1130, 90, 5, 1130, 90, 330);
   glow.addColorStop(0, "rgba(255, 211, 132, 0.44)");
@@ -205,11 +234,12 @@ function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, wi
   context.closePath();
 }
 
-async function createMemberBanner({ filename, title, member }: MemberBannerOptions): Promise<AttachmentBuilder> {
+async function createMemberBanner({ artwork, filename, title, member }: MemberBannerOptions): Promise<AttachmentBuilder> {
   const canvas = createCanvas(1200, 400);
   const context = canvas.getContext("2d");
 
   drawDuneBanner(context, 1200, 400, {
+    artwork,
     title,
     subtitle: member.user.tag,
     detail: "DUNE: AWAKENING COMMUNITY",
@@ -237,6 +267,30 @@ async function createMemberBanner({ filename, title, member }: MemberBannerOptio
   });
 }
 
-export { createDuneBanner, createMemberBanner, createTicketSupportBanner };
+function panelArtwork(key: PanelArtworkKey): Image {
+  const cached = artworkCache.get(key);
+  if (cached) return cached;
+  const image = new Image();
+  image.src = fs.readFileSync(path.resolve(process.cwd(), "data", "images", PANEL_ARTWORK[key]));
+  artworkCache.set(key, image);
+  return image;
+}
 
-export type { DuneBannerOptions, MemberBannerOptions, TicketSupportBannerOptions };
+function drawImageCover(context: CanvasRenderingContext2D, image: Image, width: number, height: number): void {
+  const scale = Math.max(width / image.width, height / image.height);
+  const renderedWidth = image.width * scale;
+  const renderedHeight = image.height * scale;
+  context.drawImage(image, (width - renderedWidth) / 2, (height - renderedHeight) / 2, renderedWidth, renderedHeight);
+}
+
+function setFittedFont(context: CanvasRenderingContext2D, text: string, start: number, minimum: number, width: number, weight: string): void {
+  let size = start;
+  do {
+    context.font = `${weight} ${size}px sans-serif`;
+    size -= 1;
+  } while (size >= minimum && context.measureText(text).width > width);
+}
+
+export { PANEL_ARTWORK_KEYS, createDuneBanner, createMemberBanner, createTicketSupportBanner };
+
+export type { DuneBannerOptions, MemberBannerOptions, PanelArtworkKey, TicketSupportBannerOptions };

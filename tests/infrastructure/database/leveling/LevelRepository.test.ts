@@ -25,6 +25,7 @@ describe("LevelRepository", () => {
     expect(query.mock.calls[0]?.[0]).toMatch(/community_levels_leaderboard/);
     expect(query.mock.calls[0]?.[0]).toMatch(/voice_minutes/);
     expect(query.mock.calls[0]?.[0]).toMatch(/community_level_events/);
+    expect(query.mock.calls[0]?.[0]).toMatch(/community_level_achievements/);
   });
 
   it("tracks voice minutes with an independent atomic cooldown", async () => {
@@ -57,6 +58,14 @@ describe("LevelRepository", () => {
       expect.objectContaining({ userId: "user", xp: 105, rank: 2 }),
     ]);
     expect(query.mock.calls[0]?.[1]).toEqual(["guild", 10]);
+  });
+
+  it("claims achievement IDs atomically and ignores duplicates", async () => {
+    query.mockResolvedValue({ rows: [{ achievement_id: "message-king-of-spam-bronze" }] });
+    const result = await new LevelRepository(pool as never).claimAchievements("guild", "user", ["message-king-of-spam-bronze"]);
+    expect(query.mock.calls[0]?.[0]).toMatch(/ON CONFLICT \(guild_id, user_id, achievement_id\) DO NOTHING/);
+    expect(query.mock.calls[0]?.[1]).toEqual(["guild", "user", ["message-king-of-spam-bronze"]]);
+    expect(result).toEqual(["message-king-of-spam-bronze"]);
   });
 
   it("persists, reads, and stops a double-XP event", async () => {

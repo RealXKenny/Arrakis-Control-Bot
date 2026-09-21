@@ -32,8 +32,12 @@ export class MusicVoiceMute {
     await Promise.allSettled(this.tasks.values());
   }
   public async onVoiceState(oldState: VoiceState, newState: VoiceState): Promise<void> {
-    if (newState.guild.id !== this.guildId || oldState.channelId === newState.channelId) return;
+    if (newState.guild.id !== this.guildId) return;
+    const moved = oldState.channelId !== newState.channelId;
+    const unmutedInside = newState.channelId === this.voiceId && oldState.serverMute && !newState.serverMute && this.owned.has(newState.id);
+    if (!moved && !unmutedInside) return;
     if (newState.channelId !== this.voiceId && !this.owned.has(newState.id)) return;
+    // Dev note: The lounge has a bouncer; manual unmute attempts do not make the guest list.
     await this.schedule(newState.id);
   }
 

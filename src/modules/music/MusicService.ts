@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, escapeMarkdown, PermissionFlagsBits, type Client, type Guild, type Message, type VoiceState } from "discord.js";
 import type { MusicVoiceMute } from "./MusicVoiceMute";
-import type { Player } from "shoukaku";
+import type { Player, Track } from "shoukaku";
 import type { MusicQueueEntry as QueueEntry, MusicState, MusicStorage } from "../../infrastructure/database/music/MusicRepository";
 import { LavalinkConnection } from "../../infrastructure/audio/LavalinkConnection";
 import type { MusicConfig } from "../../infrastructure/config/music";
@@ -37,6 +37,10 @@ export class MusicService {
   private readonly lyrics = new MusicLyrics();
   private readonly queue: QueueEntry[] = [];
   private current?: QueueEntry;
+  private idleCurrent?: QueueEntry;
+  private idleTracks: Track[] = [];
+  private idleIndex = 0;
+  private idleLoading?: Promise<void>;
   private paused = false;
   private volume: number;
   private chain: Promise<unknown> = Promise.resolve();
@@ -84,7 +88,11 @@ export class MusicService {
     this.voiceMute?.start();
     this.recover();
     this.checkpointTimer = setInterval(() => {
-      if (this.checkpointPending || this.stopped || !this.current || !this.client.guilds.cache.has(this.config.guildId)) return;
+      if (this.checkpointPending || this.stopped || (!this.current && !this.idleCurrent) || !this.client.guilds.cache.has(this.config.guildId)) return;
+      if (!this.current) {
+        if (Date.now() - this.lastProgressCardAt >= 15_000) this.refreshSongCard();
+        return;
+      }
       this.checkpointPending = true;
       void this.serial(async () => {
         this.checkProgress();
@@ -248,11 +256,15 @@ export class MusicService {
           ? this.backend.player(this.config.guildId) : undefined;
         if (action === "stop") {
           await this.commit({ ...this.snapshot(), current: undefined, queue: [], position: 0, paused: false });
+          this.idleCurrent = undefined;
           this.restoringId = undefined;
           this.pendingEnd = undefined;
           this.progress = undefined;
           if (!player) this.interrupted();
-          else try { await player.stopTrack(); } catch { this.interrupted(); }
+          else try {
+            if (this.config.idlePlaylistUrl) await this.playNextIdle(player);
+            else await player.stopTrack();
+          } catch { this.interrupted(); }
         } else {
           await this.advance(player, true);
         }
@@ -288,13 +300,15 @@ export class MusicService {
   }
 
   public describeQueue(nowOnly = false): string {
-    const title = this.current ? escapeMarkdown(this.current.track.info.title.slice(0, 180)) : "Nothing playing — ready for requests";
-    const lines = [`**${this.paused ? "Paused" : "Now playing"}:** ${title}`];
-    if (this.current) {
-      const progress = playbackProgress(this.position, this.current.track.info.length, this.current.track.info.isStream);
+    const active = this.current ?? this.idleCurrent;
+    const title = active ? escapeMarkdown(active.track.info.title.slice(0, 180)) : "Nothing playing — ready for requests";
+    const lines = [`**${this.current ? this.paused ? "Paused" : "Now playing" : this.idleCurrent ? "Waiting music" : "Now playing"}:** ${title}`];
+    if (active) {
+      const progress = playbackProgress(this.activePosition(active), active.track.info.length, active.track.info.isStream, this.current ? this.paused : false);
       if (progress) lines.push(progress);
     }
     lines.push(`Volume: ${this.volume}% · Waiting: ${this.queue.length}`);
+    if (this.idleCurrent && !this.current) lines.push("-# Waiting rotation • Your request plays immediately");
     if (!nowOnly) {
       lines.push(...this.queue.slice(0, 8).map((entry, index) => `${index + 1}. ${escapeMarkdown(entry.track.info.title.slice(0, 120))}`));
       if (this.queue.length > 8) lines.push(`…and ${this.queue.length - 8} more.`);
@@ -304,19 +318,20 @@ export class MusicService {
 
   public auditSnapshot(): MusicAuditSnapshot {
     this.capturePosition();
+    const active = this.current ?? this.idleCurrent;
     return {
       available: this.backend.available(),
       connected: Boolean(this.backend.player(this.config.guildId)),
       paused: this.paused,
       volume: this.volume,
-      position: this.position,
-      current: this.current ? {
-        title: this.current.track.info.title,
-        artist: this.current.track.info.author,
-        requester: this.current.requester,
-        source: this.current.track.info.sourceName,
-        duration: this.current.track.info.length,
-        uri: this.current.track.info.uri,
+      position: active ? this.activePosition(active) : this.position,
+      current: active ? {
+        title: active.track.info.title,
+        artist: active.track.info.author,
+        requester: this.current ? this.current.requester : "Waiting music",
+        source: active.track.info.sourceName,
+        duration: active.track.info.length,
+        uri: active.track.info.uri,
       } : undefined,
       queue: this.queue.map((entry) => ({
         title: entry.track.info.title,
@@ -348,9 +363,8 @@ export class MusicService {
   }
 
   public nowPlayingMessage() {
-    this.capturePosition();
     const embed = new EmbedBuilder().setColor(0xc58b45).setDescription(this.describeQueue(true));
-    const info = this.current?.track.info;
+    const info = (this.current ?? this.idleCurrent)?.track.info;
     let artwork: string | undefined;
     if (info?.artworkUrl) {
       try {
@@ -389,6 +403,7 @@ export class MusicService {
       const message = this.nowPlayingMessage();
       message.embeds[0].setTitle("🎵 Music Lounge").setFooter({ text: NOW_PLAYING_MARKER });
       if (this.current) message.embeds[0].addFields({ name: "Requested by", value: `<@${this.current.requester}>` });
+      else if (this.idleCurrent) message.embeds[0].addFields({ name: "Player mode", value: "Waiting music • Requests take priority" });
       await this.nowPlayingPanel.update(message);
     }).catch(() => {
       this.logger.warn("Could not update the song card. Check Read Message History, Send Messages and Embed Links in the music request channel.");
@@ -430,6 +445,11 @@ export class MusicService {
     return player;
   }
 
+  private activePosition(entry: QueueEntry): number {
+    const player = this.backend.player(this.config.guildId);
+    return player?.track === entry.track.encoded && Number.isFinite(player.position) ? Math.max(0, player.position) : this.current?.id === entry.id ? this.position : 0;
+  }
+
   private async play(player: Player, entry: QueueEntry): Promise<void> {
     this.progress = { id: entry.id, position: this.position, at: Date.now() };
     const position = entry.track.info.isSeekable && !entry.track.info.isStream ? Math.min(this.position, Math.max(0, entry.track.info.length - 1)) : 0;
@@ -440,26 +460,58 @@ export class MusicService {
   private async advance(player: Player | undefined, stopCurrent = false): Promise<void> {
     const [entry, ...queue] = this.queue;
     await this.commit({ ...this.snapshot(), current: entry, queue, paused: false, position: 0 });
+    this.idleCurrent = undefined;
     this.restoringId = undefined;
     this.pendingEnd = undefined;
     this.progress = undefined;
     if (!player) { this.interrupted(); return; }
     if (entry) await this.play(player, entry);
+    else if (this.config.idlePlaylistUrl) await this.playNextIdle(player);
     else if (stopCurrent) {
       try { await player.stopTrack(); } catch (error) { this.resetConnection = true; throw error; }
     }
   }
 
+  private async loadIdleTracks(): Promise<void> {
+    if (!this.config.idlePlaylistUrl || this.idleTracks.length) return;
+    if (!this.idleLoading) {
+      this.idleLoading = (async () => {
+        const tracks = loadedTracks(await this.backend.resolve(this.config.idlePlaylistUrl!));
+        this.idleTracks = tracks.slice(0, 500);
+        if (!this.idleTracks.length) throw new Error("The waiting-music playlist did not contain playable tracks.");
+      })().finally(() => { this.idleLoading = undefined; });
+    }
+    await this.idleLoading;
+  }
+
+  private async playNextIdle(player: Player): Promise<void> {
+    if (!this.config.idlePlaylistUrl || this.current || this.queue.length) return;
+    await this.loadIdleTracks();
+    const track = this.idleTracks[this.idleIndex % this.idleTracks.length];
+    this.idleIndex = (this.idleIndex + 1) % this.idleTracks.length;
+    const entry: QueueEntry = { id: `idle-${randomUUID()}`, track, requester: "waiting-music" };
+    this.idleCurrent = entry;
+    this.position = 0;
+    try {
+      await player.playTrack({ track: { encoded: track.encoded, userData: { requestId: entry.id } }, position: 0, paused: false });
+      this.refreshSongCard();
+    } catch (error) {
+      this.idleCurrent = undefined;
+      throw error;
+    }
+  }
+
   private interrupted(id?: string): void {
-    if (this.stopped || (id && id !== this.current?.id)) return;
+    if (this.stopped || (id && id !== this.current?.id && id !== this.idleCurrent?.id)) return;
     // Dev note: Two wrong notes do not make a retry timer right.
     // Dev note: Duplicate failures do not get extra sand in the retry glass.
     if (this.resetConnection && Date.now() < this.retryAfter) return;
     this.interruptionVersion++;
     // Dev note: Preserve the track position; walking without rhythm is discouraged.
-    this.capturePosition();
+    if (this.current) this.capturePosition();
     this.resetConnection = true;
     this.restoringId = this.current?.id;
+    if (id === this.idleCurrent?.id || !this.current) this.idleCurrent = undefined;
     this.pendingEnd = undefined;
     this.progress = undefined;
     this.scheduleRecovery(true);
@@ -468,6 +520,12 @@ export class MusicService {
   private finish(id?: string): void {
     if (!id || this.stopped) return;
     void this.serial(async () => {
+      if (this.idleCurrent?.id === id && !this.current) {
+        this.idleCurrent = undefined;
+        const player = await this.ensurePlayer();
+        await this.playNextIdle(player);
+        return;
+      }
       if (this.current?.id !== id) return;
       if (this.restoringId === id || !this.backend.available() || Date.now() < this.retryAfter) {
         this.resetConnection = true;
@@ -508,6 +566,7 @@ export class MusicService {
         await this.advance(player);
         this.pendingEnd = undefined;
       } else if (!this.current && this.queue.length) await this.advance(player);
+      else if (!this.current && !this.idleCurrent && this.config.idlePlaylistUrl) await this.playNextIdle(player);
     }, true).catch(() => { failed = true; }).finally(() => { this.recovering = false; this.scheduleRecovery(failed); });
   }
 }

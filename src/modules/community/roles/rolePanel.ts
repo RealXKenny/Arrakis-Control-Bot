@@ -39,6 +39,7 @@ async function ensureRolePanel(client: Client, channelId?: string | null): Promi
 
   if (existingPanel) {
     const banner = createDuneBanner({
+      artwork: "roles",
       filename: PANEL_IMAGE_NAME,
       title: "Choose Roles",
       subtitle: "COMMUNITY ROLES",
@@ -48,6 +49,7 @@ async function ensureRolePanel(client: Client, channelId?: string | null): Promi
     await existingPanel.edit({
       content: null,
       embeds: [],
+      attachments: [],
       components: [roleContainer],
       files: [
         {
@@ -62,6 +64,7 @@ async function ensureRolePanel(client: Client, channelId?: string | null): Promi
   }
 
   const banner = createDuneBanner({
+    artwork: "roles",
     filename: PANEL_IMAGE_NAME,
     title: "Choose Roles",
     subtitle: "COMMUNITY ROLES",

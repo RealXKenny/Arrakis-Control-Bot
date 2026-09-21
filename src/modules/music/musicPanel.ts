@@ -12,16 +12,16 @@ export function musicPanel(voiceChannelId: string) {
       .setURL(`attachment://${filename}`).setDescription("Arrakis Control — Music Lounge")))
     .addTextDisplayComponents((text) => text.setContent(`## The soundtrack to your next expedition\nJoin <#${voiceChannelId}>, pick a song, and settle in. Request a track below or type a song name or supported link in this channel.`))
     .addSeparatorComponents((separator) => separator)
-    .addTextDisplayComponents((text) => text.setContent("### ✦ Find your next track\nSearch by song and artist, or paste a link. Searches queue the first result. The lounge is listen-only: your microphone is server-muted while you are here."))
+    .addTextDisplayComponents((text) => text.setContent("### ✦ Find your next track\nSearch by song and artist, or paste a link. Requests immediately take priority over the waiting-music rotation. The lounge is listen-only: your microphone is server-muted while you are here."))
     .addActionRowComponents((row) => row.addComponents(button("request", "🎵 Request Song", ButtonStyle.Primary), button("now", "🎧 Now Playing"), button("queue", "📜 View Queue"), button("lyrics", "View Lyrics")))
     .addSeparatorComponents((separator) => separator)
     .addTextDisplayComponents((text) => text.setContent("### ✦ Take control\nPause for a moment, keep the music going, or move to the next request."))
     .addActionRowComponents((row) => row.addComponents(button("pause", "⏸ Pause"), button("resume", "▶ Resume", ButtonStyle.Success), button("skip", "⏭ Skip"), button("volume", "🔊 Volume")))
     .addSeparatorComponents((separator) => separator)
-    .addTextDisplayComponents((text) => text.setContent("### ✦ Manage the queue\nOwner role only: clear upcoming requests or stop playback. Both buttons ask for confirmation; the bot stays in voice."))
-    .addActionRowComponents((row) => row.addComponents(button("clear", "Clear Queue"), button("stop", "Stop Playback", ButtonStyle.Danger)))
-    .addTextDisplayComponents((text) => text.setContent("-# Everyone can view the queue. Listeners can request songs; skip, pause, resume and volume belong to the current requester. Clear Queue and Stop Playback require the configured Owner role. Playback controls require voice membership. Responses are private."));
-  return { components: [panel], files: [createDuneBanner({ filename, title: "Music Lounge", subtitle: "ARRAKIS CONTROL", detail: "YOUR CREW. YOUR SOUNDTRACK." })],
+    .addTextDisplayComponents((text) => text.setContent("### ✦ Manage the queue\nOwner role only: clear upcoming requests or stop requested playback and return to waiting music. Both buttons ask for confirmation; the bot stays in voice."))
+    .addActionRowComponents((row) => row.addComponents(button("clear", "Clear Queue"), button("stop", "Return to Waiting Music", ButtonStyle.Danger)))
+    .addTextDisplayComponents((text) => text.setContent("-# Everyone can view the queue. Listeners can request songs; skip, pause, resume and volume belong to the current requester. Clear Queue and Return to Waiting Music require the configured Owner role. Playback controls require voice membership. Responses are private."));
+  return { components: [panel], files: [createDuneBanner({ artwork: "music", filename, title: "Music Lounge", subtitle: "ARRAKIS CONTROL", detail: "YOUR CREW. YOUR SOUNDTRACK." })],
     flags: MessageFlags.IsComponentsV2 as const, allowedMentions: { parse: [] as never[] } };
 }
 

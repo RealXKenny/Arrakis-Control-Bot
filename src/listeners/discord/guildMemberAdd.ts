@@ -29,6 +29,7 @@ class GuildMemberAdd extends Listener<typeof Events.GuildMemberAdd> {
     }
 
     const banner = await createMemberBanner({
+      artwork: "welcome",
       filename: "member-welcome.png",
       title: "Welcome",
       member,

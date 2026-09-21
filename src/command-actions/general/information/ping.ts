@@ -40,6 +40,7 @@ const command = {
     const websocketPing = formatPing(client.ws.ping);
 
     const banner = createDuneBanner({
+      artwork: "ping",
       filename: "dune-server-ping.png",
       title: "Pong",
       subtitle: "LATENCY CHECK",
@@ -49,7 +50,7 @@ const command = {
     const pingCard = new ContainerBuilder()
       .setAccentColor(accentColor)
 
-      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-ping.png")))
+      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-ping.png").setDescription("Arrakis signal latency check")))
 
       .addTextDisplayComponents((text) => text.setContent("## 🏓 Pong!"))
 

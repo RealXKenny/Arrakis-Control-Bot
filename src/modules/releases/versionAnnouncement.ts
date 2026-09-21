@@ -77,6 +77,7 @@ async function sendReleaseAnnouncement(channel: SendableChannels, release: Relea
   const card = buildReleaseCard(release, marker, roleMention);
   const filename = sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png");
   const banner = createDuneBanner({
+    artwork: "release",
     filename,
     title: `${release.project.name} v${release.version}`,
     subtitle: "RELEASE ANNOUNCEMENT",

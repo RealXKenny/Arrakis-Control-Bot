@@ -219,7 +219,7 @@ function createStatusCard({
 }): ContainerBuilder {
   const card = new ContainerBuilder()
     .setAccentColor(accentColor)
-    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`)))
+    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`).setDescription("Arrakis server operational status")))
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Status"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`));
 
@@ -598,6 +598,7 @@ function formatBytes(bytes: number | undefined): string {
 
 function createStatusBanner({ serverName, healthy, overall, population, region }: { serverName: string; healthy: boolean; overall: string; population: string; region: string }) {
   return createDuneBanner({
+    artwork: "server-status",
     filename: IMAGE_NAME,
     title: healthy ? "Server Ready" : "Server Alert",
     subtitle: `${overall || "UNKNOWN"} • ${population || "0/0"}`,

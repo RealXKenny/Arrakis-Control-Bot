@@ -56,12 +56,12 @@ async function ensureFaqPanel(client: Client, channelId?: string | null): Promis
   const channel = await client.channels.fetch(channelId);
   if (!channel?.isSendable()) throw new Error(`FAQ panel channel ${channelId} is not a sendable channel.`);
 
-  const banner = createDuneBanner({ filename: PANEL_IMAGE_NAME, title: "Crimson Skies", subtitle: "COMMUNITY FAQ", detail: "EXPLORE • BUILD • TRADE • SURVIVE" });
+  const banner = createDuneBanner({ artwork: "faq", filename: PANEL_IMAGE_NAME, title: "Crimson Skies", subtitle: "COMMUNITY FAQ", detail: "EXPLORE • BUILD • TRADE • SURVIVE" });
   const components = buildFaqPanel();
   const files = [{ attachment: banner.attachment, name: PANEL_IMAGE_NAME, description: banner.description ?? undefined }];
   const existing = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
   if (existing) {
-    const payload: MessageEditOptions = { content: null, embeds: [], components, files };
+    const payload: MessageEditOptions = { content: null, embeds: [], attachments: [], components, files };
     await existing.edit(payload);
     return;
   }

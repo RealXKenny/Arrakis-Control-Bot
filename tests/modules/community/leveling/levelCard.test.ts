@@ -2,6 +2,8 @@ import type { User } from "discord.js";
 import { describe, expect, it } from "vitest";
 import { LEVEL_LEADERBOARD_FILENAME, createLevelLeaderboardCard } from "../../../../src/modules/community/leveling/leaderboardCard";
 import { LEVEL_CARD_FILENAME, createLevelRankCard } from "../../../../src/modules/community/leveling/levelCard";
+import { ACHIEVEMENTS } from "../../../../src/modules/community/leveling/achievements";
+import { ACHIEVEMENT_CARD_FILENAMES, LEVEL_UP_CARD_FILENAME, createAchievementCard, createLevelUpCard } from "../../../../src/modules/community/leveling/announcementCards";
 
 describe("community level image card", () => {
   it("renders a bounded PNG and falls back safely when the avatar is unavailable", async () => {
@@ -39,5 +41,20 @@ describe("community level image card", () => {
     expect(Buffer.isBuffer(image)).toBe(true);
     expect((image as Buffer).subarray(1, 4).toString()).toBe("PNG");
     expect((image as Buffer).byteLength).toBeLessThan(10 * 1024 * 1024);
+  });
+
+  it("renders a dedicated level-up image and a distinct image for every achievement type", async () => {
+    const user = { username: "Paul", displayAvatarURL: () => "invalid-avatar" } as unknown as User;
+    const profile = { guildId: "guild", userId: "user", xp: 6_250, messageCount: 100, voiceMinutes: 60, lastAwardedAt: new Date(), rank: 1 };
+    const levelUp = await createLevelUpCard({ user, displayName: "Paul Atreides", profile, level: 5 });
+    expect(levelUp.name).toBe(LEVEL_UP_CARD_FILENAME);
+
+    for (const kind of ["message", "voice", "level"] as const) {
+      const achievement = ACHIEVEMENTS.find((candidate) => candidate.kind === kind)!;
+      const card = await createAchievementCard({ user, displayName: "Paul Atreides", achievement });
+      expect(card.name).toBe(ACHIEVEMENT_CARD_FILENAMES[kind]);
+      expect(Buffer.isBuffer(card.attachment)).toBe(true);
+      expect((card.attachment as Buffer).subarray(1, 4).toString()).toBe("PNG");
+    }
   });
 });

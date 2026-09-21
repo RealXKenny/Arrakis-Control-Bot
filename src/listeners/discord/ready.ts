@@ -2,14 +2,7 @@ import { Events, Listener, container } from "@sapphire/framework";
 import { ActivityType } from "discord.js";
 
 import { startAuditLogForwarder } from "../../modules/audit/DiscordAuditLogForwarder";
-import { ensureBlueprintUploadPanel } from "../../modules/players/blueprints/blueprintUploadPanel";
-import { ensurePlayerLinkPanel } from "../../modules/players/linking/playerLinkPanel";
-import { ensureRolePanel } from "../../modules/community/roles/rolePanel";
-import { ensureRulesPanel } from "../../modules/community/rules/rulesPanel";
-import { ensureServerInfoPanel } from "../../modules/server/information/serverInfoPanel";
-import { ensureFaqPanel } from "../../modules/community/faq/faqPanel";
-import { ensureVerificationPanel } from "../../modules/community/verification/verificationPanel";
-import { ensureTicketPanel } from "../../modules/tickets/ticketPanel";
+import { persistentPanelTasks } from "../../modules/administration/control/panelRefresh";
 import { announceCurrentVersion } from "../../modules/releases/versionAnnouncement";
 import { startStormAnnouncements } from "../../modules/world/storms/stormAnnouncement";
 import { scopedLogger } from "../../client/logger";
@@ -110,17 +103,9 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
 async function ensurePanels(): Promise<void> {
   const { client } = container;
-  if (client.discordAdapter) {
-    await runReadyTask("publish the player link panel", () => ensurePlayerLinkPanel(client, client.discordAdapterLinkPanelChannelId));
-    await runReadyTask("publish the blueprint upload panel", () => ensureBlueprintUploadPanel(client, client.discordAdapterBlueprintPanelChannelId));
+  for (const task of persistentPanelTasks(client)) {
+    await runReadyTask(`publish the ${task.label}`, task.run);
   }
-
-  await runReadyTask("publish the role panel", () => ensureRolePanel(client, client.discordRolePanelChannelId));
-  await runReadyTask("publish the verification panel", () => ensureVerificationPanel(client, client.discordVerifyChannelId));
-  await runReadyTask("publish the rules panel", () => ensureRulesPanel(client, client.discordRulesChannelId));
-  await runReadyTask("publish the server info panel", () => ensureServerInfoPanel(client, client.discordServerInfoChannelId));
-  await runReadyTask("publish the FAQ panel", () => ensureFaqPanel(client, client.discordFaqPanelChannelId));
-  await runReadyTask("publish the ticket panel", () => ensureTicketPanel(client, client.discordTicketPanelChannelId));
 }
 
 async function runReadyTask(label: string, task: () => Promise<unknown>): Promise<void> {
@@ -135,23 +120,36 @@ async function runReadyTask(label: string, task: () => Promise<unknown>): Promis
 async function setupVersionAnnouncements(): Promise<void> {
   const { client } = container;
   const channelId = client.discordAnnouncementChannelId;
-
-  await announceCurrentVersion(client, channelId);
-
-  if (!channelId) {
-    return;
-  }
+  if (!channelId) return;
 
   const intervalMinutes = Math.max(Number(client.versionAnnouncementIntervalMinutes) || DEFAULT_ANNOUNCEMENT_INTERVAL_MINUTES, 1);
-
   let checking = false;
+  let consecutiveFailures = 0;
+
+  const check = async (): Promise<void> => {
+    try {
+      await announceCurrentVersion(client, channelId);
+      if (consecutiveFailures >= 5) scopedLogger(container.logger, "RELEASES").info(`Release checks recovered after ${consecutiveFailures} failed attempts.`);
+      consecutiveFailures = 0;
+    } catch (error: unknown) {
+      consecutiveFailures++;
+      // Dev note: One dropped packet is weather; five in a row is a forecast.
+      if (shouldReportReleaseFailure(consecutiveFailures)) {
+        scopedLogger(container.logger, "RELEASES").error(`Release check failed ${consecutiveFailures} consecutive times.`, error);
+      }
+    }
+  };
+
+  await check();
   client.versionAnnouncementInterval = setInterval(() => {
     if (checking) return;
     checking = true;
-    announceCurrentVersion(client, channelId).catch((error: unknown) => {
-      scopedLogger(container.logger, "RELEASES").error("Unable to check for new version announcements.", error);
-    }).finally(() => { checking = false; });
+    void check().finally(() => { checking = false; });
   }, intervalMinutes * 60_000);
 }
 
-export { Ready, runReadyTask };
+function shouldReportReleaseFailure(consecutiveFailures: number): boolean {
+  return consecutiveFailures >= 5 && consecutiveFailures % 5 === 0;
+}
+
+export { Ready, runReadyTask, shouldReportReleaseFailure };

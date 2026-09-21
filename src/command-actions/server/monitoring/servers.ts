@@ -204,6 +204,7 @@ const command = {
       const card = createServersCard(servers);
 
       const banner = createDuneBanner({
+        artwork: "vps",
         filename: IMAGE_NAME,
         title: "Advin VPS",
         subtitle: `${servers.length} SERVER${servers.length === 1 ? "" : "S"}`,

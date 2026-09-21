@@ -4,6 +4,7 @@ import { loadChatBridgeConfig, type ChatBridgeConfig } from "./chatBridge";
 import { loadVoiceSetup, type VoiceSetupConfig } from "./voiceRooms";
 import { loadMusicConfig, type MusicConfig } from "./music";
 import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
+import { loadStaffApplicationConfig, type StaffApplicationConfig } from "./staffApplications";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
@@ -16,6 +17,7 @@ interface EnvironmentConfig {
   chatBridge?: ChatBridgeConfig;
   levelingEnabled: boolean;
   levelRoles: Readonly<LevelRoleConfig>;
+  staffApplications?: StaffApplicationConfig;
   discordToken: string;
   clientId?: string;
   guildId?: string;
@@ -36,6 +38,7 @@ interface EnvironmentConfig {
   discordFaqPanelChannelId?: string;
   discordAnnouncementChannelId?: string;
   discordTicketPanelChannelId?: string;
+  discordBotControlChannelId?: string;
   discordTicketCategoryId?: string;
   discordTicketTranscriptChannelId?: string;
   databaseUrl?: string;
@@ -58,6 +61,9 @@ const DISCORD_ID_ENV_KEYS = [
   "FAQ_PANEL_CHANNEL_ID",
   "ANNOUNCEMENT_CHANNEL_ID",
   "TICKET_PANEL_CHANNEL_ID",
+  "BOT_CONTROL_CHANNEL_ID",
+  "STAFF_APPLICATION_PANEL_CHANNEL_ID",
+  "STAFF_APPLICATION_REVIEW_CHANNEL_ID",
   "TICKET_CATEGORY_ID",
   "TICKET_TRANSCRIPT_CHANNEL_ID",
   "STORM_CHANNEL_ID",
@@ -73,6 +79,10 @@ const DISCORD_ID_ENV_KEYS = [
   "ADMINISTRATOR_ROLE_ID",
   "HEAD_ADMINISTRATOR_ROLE_ID",
   "OWNER_ROLE_ID",
+  "STAFF_APPLICATION_REVIEWER_ROLE_ID",
+  "STAFF_APPLICATION_PENDING_ROLE_ID",
+  "STAFF_APPLICATION_ACCEPTED_ROLE_ID",
+  "LEVEL_ANNOUNCEMENT_CHANNEL_ID",
   "LEVEL_ROLE_ARRAKIS_WANDERER_ID",
   "LEVEL_ROLE_SIETCH_DWELLER_ID",
   "LEVEL_ROLE_DESERT_SURVIVOR_ID",
@@ -158,6 +168,8 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   if (levelingEnabled && !process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is required when community leveling is enabled.");
   }
+  const staffApplications = loadStaffApplicationConfig(process.env);
+  if (staffApplications && !process.env.DATABASE_URL) throw new Error("DATABASE_URL is required when staff applications are enabled.");
 
   const logLevel = (process.env.LOG_LEVEL ?? "INFO").toUpperCase();
 
@@ -172,6 +184,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     chatBridge: loadChatBridgeConfig(process.env),
     levelingEnabled,
     levelRoles: loadLevelRoleConfig(process.env),
+    staffApplications,
     discordToken,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,
@@ -192,6 +205,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     discordFaqPanelChannelId: process.env.FAQ_PANEL_CHANNEL_ID,
     discordAnnouncementChannelId: process.env.ANNOUNCEMENT_CHANNEL_ID,
     discordTicketPanelChannelId: process.env.TICKET_PANEL_CHANNEL_ID,
+    discordBotControlChannelId: process.env.BOT_CONTROL_CHANNEL_ID,
     discordTicketCategoryId: process.env.TICKET_CATEGORY_ID,
     discordTicketTranscriptChannelId: process.env.TICKET_TRANSCRIPT_CHANNEL_ID,
     databaseUrl: process.env.DATABASE_URL,

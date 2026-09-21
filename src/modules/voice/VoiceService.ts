@@ -107,6 +107,10 @@ export class VoiceService {
     await this.serial(guild.id, () => this.publishPanel(guild));
   }
 
+  public async configured(guildId: string): Promise<boolean> {
+    return Boolean(await this.repository.settings(guildId));
+  }
+
   private async publishPanel(guild: Guild): Promise<void> {
     const settings = await this.repository.settings(guild.id);
     if (!settings) throw new VoiceUserError("Run /voice setup first.");

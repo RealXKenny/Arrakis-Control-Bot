@@ -52,7 +52,7 @@ export async function handleMusicInteraction(interaction: ButtonInteraction | Mo
     else if (action === "cancel") content = "Cancelled. Playback is unchanged.";
     else if ((action === "stop" || action === "clear") && !interaction.customId.startsWith("music-confirm:")) {
       await service.requireOwnerRole(interaction.guild, interaction.user.id);
-      await interaction.editReply({ content: action === "stop" ? "Stop playback and remove every queued song?" : "Remove all upcoming songs? The current song will keep playing.",
+      await interaction.editReply({ content: action === "stop" ? "Stop requested playback, remove every queued song, and return to waiting music?" : "Remove all upcoming songs? The current song will keep playing.",
         components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder().setCustomId(`music-confirm:${action}`).setLabel("Confirm").setStyle(ButtonStyle.Danger),
           new ButtonBuilder().setCustomId("music:cancel").setLabel("Cancel").setStyle(ButtonStyle.Secondary))] });
@@ -60,7 +60,7 @@ export async function handleMusicInteraction(interaction: ButtonInteraction | Mo
       return;
     } else {
       await service.action(interaction.guild, interaction.channelId, interaction.user.id, action as MusicAction);
-      content = action === "stop" ? "Playback stopped and the queue was cleared. I'm staying in voice." : "Music controls updated.";
+      content = action === "stop" ? "Requested playback stopped and the queue was cleared. Waiting music has resumed." : "Music controls updated.";
     }
     if (action !== "queue") audit.outcome = content;
     await interaction.editReply({ content, components: [], allowedMentions: { parse: [] } });

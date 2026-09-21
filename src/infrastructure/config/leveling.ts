@@ -1,4 +1,5 @@
 interface LevelRoleConfig {
+  announcementChannelId?: string;
   arrakisWanderer?: string;
   sietchDweller?: string;
   desertSurvivor?: string;
@@ -12,6 +13,7 @@ interface LevelRoleConfig {
 function loadLevelRoleConfig(env: NodeJS.ProcessEnv): Readonly<LevelRoleConfig> {
   // Dev note: Titles belong to Discord; the environment only supplies their backstage passes.
   return Object.freeze({
+    announcementChannelId: optional(env.LEVEL_ANNOUNCEMENT_CHANNEL_ID),
     arrakisWanderer: optional(env.LEVEL_ROLE_ARRAKIS_WANDERER_ID),
     sietchDweller: optional(env.LEVEL_ROLE_SIETCH_DWELLER_ID),
     desertSurvivor: optional(env.LEVEL_ROLE_DESERT_SURVIVOR_ID),

@@ -8,6 +8,8 @@ import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridg
 import type { VoiceService } from "../modules/voice/VoiceService";
 import type { MusicService } from "../modules/music/MusicService";
 import type { LevelingService } from "../modules/community/leveling/LevelingService";
+import type { StaffApplicationService } from "../modules/community/applications/StaffApplicationService";
+import type { MessageArchiveService } from "../modules/audit/MessageArchiveService";
 
 import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
@@ -23,6 +25,8 @@ type ArrakisClientOptions = ClientOptions & { baseUserDirectory?: string };
 class ArrakisClient extends SapphireClient {
   public music?: MusicService;
   public leveling?: LevelingService;
+  public staffApplications?: StaffApplicationService;
+  public messageArchive?: MessageArchiveService;
   public voiceRooms?: VoiceService;
   public chatBridge?: DiscordGameChatBridge;
   public duneApi!: DuneApi;
@@ -37,6 +41,7 @@ class ArrakisClient extends SapphireClient {
   public discordFaqPanelChannelId?: string;
   public discordAnnouncementChannelId?: string;
   public discordTicketPanelChannelId?: string;
+  public discordBotControlChannelId?: string;
   public discordTicketCategoryId?: string;
   public discordTicketTranscriptChannelId?: string;
   public versionAnnouncementIntervalMinutes?: number;

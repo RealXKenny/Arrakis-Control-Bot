@@ -355,6 +355,7 @@ const command = {
         .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(formatProfile(player, data, guild), 3_300)));
 
       const banner = createDuneBanner({
+        artwork: "profile",
         filename: IMAGE_NAME,
         title: "Dune Profile",
         subtitle: player.characterName ?? "Unknown",

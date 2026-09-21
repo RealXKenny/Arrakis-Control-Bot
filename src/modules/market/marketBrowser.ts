@@ -120,6 +120,7 @@ async function renderMarketBrowser(interaction: MarketInteraction, session: Mark
 
     if (includeBanner) {
       const banner = createDuneBanner({
+        artwork: "market",
         filename: IMAGE_NAME,
         title: "CHOAM Market",
         subtitle: `${market.totalCount.toLocaleString()} ACTIVE ITEM${market.totalCount === 1 ? "" : "S"}`,

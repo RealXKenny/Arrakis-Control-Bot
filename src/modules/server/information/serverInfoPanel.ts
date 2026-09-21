@@ -70,6 +70,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
   ];
 
   const banner = createDuneBanner({
+    artwork: "server-info",
     filename: PANEL_IMAGE_NAME,
     title: "Crimson Skies",
     subtitle: "SERVER INFORMATION",
@@ -104,6 +105,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
     const editPayload: MessageEditOptions = {
       content: null,
       embeds: [],
+      attachments: [],
       components: response.components,
       files: response.files,
     };

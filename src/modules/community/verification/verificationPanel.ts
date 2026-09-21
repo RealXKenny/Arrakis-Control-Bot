@@ -30,6 +30,7 @@ async function ensureVerificationPanel(client: Client, channelId?: string | null
     .addActionRowComponents((row) => row.addComponents(new ButtonBuilder().setCustomId("member-captcha").setLabel("Verify").setStyle(ButtonStyle.Primary)));
 
   const banner = createDuneBanner({
+    artwork: "verification",
     filename: PANEL_IMAGE_NAME,
     title: "Verify",
     subtitle: "MEMBERSHIP CHECK",
@@ -58,6 +59,7 @@ async function ensureVerificationPanel(client: Client, channelId?: string | null
     const editPayload: MessageEditOptions = {
       content: null,
       embeds: [],
+      attachments: [],
       components: response.components,
       files: response.files,
     };

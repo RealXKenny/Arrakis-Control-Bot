@@ -6,7 +6,7 @@ export const MUSIC_COMMANDS = {
   pause: "Pause your currently playing song.",
   resume: "Resume your currently playing song.",
   volume: "Set the volume while your song is playing.",
-  stop: "Stop playback and clear the queue (Owner role required).",
+  stop: "Clear requests and return to waiting music (Owner role required).",
   clear: "Clear upcoming songs (Owner role required).",
   "music-panel": "Publish or refresh the music controls (Manage Server).",
 } as const;

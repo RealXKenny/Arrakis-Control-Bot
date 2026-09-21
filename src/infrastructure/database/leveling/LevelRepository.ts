@@ -41,6 +41,7 @@ interface LevelStorage {
   awardVoiceXp(guildId: string, userId: string, xp: number, cooldownMs: number): Promise<LevelProfile | null>;
   profile(guildId: string, userId: string): Promise<LevelProfile>;
   leaderboard(guildId: string, limit: number): Promise<LevelProfile[]>;
+  claimAchievements(guildId: string, userId: string, achievementIds: readonly string[]): Promise<string[]>;
   scheduleEvent(guildId: string, startsAt: Date, endsAt: Date, createdBy: string): Promise<LevelEvent>;
   upcomingEvent(guildId: string): Promise<LevelEvent | null>;
   stopEvent(guildId: string): Promise<boolean>;
@@ -75,6 +76,13 @@ class LevelRepository implements LevelStorage {
         ends_at TIMESTAMPTZ NOT NULL,
         created_by TEXT NOT NULL,
         CHECK (ends_at > starts_at)
+      );
+      CREATE TABLE IF NOT EXISTS community_level_achievements (
+        guild_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        achievement_id TEXT NOT NULL,
+        unlocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (guild_id, user_id, achievement_id)
       );
     `);
   }
@@ -149,6 +157,20 @@ class LevelRepository implements LevelStorage {
     );
 
     return result.rows.map((row) => mapLevelRow(row, parseInteger(row.rank ?? 0, "rank")));
+  }
+
+  public async claimAchievements(guildId: string, userId: string, achievementIds: readonly string[]): Promise<string[]> {
+    if (achievementIds.length === 0) return [];
+    // Dev note: ON CONFLICT keeps two enthusiastic shards from awarding the same shiny desert sticker.
+    const result = await this.pool.query<{ achievement_id: string }>(
+      `INSERT INTO community_level_achievements (guild_id, user_id, achievement_id)
+       SELECT $1, $2, achievement_id
+       FROM UNNEST($3::text[]) AS achievement_id
+       ON CONFLICT (guild_id, user_id, achievement_id) DO NOTHING
+       RETURNING achievement_id`,
+      [guildId, userId, achievementIds],
+    );
+    return result.rows.map((row) => row.achievement_id);
   }
 
   public async scheduleEvent(guildId: string, startsAt: Date, endsAt: Date, createdBy: string): Promise<LevelEvent> {

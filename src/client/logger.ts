@@ -95,6 +95,9 @@ type LogContext = {
 
 const secretKeyPattern = /(password|token|secret|cookie|authorization|session|api[-_]?key|access[-_]?token)/i;
 const CLEAR_TERMINAL = "\u001B[2J\u001B[3J\u001B[H";
+const DEFAULT_PRODUCTION_COLUMNS = 120;
+const ANSI_ESCAPE = String.fromCharCode(27);
+const ANSI_COLOR_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, "g");
 
 function redact(value: unknown, key = ""): unknown {
   // Dev note: Secrets enter the witness protection program here.
@@ -131,6 +134,55 @@ function formatDetails(details: unknown): string {
   }
 }
 
+function oneLine(value: string): string {
+  return value.replace(/\s+/gu, " ").trim();
+}
+
+function visibleLength(value: string): number {
+  return Array.from(value.replace(ANSI_COLOR_PATTERN, "")).length;
+}
+
+function fitConsoleLine(value: string, columns: number | undefined): string {
+  if (!columns || !Number.isInteger(columns) || columns < 2) return value;
+  // Leave the final cell unused: several PTYs wrap before processing the newline when every column is occupied.
+  const limit = columns - 1;
+  if (visibleLength(value) <= limit) return value;
+
+  const contentLimit = Math.max(0, limit - 1);
+  let output = "";
+  let visible = 0;
+  for (let index = 0; index < value.length && visible < contentLimit;) {
+    if (value[index] === ANSI_ESCAPE) {
+      const escape = ansiColorAt(value, index);
+      if (escape) {
+        output += escape;
+        index += escape.length;
+        continue;
+      }
+    }
+    const codePoint = value.codePointAt(index)!;
+    output += String.fromCodePoint(codePoint);
+    index += codePoint > 0xffff ? 2 : 1;
+    visible += 1;
+  }
+  return `${output}${value.includes(ANSI_ESCAPE) ? COLORS.reset : ""}…`;
+}
+
+function ansiColorAt(value: string, index: number): string | undefined {
+  if (!value.startsWith(`${ANSI_ESCAPE}[`, index)) return undefined;
+  const end = value.indexOf("m", index + 2);
+  if (end === -1 || !/^[0-9;]*$/.test(value.slice(index + 2, end))) return undefined;
+  return value.slice(index, end + 1);
+}
+
+function terminalColumns(level: LogLevel): number | undefined {
+  const primary = level === "ERROR" || level === "FATAL" || level === "WARN" ? process.stderr.columns : process.stdout.columns;
+  const fallback = process.stdout.columns ?? process.stderr.columns;
+  const environment = Number(process.env.COLUMNS);
+  return [primary, fallback, environment].find((value) => Number.isInteger(value) && Number(value) > 1)
+    ?? (process.env.NODE_ENV === "production" ? DEFAULT_PRODUCTION_COLUMNS : undefined);
+}
+
 interface Logger {
   header(title: string, subtitle?: string): void;
   debug(message: string, details?: unknown): void;
@@ -156,27 +208,29 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
     }
 
     const timestamp = formatTimestamp(new Date());
-    const output = `${paint(COLORS.dim, `[${timestamp}]`)} ${paint(LEVEL_COLORS[level], `${LEVEL_ICONS[level]} [${level}]`)} ${paint(scopeColor, `[${scope}]`)} ${message}`;
-    const line = formatDetails(redact(details));
+    const output = `${paint(COLORS.dim, `[${timestamp}]`)} ${paint(LEVEL_COLORS[level], `${LEVEL_ICONS[level]} [${level}]`)} ${paint(scopeColor, `[${scope}]`)} ${oneLine(message)}`;
+    const line = oneLine(formatDetails(redact(details)));
     const formattedOutput = line ? `${output} ${paint(COLORS.dim, "·")} ${line}` : output;
+    // Dev note: The terminal may be narrow, but the log line has taken a solemn vow not to wander.
+    const fittedOutput = fitConsoleLine(formattedOutput, terminalColumns(level));
 
     if (level === "ERROR" || level === "FATAL") {
       // Dev note: Errors use stderr because even logs need healthy boundaries.
-      console.error(formattedOutput);
+      console.error(fittedOutput);
       return;
     }
 
     if (level === "WARN") {
-      console.warn(formattedOutput);
+      console.warn(fittedOutput);
       return;
     }
 
     if (level === "DEBUG") {
-      console.debug(formattedOutput);
+      console.debug(fittedOutput);
       return;
     }
 
-    console.info(formattedOutput);
+    console.info(fittedOutput);
   }
 
   return Object.freeze({
@@ -340,6 +394,6 @@ function formatTimestamp(date: Date): string {
   return `${values.month}/${values.day}/${values.year} ` + `${values.hour}:${values.minute}:${values.second} ` + `${values.dayPeriod}`;
 }
 
-export { createLogger, createRequestLogger, createSapphireLogger, formatTimestamp, scopedLogger };
+export { createLogger, createRequestLogger, createSapphireLogger, fitConsoleLine, formatTimestamp, scopedLogger };
 
 export type { LogContext, LogLevel, Logger, ScopedSapphireLogger };

@@ -61,7 +61,7 @@ const getFormattedPlayerCount = (formatted: { content?: string }): number => {
 const createCard = (serverName: string, online: ReturnType<typeof formatPlayers>, offline: ReturnType<typeof formatPlayers>, requestedBy: string): ContainerBuilder => {
   const card = new ContainerBuilder()
     .setAccentColor(COLORS.accent)
-    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-players.png")))
+    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-players.png").setDescription("Arrakis server player activity")))
     .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Players"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small));
@@ -123,6 +123,7 @@ const command = {
       const offlineCount = getPlayerCount(offlineData, offline);
 
       const banner = createDuneBanner({
+        artwork: "players",
         filename: "dune-server-players.png",
         title: "Dune Players",
         subtitle: `${onlineCount} ONLINE • ${offlineCount} OFFLINE`,

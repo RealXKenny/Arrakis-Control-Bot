@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LogLevel } from "@sapphire/framework";
 
-import { createLogger, createSapphireLogger } from "../../src/client/logger";
+import { createLogger, createSapphireLogger, fitConsoleLine } from "../../src/client/logger";
 
 function stripAnsi(value: string): string {
   return value
@@ -52,6 +52,35 @@ describe("Sapphire logger adapter", () => {
 });
 
 describe("startup presentation", () => {
+  it("fits a colored log to the current terminal width without wrapping", () => {
+    const line = "\u001B[32m[INFO]\u001B[0m " + "desert telemetry ".repeat(10);
+    const fitted = fitConsoleLine(line, 80);
+
+    expect(stripAnsi(fitted)).toHaveLength(79);
+    expect(stripAnsi(fitted)).toMatch(/…$/);
+  });
+
+  it("collapses multiline messages before writing them", () => {
+    vi.stubEnv("NO_COLOR", "1");
+    const output = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    createLogger("SYSTEM", "INFO").info("First line\nsecond line\tthird line");
+
+    expect(output).toHaveBeenCalledWith(expect.stringContaining("First line second line third line"));
+    expect(String(output.mock.calls[0]?.[0])).not.toContain("\n");
+  });
+
+  it("uses a safe production width when a container does not expose its terminal size", () => {
+    vi.stubEnv("NO_COLOR", "1");
+    vi.stubEnv("NODE_ENV", "production");
+    const output = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    createLogger("CONFIG", "INFO").info("service enabled ".repeat(20));
+
+    expect(Array.from(String(output.mock.calls[0]?.[0]))).toHaveLength(119);
+    expect(String(output.mock.calls[0]?.[0])).toMatch(/…$/);
+  });
+
   it("keeps redirected logs plain and preserves warning severity", () => {
     vi.stubEnv("NO_COLOR", "1");
     vi.stubEnv("FORCE_COLOR", "1");

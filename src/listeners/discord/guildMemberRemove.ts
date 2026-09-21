@@ -27,6 +27,7 @@ class GuildMemberRemove extends Listener<typeof Events.GuildMemberRemove> {
     }
 
     const banner = await createMemberBanner({
+      artwork: "goodbye",
       filename: "member-goodbye.png",
       title: "Goodbye",
       member,

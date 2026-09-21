@@ -16,8 +16,11 @@ const BUTTON_IDS = [
   "ticket-open",
   "ticket-review",
   "ticket-unclaim",
+  "bot-control:status", "bot-control:refresh-panels", "bot-control:reload", "bot-control:resync",
+  "bot-control:restart", "bot-control:restart-confirm", "bot-control:cancel",
+  "staff-application:open",
 ] as const;
-const BUTTON_PREFIXES = ["voice-kick-page:", "voice-reset:", "voice-close:", "voice-cancel:", "help-page:", "market-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:"] as const;
+const BUTTON_PREFIXES = ["voice-kick-page:", "voice-reset:", "voice-close:", "voice-cancel:", "help-page:", "market-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:", "staff-application:accept:", "staff-application:deny:"] as const;
 const MENU_IDS = ["self-assignable-roles", "ticket-category"] as const;
 const MENU_PREFIXES = ["voice-member:", "help-category:", "market-category:"] as const;
 const MODAL_IDS = [
@@ -29,7 +32,7 @@ const MODAL_IDS = [
   "ticket-create-modal",
   "ticket-review-modal",
 ] as const;
-const MODAL_PREFIXES = ["voice-edit:", "ticket-create-modal:", "ticket-review-modal:"] as const;
+const MODAL_PREFIXES = ["voice-edit:", "ticket-create-modal:", "ticket-review-modal:", "staff-application:submit", "staff-application-review:"] as const;
 
 function matchesCustomId(customId: string, exactId: string, prefix?: string): boolean {
   return customId === exactId || Boolean(prefix && customId.startsWith(prefix));

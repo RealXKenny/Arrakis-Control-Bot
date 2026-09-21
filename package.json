@@ -1,6 +1,6 @@
 {
   "name": "Arrakis-Control-Bot",
-  "version": "1.10.7",
+  "version": "1.10.8",
   "description": "A modular Sapphire Framework and Discord.js v14 bot.",
   "main": "src/index.ts",
   "engines": {
@@ -13,7 +13,8 @@
     "start": "node dist/src/index.js",
     "start:single": "node dist/src/client/shard.js",
     "test": "npm run build && vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "env:migrate": "node scripts/migrate-env.mjs"
   },
   "dependencies": {
     "@sapphire/framework": "^5.5.1",

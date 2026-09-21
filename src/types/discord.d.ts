@@ -8,11 +8,15 @@ import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridg
 import type { VoiceService } from "../modules/voice/VoiceService";
 import type { MusicService } from "../modules/music/MusicService";
 import type { LevelingService } from "../modules/community/leveling/LevelingService";
+import type { StaffApplicationService } from "../modules/community/applications/StaffApplicationService";
+import type { MessageArchiveService } from "../modules/audit/MessageArchiveService";
 
 declare module "discord.js" {
   interface Client {
     music?: MusicService;
     leveling?: LevelingService;
+    staffApplications?: StaffApplicationService;
+    messageArchive?: MessageArchiveService;
     voiceRooms?: VoiceService;
     chatBridge?: DiscordGameChatBridge;
     auditLogger: DiscordAuditLogger;
@@ -30,6 +34,7 @@ declare module "discord.js" {
     discordFaqPanelChannelId?: string;
     discordAnnouncementChannelId?: string;
     discordTicketPanelChannelId?: string;
+    discordBotControlChannelId?: string;
     discordTicketCategoryId?: string;
     discordTicketTranscriptChannelId?: string;
     duneApi: DuneApi;

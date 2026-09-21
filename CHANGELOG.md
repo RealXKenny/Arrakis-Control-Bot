@@ -2,6 +2,43 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [Unreleased]
+
+No changes yet.
+
+## [1.10.8] - 2026-09-20
+
+### Added
+
+- Add configurable `MUSIC_IDLE_PLAYLIST_URL` waiting music, using the selected Spotify album whenever no member-requested track is active and yielding immediately when a request arrives.
+- Add persistent Bronze, Silver, and Gold achievements for rewarded messages, voice participation, and community levels, with atomic one-time unlock claims across restarts and shards.
+- Add original cinematic banner artwork for the dedicated level-up card and the separate message, voice, and level achievement card designs, with member avatars and Arrakis-themed announcement copy layered dynamically.
+- Add `LEVEL_ANNOUNCEMENT_CHANNEL_ID` so every chat- and voice-earned progression announcement is delivered to one operator-selected channel without pinging members.
+- Add 22 original cinematic backgrounds so every existing image-bearing community, operations, player, economy, lounge, release, and member-lifecycle panel has its own scene.
+- Add a private, persistent Discord Bot Control Center configured by `BOT_CONTROL_CHANNEL_ID`, with live health, full panel refresh, module reload, service resynchronization, audit logging, and confirmed all-shard restart controls.
+- Add original command-center artwork dedicated to the Bot Control Center.
+- Add a PostgreSQL-backed Appy-style staff application system with a public five-question form, private review cards, accept/deny reasons, configurable reviewer/pending/accepted roles, applicant DMs, duplicate protection, and reapplication cooldowns.
+- Add original staff-application panel artwork and include the panel in startup and Bot Control refreshes.
+- Add `npm run env:migrate` to safely rebuild production `.env` files using the boxed `.env.example` layout while preserving values, backups, and unknown custom keys.
+- Add a second Blueprint panel link to the Dune Docker community blueprint library.
+- Add a PostgreSQL message archive for every guild message, including content, author/channel context, attachments, embeds, components, stickers, replies, flags, and webhook metadata, with durable edit revision history and deletion timestamps.
+- Add activity-channel cards for individual edits, deletions, and bulk deletions, recovering original content from PostgreSQL when Discord supplies only a partial uncached message.
+
+### Changed
+
+- Redesign music progress as a player-style play/pause timeline with elapsed time, scrubber marker, duration, and volume cue, including live updates during waiting music.
+- Reapply the listen-only server mute immediately when a moderator manually unmutes a member who remains inside the Music Lounge.
+- Make console logs terminal-width aware at write time, collapse embedded whitespace, and truncate with an ellipsis before a physical wrap; compact the startup integration summary so all feature states remain visible on typical panels.
+- Replace the shared gradient banner with a typed artwork catalog and one consistent aspect-cover renderer, while preserving dynamic panel titles, live values, avatar overlays, attachment names, and accessible descriptions.
+- Refresh every persistent panel at startup and from the control center, replacing prior attachments so existing messages adopt their dedicated artwork without changing message IDs.
+- Suppress transient release-check fetch failures until five consecutive attempts fail, then report only every fifth failure and log recovery.
+
+### Verification
+
+- TypeScript build, ESLint, all 473 automated tests across 78 files, environment-layout validation, and `git diff --check` pass locally.
+- The production dependency audit reports zero vulnerabilities.
+- Live Discord panels, staff decisions and role changes, PostgreSQL message capture, edit/delete activity cards, Lavalink waiting-music playback, and immediate Music Lounge re-muting still require deployment verification.
+
 ## [1.10.7] - 2026-09-20
 
 ### Added

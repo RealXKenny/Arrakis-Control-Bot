@@ -84,7 +84,7 @@ describe("blueprint upload modal", () => {
 });
 
 describe("Sapphire interaction-handler store", () => {
-  it("discovers 28 feature handlers and two system fallbacks without a gateway login", async () => {
+  it("discovers the feature handlers and system fallbacks without a gateway login", async () => {
     const { handlers } = await getStoreSnapshot();
     expect(handlers).toEqual(
       expect.arrayContaining([
@@ -118,8 +118,11 @@ describe("Sapphire interaction-handler store", () => {
         "ticket-review-modal",
         "unavailable-component",
         "unavailable-modal",
+        "bot-control-button",
+        "staff-application-button",
+        "staff-application-modal",
       ]),
     );
-    expect(handlers).toHaveLength(30);
+    expect(handlers).toHaveLength(33);
   });
 });

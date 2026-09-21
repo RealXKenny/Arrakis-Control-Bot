@@ -55,6 +55,7 @@ async function ensureRulesPanel(client: Client, channelId?: string | null): Prom
 
   if (existingPanel) {
     const banner = createDuneBanner({
+      artwork: "rules",
       filename: PANEL_IMAGE_NAME,
       title: "Rules",
       subtitle: "COMMUNITY GUIDELINES",
@@ -64,6 +65,7 @@ async function ensureRulesPanel(client: Client, channelId?: string | null): Prom
     await existingPanel.edit({
       content: null,
       embeds: [],
+      attachments: [],
       components: [buildRulesPanel()],
       files: [
         {
@@ -78,6 +80,7 @@ async function ensureRulesPanel(client: Client, channelId?: string | null): Prom
   }
 
   const banner = createDuneBanner({
+    artwork: "rules",
     filename: PANEL_IMAGE_NAME,
     title: "Rules",
     subtitle: "COMMUNITY GUIDELINES",
