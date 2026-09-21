@@ -26,9 +26,7 @@ describe("Sapphire logger adapter", () => {
     logger.info("ApplicationCommandRegistries:", "Initializing...");
 
     expect(output).toHaveLength(1);
-    expect(stripAnsi(String(output[0]?.[0]))).toMatch(
-      /^\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} [AP]M\] ● \[INFO\] \[BOT\] ApplicationCommandRegistries: Initializing\.\.\.$/,
-    );
+    expect(stripAnsi(String(output[0]?.[0]))).toMatch(/^\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} [AP]M\] ● \[INFO\] \[BOT\] ApplicationCommandRegistries: Initializing\.\.\.$/);
   });
 
   it("honors the configured Sapphire log threshold", () => {
@@ -53,7 +51,6 @@ describe("Sapphire logger adapter", () => {
   });
 });
 
-
 describe("startup presentation", () => {
   it("keeps redirected logs plain and preserves warning severity", () => {
     vi.stubEnv("NO_COLOR", "1");
@@ -65,7 +62,7 @@ describe("startup presentation", () => {
     logger.header("ARRAKIS CONTROL");
     logger.warn("Music unavailable; retrying.");
     expect(output.mock.calls.flat().join("\n")).not.toContain(String.fromCharCode(27));
-    expect(output.mock.calls.flat().join("\n")).toContain("Dune: Awakening Discord control bot");
+    expect(output.mock.calls.flat().join("\n")).toContain("Dune: Awakening Bot");
     expect(write).toHaveBeenCalledWith("\u001B[2J\u001B[3J\u001B[H");
     expect(warning).toHaveBeenCalledWith(expect.stringContaining("▲ [WARN] [BOT] Music unavailable; retrying."));
   });

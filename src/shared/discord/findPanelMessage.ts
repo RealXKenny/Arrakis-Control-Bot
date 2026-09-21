@@ -34,6 +34,7 @@ function containsText(components: readonly unknown[], marker: string): boolean {
       return true;
     }
 
+    // Dev note: Components nest like sietch tunnels; keep searching until the marker surfaces.
     return Array.isArray(item.components) && containsText(item.components, marker);
   });
 }

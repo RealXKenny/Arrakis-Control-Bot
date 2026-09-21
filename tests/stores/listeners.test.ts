@@ -9,6 +9,7 @@ describe("Sapphire listener store", () => {
       expect.arrayContaining([
         "guildMemberAdd",
         "guildMemberRemove",
+        "levelingMessages",
         "voiceStateUpdate",
         "musicRequest",
         "interactionCreate",
@@ -19,6 +20,7 @@ describe("Sapphire listener store", () => {
         "Invalidated",
         "ShardDisconnect",
         "ShardError",
+        "ShardReady",
         "ShardReconnecting",
         "ShardResume",
         "AutocompleteError",

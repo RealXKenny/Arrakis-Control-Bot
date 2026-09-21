@@ -1,14 +1,15 @@
 import { container } from "@sapphire/framework";
-import { MessageFlags, type Interaction } from "discord.js";
+import { MessageFlags, RESTJSONErrorCodes, type Interaction } from "discord.js";
 import { scopedLogger } from "../../client/logger";
 const INTERACTION_ERROR_MESSAGE = "There was an error while handling this interaction.";
 
-async function respondWithInteractionError(interaction: Interaction): Promise<void> {
+async function respondWithInteractionError(interaction: Interaction, cause?: unknown): Promise<void> {
+  if (isUnknownInteractionError(cause)) return;
   if (interaction.isAutocomplete()) {
     try {
       await interaction.respond([]);
     } catch (error: unknown) {
-      scopedLogger(container.logger, "INTERACTIONS").error("Unable to send autocomplete fallback.", error);
+      if (!isUnknownInteractionError(error)) scopedLogger(container.logger, "INTERACTIONS").error("Unable to send autocomplete fallback.", error);
     }
     return;
   }
@@ -22,8 +23,15 @@ async function respondWithInteractionError(interaction: Interaction): Promise<vo
       await interaction.reply({ content: INTERACTION_ERROR_MESSAGE, flags: MessageFlags.Ephemeral });
     }
   } catch (error: unknown) {
-    scopedLogger(container.logger, "INTERACTIONS").error("Unable to send interaction error response.", error);
+    if (!isUnknownInteractionError(error)) scopedLogger(container.logger, "INTERACTIONS").error("Unable to send interaction error response.", error);
   }
+}
+
+function isUnknownInteractionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; rawError?: { code?: unknown } };
+  return candidate.code === RESTJSONErrorCodes.UnknownInteraction
+    || candidate.rawError?.code === RESTJSONErrorCodes.UnknownInteraction;
 }
 
 function formatError(error: unknown): string {
@@ -50,4 +58,4 @@ function describeInteraction(interaction: Interaction): string {
   return "unknown";
 }
 
-export { INTERACTION_ERROR_MESSAGE, describeInteraction, formatError, respondWithInteractionError };
+export { INTERACTION_ERROR_MESSAGE, describeInteraction, formatError, isUnknownInteractionError, respondWithInteractionError };

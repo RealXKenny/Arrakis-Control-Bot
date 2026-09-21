@@ -18,8 +18,14 @@ class InteractionCreate extends Listener<typeof Events.InteractionCreate> {
       guildId: interaction.guildId,
       channelId: interaction.channelId,
     });
+    if (isMusicComponent(interaction)) return;
     await this.container.client.auditLogger?.interaction(interaction, interactionType);
   }
+}
+
+function isMusicComponent(interaction: Interaction): boolean {
+  return (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) &&
+    (interaction.customId.startsWith("music:") || interaction.customId.startsWith("music-edit:") || interaction.customId.startsWith("music-confirm:"));
 }
 
 export { InteractionCreate };

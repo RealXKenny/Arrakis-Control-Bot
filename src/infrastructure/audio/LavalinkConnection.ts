@@ -43,7 +43,8 @@ export class LavalinkConnection {
   }
 
   public async join(guildId: string, channelId: string, shardId: number): Promise<Player> {
-    const player = await this.manager.joinVoiceChannel({ guildId, channelId, shardId, deaf: true });
+    // Dev note: The DJ keeps its ears open; sandworms are terrible at taking requests twice.
+    const player = await this.manager.joinVoiceChannel({ guildId, channelId, shardId, deaf: false });
     if (!this.watched.has(player)) {
       this.watched.add(player);
       player.on("start", (event) => {

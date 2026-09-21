@@ -1,5 +1,8 @@
 import { Events, Listener } from "@sapphire/framework";
 import { scopedLogger } from "../../client/logger";
+import { ShardReconnectTracker } from "../../shared/discord/shardReconnectTracker";
+
+const reconnects = new ShardReconnectTracker();
 
 class ClientError extends Listener<typeof Events.Error> {
   public constructor(context: Listener.LoaderContext) {
@@ -33,7 +36,7 @@ class ShardDisconnect extends Listener<typeof Events.ShardDisconnect> {
     super(context, { event: Events.ShardDisconnect, name: "ShardDisconnect" });
   }
   public override run(event: CloseEvent, shardId: number): void {
-    scopedLogger(this.container.logger, "GATEWAY").warn(`Discord shard ${shardId} disconnected (code ${event.code}). Discord.js will reconnect automatically.`);
+    reconnects.disconnected(shardId, event.code);
   }
 }
 
@@ -42,7 +45,10 @@ class ShardReconnecting extends Listener<typeof Events.ShardReconnecting> {
     super(context, { event: Events.ShardReconnecting, name: "ShardReconnecting" });
   }
   public override run(shardId: number): void {
-    scopedLogger(this.container.logger, "GATEWAY").warn(`Discord shard ${shardId ?? "unknown"} is reconnecting.`);
+    const attempt = reconnects.reconnecting(shardId);
+    if (!attempt.shouldWarn) return;
+    const closeCode = attempt.closeCode === undefined ? "unknown" : String(attempt.closeCode);
+    scopedLogger(this.container.logger, "GATEWAY").warn(`Discord shard ${shardId} exceeded five consecutive reconnect attempts (attempt ${attempt.attempts}, last close code ${closeCode}).`);
   }
 }
 
@@ -51,7 +57,16 @@ class ShardResume extends Listener<typeof Events.ShardResume> {
     super(context, { event: Events.ShardResume, name: "ShardResume" });
   }
   public override run(shardId: number, replayedEvents: number): void {
-    scopedLogger(this.container.logger, "GATEWAY").info(`Discord shard ${shardId ?? "unknown"} resumed after a connection hiccup (${replayedEvents ?? 0} events replayed).`);
+    reportRecovery(this.container.logger, shardId, `resumed with ${replayedEvents ?? 0} events replayed`);
+  }
+}
+
+class ShardReady extends Listener<typeof Events.ShardReady> {
+  public constructor(context: Listener.LoaderContext) {
+    super(context, { event: Events.ShardReady, name: "ShardReady" });
+  }
+  public override run(shardId: number): void {
+    reportRecovery(this.container.logger, shardId, "started a fresh gateway session");
   }
 }
 
@@ -64,4 +79,10 @@ class Invalidated extends Listener<typeof Events.Invalidated> {
   }
 }
 
-export { ClientError, ClientWarn, Invalidated, ShardDisconnect, ShardError, ShardReconnecting, ShardResume };
+function reportRecovery(logger: ShardResume["container"]["logger"], shardId: number, result: string): void {
+  const recovery = reconnects.recovered(shardId);
+  if (!recovery.shouldReport) return;
+  scopedLogger(logger, "GATEWAY").info(`Discord shard ${shardId} recovered after ${recovery.attempts} reconnect attempts and ${result}.`);
+}
+
+export { ClientError, ClientWarn, Invalidated, ShardDisconnect, ShardError, ShardReady, ShardReconnecting, ShardResume };

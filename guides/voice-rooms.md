@@ -21,18 +21,18 @@ The bot requests the `GuildVoiceStates` gateway intent. Restart the updated bot 
 All voice settings are listed in `.env.example`:
 
 ```dotenv
-VOICE_GUILD_ID=
+GUILD_ID=
 VOICE_JOIN_CHANNEL_ID=
 VOICE_CATEGORY_ID=
 VOICE_PANEL_CHANNEL_ID=
 VOICE_PANEL_PUBLIC=true
 ```
 
-Fill in all four IDs and configure `DATABASE_URL` to apply setup automatically on startup. The bot reuses the saved panel message when its channel is unchanged. Leave all four IDs blank to manage setup through `/voice setup` and PostgreSQL instead. Partial IDs fail startup validation.
+Fill in the shared guild ID plus all three voice IDs and configure `DATABASE_URL` to apply setup automatically on startup. The bot reuses the saved panel message when its channel is unchanged. Leave the three voice-specific IDs blank to manage setup through `/voice setup` and PostgreSQL instead. Partial IDs fail startup validation.
 
 `VOICE_PANEL_PUBLIC=true` makes the panel channel readable by everyone when publishing or updating its panel. It removes explicit View Channel / Read Message History denies from that channel's overwrites and grants those permissions to `@everyone`, without changing message-writing permissions. The bot needs **Manage Roles** in the panel channel. Room ownership checks and private action replies remain enforced.
 
-Set `VOICE_PANEL_PUBLIC=false` to leave channel permissions under manual administration; it does not undo previously granted public access. With environment setup enabled, startup reapplies it, including re-enabling creation after `/voice disable`. Clear all four IDs if the saved slash-command configuration should remain authoritative.
+Set `VOICE_PANEL_PUBLIC=false` to leave channel permissions under manual administration; it does not undo previously granted public access. With environment setup enabled, startup reapplies it, including re-enabling creation after `/voice disable`. Clear the three voice-specific IDs if the saved slash-command configuration should remain authoritative.
 
 ## Owner controls
 

@@ -6,9 +6,10 @@ export interface VoiceSetupConfig {
 }
 
 export function loadVoiceSetup(env: NodeJS.ProcessEnv): VoiceSetupConfig | undefined {
-  const keys = ["VOICE_GUILD_ID", "VOICE_JOIN_CHANNEL_ID", "VOICE_CATEGORY_ID", "VOICE_PANEL_CHANNEL_ID"] as const;
-  const values = keys.map((key) => env[key]?.trim() ?? "");
-  if (values.every((value) => !value)) return undefined;
+  const keys = ["GUILD_ID", "VOICE_JOIN_CHANNEL_ID", "VOICE_CATEGORY_ID", "VOICE_PANEL_CHANNEL_ID"] as const;
+  const values = [env.VOICE_GUILD_ID?.trim() || env.GUILD_ID?.trim() || "", ...keys.slice(1).map((key) => env[key]?.trim() ?? "")];
+  if (values.slice(1).every((value) => !value)) return undefined;
+  // Dev note: Half a voice-room map is just an expensive way to get lost.
   for (const [index, value] of values.entries()) {
     if (!/^\d{17,20}$/.test(value)) throw new Error(`${keys[index]} must be configured with a valid Discord ID when environment voice setup is used.`);
   }

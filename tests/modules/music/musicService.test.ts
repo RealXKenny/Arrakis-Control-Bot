@@ -65,6 +65,25 @@ it("joins the permanent channel, sets volume and plays the first search result",
   expect(service.describeQueue()).toContain("Song");
 });
 
+it("normalizes a quoted title and artist and queues the best search match", async () => {
+  const { service, guild } = setup();
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [
+    { ...track("~EVAN COVER || 'As It Was' By Harry Styles at KCON~"), info: { ...track().info, title: "~EVAN COVER || 'As It Was' By Harry Styles at KCON~", author: "Evan" } },
+    { ...track("As It Was"), info: { ...track().info, title: "As It Was", author: "Harry Styles" } },
+  ] });
+
+  await service.request(guild, "requests", "user", '"As It Was" by Harry Styles');
+
+  expect(mocked.resolve).toHaveBeenCalledWith("scsearch:As It Was Harry Styles");
+  expect(mocked.player.playTrack).toHaveBeenCalledWith(expect.objectContaining({ track: expect.objectContaining({ encoded: "As It Was" }) }));
+  expect(service.auditSnapshot()).toMatchObject({
+    available: true,
+    connected: true,
+    current: { title: "As It Was", artist: "Harry Styles", requester: "user" },
+    queue: [],
+  });
+});
+
 it("advances once on track end and rejects delayed duplicate end events", async () => {
   const { service, guild } = setup();
   await service.request(guild, "requests", "user", "one");
@@ -443,6 +462,19 @@ it("detects silent stalls and retries the same song from its last position", asy
     expect(storage.save.mock.lastCall![1]).toMatchObject({ position: 650, queue: [expect.objectContaining({ requester: "other" })] });
     await service.stop();
   } finally { vi.useRealTimers(); }
+});
+
+it("shows the latest Lavalink position in the now-playing progress bar", async () => {
+  const { service, guild } = setup();
+  const song = track("Long Song");
+  song.info.length = 240_000;
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [song] });
+  await service.request(guild, "requests", "user", "song");
+  mocked.player.position = 90_000;
+
+  const description = service.nowPlayingMessage().embeds[0].toJSON().description;
+  expect(description).toContain("▰▰▰▰▰▰▱▱");
+  expect(description).toContain("1:30 / 4:00");
 });
 
 it("recovers when playback is accepted but never starts", async () => {

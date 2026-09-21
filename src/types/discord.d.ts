@@ -7,10 +7,12 @@ import type { TicketRepository } from "../infrastructure/database/tickets/Ticket
 import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
 import type { VoiceService } from "../modules/voice/VoiceService";
 import type { MusicService } from "../modules/music/MusicService";
+import type { LevelingService } from "../modules/community/leveling/LevelingService";
 
 declare module "discord.js" {
   interface Client {
     music?: MusicService;
+    leveling?: LevelingService;
     voiceRooms?: VoiceService;
     chatBridge?: DiscordGameChatBridge;
     auditLogger: DiscordAuditLogger;

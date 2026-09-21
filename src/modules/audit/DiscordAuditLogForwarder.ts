@@ -42,6 +42,7 @@ function startAuditLogForwarder(client: AuditClient): NodeJS.Timeout {
           const entries = [...auditLogs.entries.values()];
 
           if (!initialized) {
+            // Dev note: Startup history is context, not an invitation to reenact the entire past.
             entries.forEach((entry) => {
               seenEntries.add(entry.id);
             });

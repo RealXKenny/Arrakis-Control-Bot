@@ -146,7 +146,7 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
   const threshold = LEVELS[normalizedLevel] ?? LEVELS.INFO;
 
   const colorEnabled = process.env.NO_COLOR === undefined && process.env.TERM !== "dumb" && (process.env.FORCE_COLOR !== undefined ? process.env.FORCE_COLOR !== "0" : Boolean(process.stdout.isTTY));
-  const paint = (color: string, text: string): string => colorEnabled ? `${color}${text}${COLORS.reset}` : text;
+  const paint = (color: string, text: string): string => (colorEnabled ? `${color}${text}${COLORS.reset}` : text);
   const scopeColor = SCOPE_COLORS[scope] ?? SCOPE_COLORS.default;
 
   function write(level: LogLevel, message: string, details?: unknown): void {
@@ -180,7 +180,7 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
   }
 
   return Object.freeze({
-    header(title: string, subtitle = "Dune: Awakening Discord control bot"): void {
+    header(title: string, subtitle = "Dune: Awakening Bot"): void {
       if (LEVELS.INFO < threshold) {
         return;
       }
@@ -213,10 +213,7 @@ interface ScopedSapphireLogger extends ILogger {
 
 function createRequestLogger(context: LogContext, scope = "REQUEST"): Logger {
   const requestLogger = createLogger(scope);
-  const mergeDetails = (details: unknown): LogContext =>
-    details && typeof details === "object" && !Array.isArray(details)
-      ? { ...context, ...(details as LogContext) }
-      : { ...context, details };
+  const mergeDetails = (details: unknown): LogContext => (details && typeof details === "object" && !Array.isArray(details) ? { ...context, ...(details as LogContext) } : { ...context, details });
 
   const logger: Logger = {
     header: requestLogger.header,

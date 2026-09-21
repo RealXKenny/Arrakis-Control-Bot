@@ -2,6 +2,50 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [1.10.7] - 2026-09-20
+
+### Added
+
+- Add PostgreSQL-backed community leveling with automatic schema upgrades, persistent message/voice activity, server ranking, level-up announcements, and restart-safe XP-event scheduling.
+- Add `/level rank [member]` with a personalized desert image card showing the member avatar, level, server rank, total XP, progress, rewarded messages, rewarded voice minutes, current multiplier, earned tier, and next role milestone.
+- Add `/level leaderboard` with a separate cinematic night-desert image, top-ten member avatars, ranks, levels, tier names, and total XP.
+- Add `/level event schedule|status|stop` for Manage Server administrators to configure persistent 2× XP windows from 15 minutes to seven days, starting immediately or up to 30 days ahead.
+- Add `/level roles status` so administrators can verify all eight configured reward-role IDs, role existence, milestone levels, and whether the bot can manage them.
+- Add voice participation rewards of 15 XP per minute when at least two eligible human members are active in a non-AFK channel; bots and deafened or suppressed members do not qualify.
+- Add automatic highest-tier role assignment for **Arrakis Wanderer**, **Sietch Dweller**, **Desert Survivor**, **Sand Warrior**, **Spice Hunter**, **Fremen Initiate**, **Desert Master**, and **Chosen of Arrakis**.
+- Add permanent 2× XP for Discord server boosters and scheduled server-wide 2× events; both bonuses apply to message and voice XP and stack multiplicatively to 4×.
+- Add separate generated cinematic assets for personal level cards and the leaderboard, plus selective executable `Dev note:` easter eggs around progression, music, logging, and recovery logic.
+- Add a deployable Lavalink v4 template pinned to LavaSrc 4.8.3, with Spotify catalog search, SoundCloud playback mirroring, quality-focused audio settings, safe secret placeholders, and a separate Lavalink environment example.
+
+### Changed
+
+- Clean up `.env.example` by removing redundant leveling knobs, using built-in XP defaults, reusing `GUILD_ID` for music and voice-room configuration, and retaining the old feature-specific guild variables only as migration fallbacks.
+- Move every level reward role ID into the explicit `LEVEL_ROLE_*_ID` environment settings and document the required Discord role hierarchy and Manage Roles permission.
+- Replace the previous one-minute message reward lock with atomic eight-second rapid-spam protection and recent-message fingerprint blocking. Meaningful messages now earn a dynamic 8–25 base XP from length, vocabulary, variety, attachments, and reply context.
+- Increase progression to a demanding `250 × level²` cumulative XP curve and award the eight roles only at milestone levels 1, 10, 20, 30, 40, 50, 60, and 70, keeping only the member's highest earned tier.
+- Streamline `/level rank` and level-up announcements into accessible image-first panels, fit avatars across the full circular halo, correct panel spacing, and simplify supporting text.
+- Give the leaderboard its own image layout instead of reusing the personal level card design.
+- Expand lyrics retrieval from strict LRCLIB metadata matching to staged exact, full-title and scored remix/mashup fragment searches, with 15-minute caching and matched-recording attribution.
+- Add elapsed/total time and an 18-segment playback bar to music status views, with a throttled 15-second refresh for the public now-playing card.
+- Parse `"Song Title" by Artist` requests and rank Lavalink search results by title, artist and noisy cover/remix/live markers instead of always accepting the first result.
+- Extend music matching with `Artist - Song Title` parsing, symmetric token precision, ISRC preference, and penalties for previews, snippets, tributes, fan uploads, performances, and rehearsals.
+- Raise the new-install music default from 30% to unity gain at 100% and document a high-quality Lavalink profile using Opus quality 10, high resampling, stable buffers, and SoundCloud preview filtering.
+- Make `spsearch` the recommended new-install search source, accept Spotify, Apple Music and Deezer links, and support `spsearch`, `amsearch`, and `dzsearch` alongside the existing Lavalink search prefixes.
+- Replace context-free music activity receipts with one post-action Discord audit card containing the submitted query or volume, success/rejection/expiry outcome, interaction ID and timestamp, user/display name, server/channel IDs, locale, playback position, volume, Lavalink/voice state, current track/requester, public track URL, and up to eight queued songs.
+
+### Fixed
+
+- Correct singular activity labels on rank cards so counts such as `1 message` and `1 voice minute` render naturally.
+- Treat Discord `10062 Unknown Interaction` responses as terminal, acknowledge music controls before slow work, and avoid repeated fallback replies and duplicate error logs for expired interaction tokens.
+- Join the Music Lounge undeafened without changing its human listen-only mute policy.
+- Avoid duplicate pre-action music audit entries, exclude lyrics text from activity logs, and strip query strings from logged track URLs to prevent accidental credential leakage.
+- Suppress routine Discord shard disconnect/reconnect/resume noise through five consecutive attempts, emit one warning on attempt six, report recovery only after a warned episode, and remove the duplicate parent shard-manager reconnect line.
+
+### Verification
+
+- TypeScript build, ESLint, all 437 automated tests across 69 files and `git diff --check` pass locally. The production dependency audit reports zero vulnerabilities.
+- Live Discord card rendering, role assignment, voice XP, Lavalink audio/search, LRCLIB matching, and activity-log delivery still require deployment verification.
+
 ## [1.10.6] - 2026-09-20
 
 ### Added

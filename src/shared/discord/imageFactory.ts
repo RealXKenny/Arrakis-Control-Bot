@@ -141,6 +141,7 @@ function drawCategoryCard(context: CanvasRenderingContext2D, categories: readonl
   context.font = "19px sans-serif";
   context.fillText("Select the closest match in Discord", x + 34, y + 82);
 
+  // Dev note: Six routes fit the sign; route seven would need its own ornithopter.
   categories.slice(0, 6).forEach((label, index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);

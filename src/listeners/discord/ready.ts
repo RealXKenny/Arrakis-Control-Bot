@@ -63,8 +63,10 @@ class Ready extends Listener<typeof Events.ClientReady> {
     }
 
     const botUser = client.user;
+    // Dev note: Start the caravans only after Discord confirms the gate is open.
     client.chatBridge?.start();
     client.music?.start();
+    client.leveling?.start();
     const serverName = process.env.SERVER_NAME || DEFAULT_SERVER_NAME;
     const presenceStatuses = statuses(serverName);
 
@@ -125,6 +127,7 @@ async function runReadyTask(label: string, task: () => Promise<unknown>): Promis
   try {
     await task();
   } catch (error: unknown) {
+    // Dev note: One broken signpost should not close every stall in the sietch.
     scopedLogger(container.logger, "COMMUNITY").error(`Unable to ${label}.`, error);
   }
 }

@@ -1,4 +1,5 @@
-import { ContainerBuilder, FileBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Interaction, type MessageCreateOptions } from "discord.js";
+import { ChannelType, ContainerBuilder, escapeMarkdown, FileBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Interaction, type MessageCreateOptions } from "discord.js";
+import type { MusicAuditSnapshot } from "../music/MusicService";
 
 import { createLogger } from "../../client/logger";
 import { DISCORD_LIMITS, sanitizeAttachmentName, truncateDiscordText } from "../../shared/discord/discordLimits";
@@ -35,6 +36,13 @@ interface AuditFile {
   description?: string;
 }
 
+interface MusicInteractionRecord {
+  action: string;
+  status: "Succeeded" | "Rejected" | "Expired";
+  outcome: string;
+  input?: string;
+}
+
 class DiscordAuditLogger {
   public readonly client: Client;
   public readonly channelId: string | undefined;
@@ -47,12 +55,19 @@ class DiscordAuditLogger {
   }
 
   async interaction(interaction: Interaction, type: string): Promise<void | unknown> {
-    return this.sendTo(this.activityChannelId, "Discord interaction", [
-      `**Type:** ${type}`,
-      `**User:** ${interaction.user?.tag ?? "Unknown"} (${interaction.user?.id ?? "Unknown"})`,
-      `**Guild:** ${interaction.guild?.name ?? "Direct message"}`,
-      `**Channel:** ${interaction.channelId ?? "Unknown"}`,
-    ]);
+    return this.sendTo(this.activityChannelId, "Discord interaction", interactionContext(interaction, type));
+  }
+
+  async musicInteraction(interaction: Interaction, type: string, record: MusicInteractionRecord, snapshot?: MusicAuditSnapshot): Promise<void | unknown> {
+    const lines = [
+      ...interactionContext(interaction, type),
+      `**Action:** ${safeAuditText(record.action, 200)}`,
+      `**Status:** ${record.status}`,
+    ];
+    if (record.input) lines.push(`**Submitted value:** ${safeAuditText(record.input, 500)}`);
+    lines.push(`**Outcome:** ${safeAuditText(record.outcome, 500)}`);
+    if (snapshot) lines.push(...musicSnapshotLines(snapshot));
+    return this.sendTo(this.activityChannelId, "Music interaction", lines);
   }
 
   async playerLinkRequested(interaction: Interaction, result: PlayerLinkResult): Promise<void | unknown> {
@@ -142,6 +157,96 @@ class DiscordAuditLogger {
   }
 }
 
+function interactionContext(interaction: Interaction, type: string): string[] {
+  const created = Math.floor(interaction.createdTimestamp / 1_000);
+  const channel = interaction.channel;
+  const channelName = channel && "name" in channel && typeof channel.name === "string" ? `#${safeAuditText(channel.name, 100)}` : "Unknown";
+  const channelType = channel ? ChannelType[channel.type] ?? String(channel.type) : "Unknown";
+  const member = interaction.member;
+  const displayName = member && "displayName" in member && typeof member.displayName === "string"
+    ? member.displayName : member && "nick" in member && typeof member.nick === "string" ? member.nick : interaction.user?.globalName;
+  const lines = [
+    `**Type:** ${safeAuditText(type, 200)}`,
+    `**Interaction ID:** ${interaction.id}`,
+    `**Received:** <t:${created}:F> (<t:${created}:R>)`,
+    `**User:** ${safeAuditText(interaction.user?.tag ?? "Unknown", 100)} (${interaction.user?.id ?? "Unknown"})`,
+  ];
+  if (displayName) lines.push(`**Display name:** ${safeAuditText(displayName, 100)}`);
+  lines.push(
+    `**Guild:** ${safeAuditText(interaction.guild?.name ?? "Direct message", 150)} (${interaction.guildId ?? "N/A"})`,
+    `**Channel:** ${channelName} (${interaction.channelId ?? "Unknown"}) · ${channelType}`,
+    `**Locale:** ${interaction.locale}${interaction.guildLocale ? ` · Server: ${interaction.guildLocale}` : ""}`,
+  );
+
+  if (interaction.isChatInputCommand()) {
+    const group = interaction.options.getSubcommandGroup(false);
+    const subcommand = interaction.options.getSubcommand(false);
+    lines.push(`**Command path:** /${interaction.commandName}${group ? ` ${group}` : ""}${subcommand ? ` ${subcommand}` : ""}`);
+    if (interaction.commandName === "music") {
+      const query = interaction.options.getString("query");
+      const volume = interaction.options.getInteger("level");
+      if (query) lines.push(`**Submitted value:** ${safeAuditText(query, 500)}`);
+      if (volume !== null) lines.push(`**Submitted volume:** ${volume}%`);
+    }
+  } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
+    lines.push(`**Custom ID:** ${safeAuditText(interaction.customId, 200)}`);
+    if ((interaction.isMessageComponent() || (interaction.isModalSubmit() && interaction.isFromMessage()))) {
+      lines.push(`**Source message:** ${interaction.message.id}`);
+    }
+    if (interaction.isAnySelectMenu() && "values" in interaction) {
+      lines.push(`**Selected values:** ${interaction.values.map((value) => safeAuditText(value, 100)).join(", ") || "None"}`);
+    }
+  }
+  return lines;
+}
+
+function musicSnapshotLines(snapshot: MusicAuditSnapshot): string[] {
+  const lines = [
+    `**Playback:** ${snapshot.paused ? "Paused" : "Playing"} · Volume ${snapshot.volume}% · ${formatDuration(snapshot.position)}`,
+    `**Lavalink:** ${snapshot.available ? "Available" : "Unavailable"} · Voice ${snapshot.connected ? "Connected" : "Disconnected"}`,
+  ];
+  if (snapshot.current) {
+    const duration = snapshot.current.duration > 0 ? formatDuration(snapshot.current.duration) : "Live";
+    lines.push(`**Now playing:** ${safeAuditText(snapshot.current.title, 180)} — ${safeAuditText(snapshot.current.artist, 120)}`);
+    lines.push(`**Track details:** ${safeAuditText(snapshot.current.source, 60)} · ${formatDuration(snapshot.position)} / ${duration} · Requested by ${snapshot.current.requester}`);
+    const trackUrl = snapshot.current.uri ? safeTrackUrl(snapshot.current.uri) : undefined;
+    if (trackUrl) lines.push(`**Track URL:** ${safeAuditText(trackUrl, 300)}`);
+  } else {
+    lines.push("**Now playing:** Nothing");
+  }
+  lines.push(`**Waiting:** ${snapshot.queue.length}`);
+  if (snapshot.queue.length) {
+    const visible = snapshot.queue.slice(0, 8).map((track, index) => `${index + 1}. ${safeAuditText(track.title, 100)} — ${safeAuditText(track.artist, 80)} · requester ${track.requester}`);
+    if (snapshot.queue.length > visible.length) visible.push(`…and ${snapshot.queue.length - visible.length} more`);
+    lines.push(`**Upcoming:**\n${visible.join("\n")}`);
+  }
+  return lines;
+}
+
+function safeAuditText(value: string, maximum: number): string {
+  return truncateDiscordText(escapeMarkdown(value.replace(/\s+/g, " ").trim()) || "Unknown", maximum);
+}
+
+function safeTrackUrl(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return undefined;
+    // Dev note: Keep the song link, leave mystery query tokens backstage.
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function formatDuration(milliseconds: number): string {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return "Unknown";
+  const totalSeconds = Math.floor(milliseconds / 1_000);
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 async function downloadBlueprintAttachment(attachment?: AuditAttachment | null): Promise<AuditFile | null> {
   if (!attachment?.url || !attachment.name) {
     return null;
@@ -200,4 +305,4 @@ async function readBoundedResponse(response: Response, maximumBytes: number): Pr
 
 export { DiscordAuditLogger };
 
-export type { AuditAttachment, AuditFile, BlueprintImportResult, LinkedPlayer, PlayerLinkResult };
+export type { AuditAttachment, AuditFile, BlueprintImportResult, LinkedPlayer, MusicInteractionRecord, PlayerLinkResult };

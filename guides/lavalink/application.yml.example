@@ -1,0 +1,118 @@
+# Arrakis Control Lavalink v4 profile. Keep real credentials in the Lavalink host environment.
+server:
+  port: ${LAVALINK_PORT:25004}
+  address: 0.0.0.0
+  http2:
+    enabled: false
+
+lavalink:
+  plugins:
+    # Spotify/Apple Music metadata, searches and links. Spotify/Apple tracks are
+    # mirrored to the first playable provider below; they are not streamed from Spotify.
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+      snapshot: false
+  server:
+    password: ${LAVALINK_PASSWORD}
+    sources:
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      nico: true
+      http: true
+      local: false
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
+    bufferDurationMs: 1000
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: HIGH
+    trackStuckThresholdMs: 15000
+    useSeekGhosting: true
+    playerUpdateInterval: 5
+    soundcloudSearchEnabled: true
+    soundcloudFilterOutPreviewTracks: true
+    # False is Lavalink's current default and avoids an experimental buffer path.
+    nonAllocatingFrameBuffer: false
+    gc-warnings: true
+    youtubeSearchEnabled: false
+    timeouts:
+      connectTimeoutMs: 10000
+      connectionRequestTimeoutMs: 10000
+      socketTimeoutMs: 10000
+
+# Plugin configuration belongs at the YAML root. Yes, it looks like it escaped
+# from lavalink.plugins; no, chasing it with indentation will not improve its behavior.
+plugins:
+  lavasrc:
+    providers:
+      # SoundCloud supplies playable audio for Spotify/Apple metadata. Add a legal,
+      # configured direct provider before this entry if your deployment has one.
+      - "scsearch:%QUERY%"
+    sources:
+      spotify: true
+      applemusic: false
+      deezer: false
+      yandexmusic: false
+      flowerytts: false
+      youtube: false
+      vkmusic: false
+      tidal: false
+      qobuz: false
+      ytdlp: false
+      jiosaavn: false
+    lyrics-sources:
+      spotify: false
+      deezer: false
+      youtube: false
+      yandexmusic: false
+      vkmusic: false
+      lrcLib: false
+    spotify:
+      clientId: ${SPOTIFY_CLIENT_ID}
+      clientSecret: ${SPOTIFY_CLIENT_SECRET}
+      countryCode: ${SPOTIFY_COUNTRY_CODE:US}
+      playlistLoadLimit: 6
+      albumLoadLimit: 6
+      resolveArtistsInSearch: true
+      localFiles: false
+      preferPartnerApi: false
+      preferV1SearchApi: false
+
+logging:
+  file:
+    path: ./logs/
+  level:
+    root: INFO
+    lavalink: INFO
+  logback:
+    rollingpolicy:
+      max-file-size: 1GB
+      max-history: 30
+  request:
+    enabled: true
+    includeClientInfo: true
+    includeHeaders: false
+    includeQueryString: false
+    includePayload: false
+    maxPayloadLength: 10000
+    beforeRequest: false
+
+metrics:
+  prometheus:
+    enabled: false
+    endpoint: /metrics
+
+sentry:
+  dsn: ""
+  environment: ""

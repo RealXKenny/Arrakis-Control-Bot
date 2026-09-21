@@ -12,15 +12,25 @@ Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current main-bra
 - A Discord bot token with the intents and permissions used by the configured commands
 - A reachable Dune Console HTTPS endpoint and a scoped API key
 - Optional Convoy and Discord Adapter credentials for their integrations
-- PostgreSQL for support tickets and persistent join-to-create voice rooms
+- PostgreSQL for support tickets, community levels, persistent join-to-create voice rooms, and music state
 
 Copy `.env.example` to `.env` and fill in the required values. Never commit `.env` or credentials.
 
-Required variables are `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY`. Every Dune Console request sends `Authorization: Bearer <key>` and relies on the key's configured scopes; grant only the read/write namespaces needed by the bot features you enable. Password login, browser sessions, cookies, CSRF handling, and automatic reauthentication are not supported by the bot. Invalid or expired keys return HTTP 401, insufficient scopes return HTTP 403, and key rate limits return HTTP 429. `CLIENT_ID` enables global slash-command deployment. `GUILD_ID` is reserved for development configuration and is not used for global deployment. Optional Convoy and Discord Adapter integrations require their corresponding API key/token.
+Required variables are `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY`. Every Dune Console request sends `Authorization: Bearer <key>` and relies on the key's configured scopes; grant only the read/write namespaces needed by the bot features you enable. Password login, browser sessions, cookies, CSRF handling, and automatic reauthentication are not supported by the bot. Invalid or expired keys return HTTP 401, insufficient scopes return HTTP 403, and key rate limits return HTTP 429. `CLIENT_ID` enables global slash-command deployment. `GUILD_ID` is the shared server ID used by optional single-guild voice and music configuration; it does not limit global command deployment. Optional Convoy and Discord Adapter integrations require their corresponding API key/token.
 
 The ticket system is enabled when `DATABASE_URL` is configured. On startup, the bot creates and upgrades its ticket table and indexes automatically. Set `TICKET_PANEL_CHANNEL_ID` to the channel where members open tickets and `TICKET_CATEGORY_ID` to the category that should contain private ticket channels. Set `TICKET_TRANSCRIPT_CHANNEL_ID` to receive one persistent archive container per ticket with both `.txt` and structured `.json` records; the transcript is always retained in PostgreSQL. `DATABASE_SSL=true` enables TLS for hosted PostgreSQL services. Ticket access is granted to the creator and any configured staff roles; members may have one active ticket per server. Configured staff can claim and release tickets, and the claimant is recorded as the handler. Other staff cannot close a claimed ticket until its handler releases it; closing an unclaimed ticket as staff automatically assigns the closer. The panel routes members through Account & Linking, Technical Support, Player Report, Guild & Community, Gameplay & Server, or General & Other. The selected category is stored with the full details, troubleshooting already attempted, and impact/urgency. When the Discord Adapter is available, linked Dune character identity and online status are recorded with the private ticket. Closing a ticket saves its conversation and attachment references, sends the creator a complete DM receipt with the transcript and review button, then deletes its Discord channel. Submitted ratings, resolution status, comments, and review timestamps are retained in PostgreSQL and update the original archive container and JSON record instead of creating a second message. Members who disable DMs cannot receive the receipt, but closure and database archival still complete.
 
 Ticket transcripts require the Discord **Message Content Intent**. Enable it for the bot application in the Discord Developer Portal; the runtime now requests both `GuildMessages` and `MessageContent` gateway intents.
+
+## Community leveling
+
+Community leveling is enabled automatically when `DATABASE_URL` is configured; set `LEVELING_ENABLED=false` to turn it off. Meaningful guild messages earn a variable 8–25 base XP based on their length, vocabulary, attachments, and reply context. An atomic short anti-spam window and recent-message fingerprint check prevent rapid or repeated farming without imposing a one-minute reward lock. Members also earn 15 XP per minute in a non-AFK voice channel when at least two eligible human members are participating; bots and members who are self-deafened, server-deafened, or suppressed do not count. Message and voice protections are stored independently in PostgreSQL.
+
+Level thresholds use a demanding `250 × level²` cumulative XP curve, so every promotion requires more activity than the last. The highest earned tier role is assigned automatically at milestone levels 1, 10, 20, 30, 40, 50, 60, and 70: **Arrakis Wanderer**, **Sietch Dweller**, **Desert Survivor**, **Sand Warrior**, **Spice Hunter**, **Fremen Initiate**, **Desert Master**, and **Chosen of Arrakis**. Create those roles in Discord, place their IDs in the eight `LEVEL_ROLE_*_ID` entries in `.env`, then restart the bot. An administrator with Manage Server can run `/level roles status` to inspect configuration, existence, and hierarchy. Keep all level roles below the bot's highest role and grant the bot Manage Roles.
+
+Server boosters always earn 2× message and voice XP. Manage Server administrators can schedule a persistent server-wide 2× window with `/level event schedule duration-minutes:<15–10080> [starts-at:<ISO date/time>]`, inspect it with `/level event status`, and cancel it with `/level event stop`. Booster and event bonuses stack multiplicatively for 4× XP. The optional start time may be up to 30 days ahead; omitting it starts the event immediately.
+
+The bot replies with a personalized desert rank card when a member crosses a level boundary. Use `/level rank` to view the same avatar-backed card with a member's tier, server rank, message/voice activity, current multiplier, progress, and XP. `/level leaderboard` uses its own night-desert artwork to render the server's top ten as a separate themed image with member avatars, tiers, levels, and XP. Leveling uses the existing Message Content and Voice States intents and creates or upgrades its tables automatically; no manual SQL is required.
 
 ## Discord ↔ game chat over RabbitMQ
 
@@ -34,7 +44,7 @@ See the [voice-room setup and control guide](guides/voice-rooms.md) for permissi
 
 ## Lavalink music lounge
 
-Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and `MUSIC_*` values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts song names/links in the dedicated request text channel, and provides a public panel and grouped music commands such as `/music play`, `/music queue`, and `/music skip`. Skip, pause, resume and volume belong to the current song's requester; stop and clear require `OWNER_ROLE_ID`. The queue and playback checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
+Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and music channel values from `.env.example` to enable a permanent music voice channel. The bot stays connected while idle, accepts Spotify, Apple Music, Deezer and traditional song links, and ranks searches for clean title/artist matches. The supplied LavaSrc profile searches Spotify metadata, mirrors playback through SoundCloud, and uses quality-focused encoding and buffering settings. The public panel and grouped `/music` commands provide queue controls, progress and lyrics; queue checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
 
 ## Development
 
@@ -86,6 +96,7 @@ Rate limiting is intentionally process-local and sufficient for this single-proc
 - Pass environment variables through the process manager's secret/configuration facility.
 - Forward `SIGTERM` and allow at least 15 seconds for graceful shutdown.
 - Collect stdout/stderr and alert on `FATAL`, shard death, or repeated startup failure messages.
+- Routine Discord gateway reconnects remain silent through five consecutive attempts. Attempt six emits one warning, and a recovery message is written only for an episode that crossed that threshold.
 
 ### Verified startup
 
@@ -117,7 +128,7 @@ The command reads `GET /api/exchange/items` through the configured Dune Console 
 
 ## Interactive command help
 
-Run `/help` to open the public Arrakis Command Center. It catalogs all 81 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
+Run `/help` to open the public Arrakis Command Center. It catalogs all 87 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
 
 ## Owner server controls
 

@@ -9,17 +9,43 @@ Create a permanent voice channel such as **🎵・music-lounge** and a dedicated
 ```dotenv
 LAVALINK_URL=https://lavalink.example.com
 LAVALINK_PASSWORD="your-lavalink-password"
-MUSIC_GUILD_ID=your_server_id
+GUILD_ID=your_server_id
 MUSIC_VOICE_CHANNEL_ID=your_permanent_voice_channel_id
 MUSIC_REQUEST_CHANNEL_ID=your_song_request_text_channel_id
-MUSIC_SEARCH_SOURCE=scsearch
-MUSIC_VOLUME=30
+MUSIC_SEARCH_SOURCE=spsearch
+MUSIC_VOLUME=100
 MUSIC_MAX_QUEUE=100
 ```
 
 The sample IDs above are placeholders. Use actual Discord IDs. Leave `LAVALINK_URL` blank to disable music. Existing credentials and the live `.env` are not changed by this feature.
 
 `LAVALINK_URL` is an HTTP(S) origin, including its port if required, with no API path or credentials. Use the host reachable from the **bot machine**, not localhost when Lavalink is hosted elsewhere. The password belongs in `LAVALINK_PASSWORD`; quote values containing `#`. Keep the endpoint private or firewalled to the bot host, and use HTTPS when traversing an untrusted network. Never commit real passwords.
+
+### Lavalink profile, Spotify and audio quality
+
+Copy [`guides/lavalink/application.yml.example`](lavalink/application.yml.example) to the Lavalink host as `application.yml`, then provide the variables shown in [`guides/lavalink/lavalink.env.example`](lavalink/lavalink.env.example) through that container or service. Do not copy Spotify credentials into the bot's `.env`; they belong to Lavalink. The template pins LavaSrc 4.8.3 and uses `spsearch`, so ordinary text requests search Spotify's catalog while SoundCloud supplies playable audio.
+
+Create a Spotify application at the [Spotify developer dashboard](https://developer.spotify.com/dashboard), set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` on Lavalink, and restart Lavalink. No redirect URI or user login is needed for catalog search. Keep `MUSIC_SEARCH_SOURCE=spsearch` on the bot. Without Spotify credentials, use `MUSIC_SEARCH_SOURCE=scsearch` instead.
+
+Spotify and Apple Music are mirror sources in LavaSrc: their links and searches provide metadata, but do not stream audio from those services. The configured provider finds a playable copy on SoundCloud. This improves title/artist discovery, but the final recording and bitrate still depend on the mirror match. LavaSrc can play Deezer directly when separately configured with legitimate account credentials; the committed template leaves Apple Music and Deezer disabled because their tokens are not interchangeable with Spotify credentials.
+
+Use unity gain (`MUSIC_VOLUME=100`) for the cleanest default signal and let listeners adjust Discord's per-user volume locally. Lavaplayer can pass compatible Opus packets through without decoding and re-encoding when no volume adjustment is applied. Existing PostgreSQL music state retains its saved volume after an upgrade, so run `/music volume level:100` once if the panel still reports the previous 30% value.
+
+The committed Lavalink template already sets these quality values; they belong to the Lavalink server, not this bot's `.env`:
+
+```yaml
+lavalink:
+  server:
+    opusEncodingQuality: 10
+    resamplingQuality: HIGH
+    nonAllocatingFrameBuffer: false
+    bufferDurationMs: 1000
+    frameBufferDurationMs: 5000
+    soundcloudSearchEnabled: true
+    soundcloudFilterOutPreviewTracks: true
+```
+
+Encoding quality 10 is Lavalink's highest setting. `HIGH` resampling uses more CPU than `LOW` or `MEDIUM`; monitor the Lavalink host and lower it to `MEDIUM` if audio starts stuttering under load. The buffers improve tolerance of short scheduling or garbage-collection pauses, but cannot repair a low-bitrate source. Filtering SoundCloud previews avoids short preview recordings when the full track is available. Restart Lavalink after changing its configuration, then restart the bot.
 
 The bot needs **View Channel**, **Connect**, and **Speak** in the voice channel. Give it **View Channel**, **Send Messages**, and **Read Message History** in the request channel. Plain-text song requests also need the Message Content intent, already requested by this bot; enable that privileged intent in the Discord Developer Portal.
 
@@ -37,25 +63,29 @@ The channel keeps one public Now Playing card, including artwork, requester, vol
 
 ### Listen-only voice channel
 
-Human members are server-muted when they enter `MUSIC_VOICE_CHANNEL_ID`; bots are excluded so music playback is unaffected. Give the bot **Mute Members** permission in the music channel and any destination voice channels where it must restore access. Members already server-muted before entering retain that mute. The bot records its mute ownership in `bot_music_mutes` before applying the change and retries failed operations every 30 seconds, including after restarts.
+Human members are server-muted when they enter `MUSIC_VOICE_CHANNEL_ID`; bots are excluded so music playback is unaffected. Arrakis Control joins the Music Lounge undeafened, while the human listen-only policy remains separate and unchanged. Give the bot **Mute Members** permission in the music channel and any destination voice channels where it must restore access. Members already server-muted before entering retain that mute. The bot records its mute ownership in `bot_music_mutes` before applying the change and retries failed operations every 30 seconds, including after restarts.
 
 Moving directly to another voice channel removes the lounge mute. Discord cannot change server mute while someone is fully disconnected, so the bot keeps a pending cleanup record and unmutes them on their next connection outside the lounge. Returning to the lounge keeps them muted. Self-mute is never changed. Keep music enabled until pending cleanups have completed, or restore those server mutes manually if disabling it. Discord exposes a single server-mute flag; a moderator applying a second mute while the lounge already owns that flag cannot be distinguished from the lounge mute.
 
 The bot automatically publishes a public Music Lounge control panel in `MUSIC_REQUEST_CHANNEL_ID`. No separate panel setting is needed. It uses the voice panel's banner style and offers Request Song, Now Playing, View Queue, View Lyrics, Pause, Resume, Skip, Volume, Clear Queue, and Stop Playback. Requests and volume open private forms; stop and clear ask for confirmation. Everyone can inspect playback and the queue. Listeners can add songs. The current requester controls skip, pause, resume and volume; members with `OWNER_ROLE_ID` control stop and clear. Permissions are rechecked when actions are submitted.
 
-Give the bot **Attach Files** for the banner as well as the text-channel permissions above. The panel does not change channel permissions: make the request channel visible to your members. After a restart, the bot scans channel history to reuse its existing panel (up to 10,000 messages; if exceeded it logs a failure instead of creating a duplicate). Administrators with **Manage Server** can run `/music panel` in the request channel to refresh or recreate a deleted panel. Buttons keep working across restarts. Now Playing and View Queue show a fresh private snapshot; the public panel is not a live progress display.
+Give the bot **Attach Files** for the banner as well as the text-channel permissions above. The panel does not change channel permissions: make the request channel visible to your members. After a restart, the bot scans channel history to reuse its existing panel (up to 10,000 messages; if exceeded it logs a failure instead of creating a duplicate). Administrators with **Manage Server** can run `/music panel` in the request channel to refresh or recreate a deleted panel. Buttons keep working across restarts. The public now-playing card shows a playback bar and refreshes approximately every 15 seconds while a track is active; Now Playing and View Queue also return a fresh private snapshot.
 
 Join the music voice channel, then type a song name or supported HTTPS link in the request text channel. Each non-bot text message there is treated as a song request. Use this as a dedicated request channel rather than a general chat. The bot replies without pinging the requester.
 
+For the most precise text search, use `"Song Title" by Artist` or `Artist - Song Title`. The bot normalizes those forms and ranks every returned track by title precision, artist identity, ISRC metadata, and clean recording indicators. Covers, karaoke, previews, snippets, tributes, fan uploads, remixes, mashups, live performances, sped-up/slowed versions, and instrumentals are penalized unless the request asks for them. Direct links and playlists are not reranked.
+
+When `ACTIVITY_LOG_CHANNEL_ID` is configured, each music control writes one completed audit card instead of a context-free receipt. Song submissions include the exact query and result; every music card includes the interaction/user/server/channel identifiers, timestamp, locale, action, success or rejection outcome, Lavalink and voice status, volume, playback position, current track and requester, plus up to eight upcoming tracks. Public track URLs are logged without query strings, and lyrics text is never copied into the activity log.
+
 | Command | Behavior |
 | --- | --- |
-| `/music play query:<name or link>` | Search and queue the first result, a track URL, or a playlist. |
+| `/music play query:<name or link>` | Search and queue the best-ranked result, a track URL, or a playlist. |
 | `/music panel` | Publish or refresh the public controls; requires Manage Server. |
 | `/music queue` | Display the current song and the next eight queued songs. |
 | `/music now` | Display the current track and volume. |
 | `/music skip` | Skip to the next queued track. |
 | `/music pause` / `/music resume` | Pause or resume playback. |
-| `/music volume level:<0–100>` | Change volume; the initial default is 30%. |
+| `/music volume level:<0–100>` | Change volume; the initial default is unity gain at 100%. |
 | `/music clear` | Clear upcoming songs while leaving the current track playing. |
 | `/music stop` | Stop playback, clear the queue, and remain in voice. |
 
@@ -67,9 +97,9 @@ The queue limit includes the current track. A playlist that does not fit is reje
 
 The Now Playing button and `/music now` display track artwork alongside the title, volume, and waiting count. YouTube tracks use a video thumbnail if Lavalink omits artwork; other sources without artwork display the text alone. Give the bot **Embed Links** in the request channel.
 
-The default search prefix is `scsearch`. You can select `ytsearch` or `ytmsearch` when your Lavalink server has a working YouTube source/plugin. Supported URL hosts are YouTube, SoundCloud, and Bandcamp, but actual playback depends on the sources and plugins installed on Lavalink. Arbitrary local-file, private-network, and custom-host links are not accepted by the bot.
+The recommended search prefix is `spsearch` with the committed LavaSrc profile. The bot also accepts `scsearch`, `amsearch`, `dzsearch`, `ytsearch`, and `ytmsearch` when the matching Lavalink source is configured. Supported links include Spotify, Apple Music, Deezer, YouTube, SoundCloud, and Bandcamp; playback still depends on enabled server sources and mirror providers. Arbitrary local-file, private-network, and custom-host links are not accepted.
 
-YouTube support requires server-side configuration; the bot does not install plugins or configure source authentication. See the [official Lavalink plugins list](https://lavalink.dev/plugins) for source-specific setup. Spotify links are not supported by this implementation.
+The template installs only the plugin that improves this bot today: LavaSrc. LavaSearch exposes a separate `/v4/loadsearch` API that this bot does not need for single-track requests; LavaLyrics overlaps the existing LRCLIB workflow; SponsorBlock requires a working YouTube source plus per-player category calls; and the TTS, tracker-module, extra-source, timed-lyrics, and DSP plugins do not improve Spotify search or source fidelity. Fewer loaded plugins means fewer incompatible updates and clearer failures. YouTube remains disabled because it needs its own current client/authentication setup; enable and test the [official YouTube source plugin](https://github.com/lavalink-devs/youtube-source#plugin) separately before selecting `ytsearch` or using SponsorBlock.
 
 ## Troubleshooting and validation
 
@@ -79,7 +109,7 @@ YouTube support requires server-side configuration; the bot does not install plu
 - If playback is unavailable after adding a request, inspect `/music queue` before resending; queued requests can be retried during recovery.
 - After deploying, test a song, two-song queue advancement, skip, pause/music resume, stop without leaving, and a Lavalink restart. Automated checks use mocks; live audio needs your configured server and Discord channels.
 
-The **View Lyrics** button is available to everyone in the request channel. It displays matching lyrics privately inside Discord, with Previous/Next buttons for long songs. Lookups use [LRCLIB](https://lrclib.net/docs), need no API key, and send only track title, artist and duration. Common video-title suffixes are removed before lookup. Requests time out after eight seconds and are cached for one minute. Instrumentals, unavailable lyrics and provider outages are reported clearly; Search Genius remains available as a fallback. Page controls expire when the current song changes.
+The **View Lyrics** button is available to everyone in the request channel. It displays matching lyrics privately inside Discord, with Previous/Next buttons for long songs. Lookups use [LRCLIB](https://lrclib.net/docs), need no API key, and send only track title, artist and duration. The bot tries LRCLIB's exact metadata endpoint first, then its broader search endpoint with scored full-title and remix/mashup fragment candidates. Title similarity, artist similarity and recording duration prevent blindly selecting the first search result. Common video-title suffixes are removed before lookup. Requests time out after eight seconds, observe a short delay between fallback searches, and are cached for 15 minutes. Successful results identify the matched LRCLIB artist and recording; instrumentals, unavailable lyrics and provider outages are reported clearly. Search LRCLIB and Search Genius links remain available, and page controls expire when the current song changes.
 
 Music recovery starts immediately and keeps retrying until Lavalink is ready, waiting 10 seconds after each failed attempt. Attempts do not overlap, and shutdown cancels pending retries. The saved song and position stay protected until Lavalink confirms playback has started. A failed restore retries the same song instead of advancing the queue; the requester can explicitly skip an unavailable track once connected.
 

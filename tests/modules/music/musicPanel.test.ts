@@ -40,13 +40,15 @@ it("does not create a duplicate when history cannot be read", async () => {
 });
 
 function interaction(customId: string, modal = false) {
+  const musicInteraction = vi.fn();
   const service = { authorize: vi.fn(), requireRequester: vi.fn(), requireOwnerRole: vi.fn(), action: vi.fn(), request: vi.fn().mockResolvedValue("Queued"),
-    lyricsMessage: vi.fn().mockReturnValue({ content: "Lyrics link", components: [] }), describeQueue: vi.fn().mockReturnValue("Queue"), errorMessage: () => "Join the music voice channel." };
-  const value = { customId, client: { music: service }, guild: { id: "guild" }, channelId: "requests", user: { id: "user" },
+    lyricsMessage: vi.fn().mockReturnValue({ content: "Lyrics link", components: [] }), describeQueue: vi.fn().mockReturnValue("Queue"), errorMessage: () => "Join the music voice channel.",
+    auditSnapshot: vi.fn().mockReturnValue({ available: true, connected: true, paused: false, volume: 30, position: 1_000, queue: [] }) };
+  const value = { customId, client: { music: service, auditLogger: { musicInteraction } }, guild: { id: "guild" }, channelId: "requests", user: { id: "user" },
     isButton: () => !modal, isModalSubmit: () => modal, deferred: true,
     deferReply: vi.fn(), deferUpdate: vi.fn(), editReply: vi.fn(), reply: vi.fn(), showModal: vi.fn(),
     fields: { getTextInputValue: () => "Song" } };
-  return { value: value as unknown as ButtonInteraction | ModalSubmitInteraction, service, mocks: value };
+  return { value: value as unknown as ButtonInteraction | ModalSubmitInteraction, service, mocks: value, musicInteraction };
 }
 
 it("allows queue viewing without voice membership", async () => {
@@ -83,6 +85,37 @@ it("allows lyrics viewing without voice membership or playback ownership", async
   expect(service.requireRequester).not.toHaveBeenCalled();
   expect(service.action).not.toHaveBeenCalled();
   expect(mocks.editReply).toHaveBeenCalledWith({ content: "Lyrics link", components: [] });
+});
+
+it.each(["music:request", "music:volume"])("opens %s modal before performing member lookups", async (customId) => {
+  const { value, service, mocks } = interaction(customId);
+  await handleMusicInteraction(value);
+  expect(mocks.showModal).toHaveBeenCalledOnce();
+  expect(service.authorize).not.toHaveBeenCalled();
+});
+
+it("silently stops when Discord reports an expired interaction token", async () => {
+  const { value, mocks, musicInteraction } = interaction("music:lyrics");
+  mocks.deferred = false;
+  mocks.deferReply.mockRejectedValue({ code: 10_062 });
+
+  await expect(handleMusicInteraction(value)).resolves.toBeUndefined();
+  expect(mocks.reply).not.toHaveBeenCalled();
+  expect(mocks.editReply).not.toHaveBeenCalled();
+  expect(musicInteraction).toHaveBeenCalledWith(value, "music:lyrics", expect.objectContaining({ status: "Expired" }), expect.any(Object));
+});
+
+it("audits the submitted song query and successful result after processing", async () => {
+  const { value, musicInteraction, service } = interaction("music-edit:request", true);
+
+  await handleMusicInteraction(value);
+
+  expect(musicInteraction).toHaveBeenCalledWith(value, "music-edit:request", {
+    action: "Submit song request",
+    status: "Succeeded",
+    input: "Song",
+    outcome: "Queued",
+  }, service.auditSnapshot.mock.results[0]?.value);
 });
 
 it("updates the private lyrics page and awaits lookup completion", async () => {

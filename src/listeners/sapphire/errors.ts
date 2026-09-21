@@ -9,11 +9,21 @@ import {
   type ListenerErrorPayload,
 } from "@sapphire/framework";
 
-import { describeInteraction, formatError, respondWithInteractionError } from "../../support/interactions/interactionResponses";
+import { describeInteraction, formatError, isUnknownInteractionError, respondWithInteractionError } from "../../support/interactions/interactionResponses";
 import { scopedLogger } from "../../client/logger";
 
 async function handleInteractionError(error: unknown, interaction: ChatInputCommandErrorPayload["interaction"] | AutocompleteInteractionPayload["interaction"] | InteractionHandlerErrorPayload["interaction"]): Promise<void> {
   const logger = scopedLogger(container.logger, "INTERACTIONS");
+  if (isUnknownInteractionError(error)) {
+    // Dev note: Once Discord closes the airlock, knocking again only makes the logs louder.
+    logger.warn(`Ignored expired ${describeInteraction(interaction)} interaction token.`, {
+      interactionId: interaction.id,
+      userId: interaction.user?.id,
+      guildId: interaction.guildId,
+      channelId: interaction.channelId,
+    });
+    return;
+  }
   logger.error(`Unhandled ${describeInteraction(interaction)} interaction error. ${formatError(error)}`);
   logger.error("Interaction handler failed with full context.", {
     interaction: describeInteraction(interaction),
@@ -24,7 +34,7 @@ async function handleInteractionError(error: unknown, interaction: ChatInputComm
     deferred: "deferred" in interaction ? interaction.deferred : undefined,
     replied: "replied" in interaction ? interaction.replied : undefined,
   });
-  await respondWithInteractionError(interaction);
+  await respondWithInteractionError(interaction, error);
 }
 
 class ChatInputCommandError extends Listener<typeof Events.ChatInputCommandError> {

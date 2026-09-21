@@ -7,6 +7,7 @@ import type { ClientOptions } from "discord.js";
 import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
 import type { VoiceService } from "../modules/voice/VoiceService";
 import type { MusicService } from "../modules/music/MusicService";
+import type { LevelingService } from "../modules/community/leveling/LevelingService";
 
 import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
@@ -21,6 +22,7 @@ type ArrakisClientOptions = ClientOptions & { baseUserDirectory?: string };
 
 class ArrakisClient extends SapphireClient {
   public music?: MusicService;
+  public leveling?: LevelingService;
   public voiceRooms?: VoiceService;
   public chatBridge?: DiscordGameChatBridge;
   public duneApi!: DuneApi;

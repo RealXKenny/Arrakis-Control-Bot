@@ -46,9 +46,6 @@ function registerShardEvents(shardManager: ShardingManager): void {
       }
     });
 
-    shard.on("reconnecting", () => {
-      logger.warn(`Discord shard ${shard.id} is reconnecting.`);
-    });
   });
 }
 

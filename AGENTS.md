@@ -221,6 +221,7 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Server-information changes must preserve the complete supplied INI content and keep every message below the aggregate Components V2 display-text limit.
 - With YouTube disabled, `/music stop` must clear the persisted current track and queue before fresh SoundCloud playback. Do not assume a source-prefix change makes old encoded tracks playable.
 - Preserve the in-game bridge display name `Arrakis Control`; its required hexadecimal RabbitMQ identity is a separate protocol field.
+- Community leveling uses a `250 × level²` cumulative curve and awards 8–25 base XP for meaningful messages using effort signals, with an atomic short anti-spam window and recent-message fingerprint protection. It awards 15 eligible voice XP per minute independently and ignores bots, webhooks, system messages, DMs, tiny messages, AFK voice, and deafened/suppressed voice members. Boosters receive 2× XP; active server events add another multiplicative 2× for 4× total. Only the highest earned milestone role is retained at levels 1, 10, 20, 30, 40, 50, 60, and 70, and all eight role IDs come from `LEVEL_ROLE_*_ID` environment settings.
 
 ## Testing Rules
 

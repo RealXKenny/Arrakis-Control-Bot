@@ -3,6 +3,7 @@ import path from "node:path";
 import { loadChatBridgeConfig, type ChatBridgeConfig } from "./chatBridge";
 import { loadVoiceSetup, type VoiceSetupConfig } from "./voiceRooms";
 import { loadMusicConfig, type MusicConfig } from "./music";
+import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
@@ -13,6 +14,8 @@ interface EnvironmentConfig {
   voiceSetup?: VoiceSetupConfig;
   voicePanelPublic: boolean;
   chatBridge?: ChatBridgeConfig;
+  levelingEnabled: boolean;
+  levelRoles: Readonly<LevelRoleConfig>;
   discordToken: string;
   clientId?: string;
   guildId?: string;
@@ -70,6 +73,14 @@ const DISCORD_ID_ENV_KEYS = [
   "ADMINISTRATOR_ROLE_ID",
   "HEAD_ADMINISTRATOR_ROLE_ID",
   "OWNER_ROLE_ID",
+  "LEVEL_ROLE_ARRAKIS_WANDERER_ID",
+  "LEVEL_ROLE_SIETCH_DWELLER_ID",
+  "LEVEL_ROLE_DESERT_SURVIVOR_ID",
+  "LEVEL_ROLE_SAND_WARRIOR_ID",
+  "LEVEL_ROLE_SPICE_HUNTER_ID",
+  "LEVEL_ROLE_FREMEN_INITIATE_ID",
+  "LEVEL_ROLE_DESERT_MASTER_ID",
+  "LEVEL_ROLE_CHOSEN_OF_ARRAKIS_ID",
   "ROLE_PVP_ID",
   "ROLE_PVE_ID",
   "ROLE_BUILDER_ID",
@@ -142,6 +153,11 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   }
 
   const databaseSsl = parseBoolean(process.env.DATABASE_SSL, false, "DATABASE_SSL");
+  const levelingEnabled = parseBoolean(process.env.LEVELING_ENABLED, Boolean(process.env.DATABASE_URL), "LEVELING_ENABLED");
+
+  if (levelingEnabled && !process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required when community leveling is enabled.");
+  }
 
   const logLevel = (process.env.LOG_LEVEL ?? "INFO").toUpperCase();
 
@@ -154,6 +170,8 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     voiceSetup: loadVoiceSetup(process.env),
     voicePanelPublic: parseBoolean(process.env.VOICE_PANEL_PUBLIC, true, "VOICE_PANEL_PUBLIC"),
     chatBridge: loadChatBridgeConfig(process.env),
+    levelingEnabled,
+    levelRoles: loadLevelRoleConfig(process.env),
     discordToken,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,
@@ -229,7 +247,7 @@ function parsePositiveInteger(value: string | undefined, fallback: number, name:
 }
 
 function validateOptionalSnowflake(value: string | undefined, name: string): void {
-  if (value !== undefined && !/^\d{17,20}$/.test(value)) {
+  if (value !== undefined && value.trim() !== "" && !/^\d{17,20}$/.test(value.trim())) {
     throw new Error(`${name} must be a valid Discord ID.`);
   }
 }

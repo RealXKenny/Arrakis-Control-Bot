@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const logger = vi.hoisted(() => ({ error: vi.fn() }));
 vi.mock("@sapphire/framework", () => ({ container: { logger } }));
 
-import { INTERACTION_ERROR_MESSAGE, describeInteraction, formatError, respondWithInteractionError } from "../../../src/support/interactions/interactionResponses";
+import { INTERACTION_ERROR_MESSAGE, describeInteraction, formatError, isUnknownInteractionError, respondWithInteractionError } from "../../../src/support/interactions/interactionResponses";
 
 describe("interaction responses", () => {
   beforeEach(() => logger.error.mockReset());
@@ -14,6 +14,13 @@ describe("interaction responses", () => {
     expect(result).toContain("ConsoleError HTTP 409: Conflict | details=");
     expect(result.length).toBeLessThan(1_100);
     expect(formatError("offline")).toBe("offline");
+  });
+
+  it("recognizes expired Discord interaction errors without matching unrelated failures", () => {
+    expect(isUnknownInteractionError({ code: 10_062 })).toBe(true);
+    expect(isUnknownInteractionError({ rawError: { code: 10_062 } })).toBe(true);
+    expect(isUnknownInteractionError({ code: 50_013 })).toBe(false);
+    expect(isUnknownInteractionError(new Error("Unknown interaction"))).toBe(false);
   });
 
   it("describes command, autocomplete, component, and unknown interactions", () => {
@@ -43,5 +50,16 @@ describe("interaction responses", () => {
     await respondWithInteractionError(interaction as never);
     expect(interaction.respond).toHaveBeenCalledWith([]);
     expect(logger.error).toHaveBeenCalledWith("Unable to send autocomplete fallback.", failure);
+  });
+
+  it("does not answer or log again when an interaction token has expired", async () => {
+    const reply = vi.fn();
+    const interaction = { isAutocomplete: () => false, deferred: false, replied: false, reply };
+    await respondWithInteractionError(interaction as never, { code: 10_062 });
+    expect(reply).not.toHaveBeenCalled();
+
+    reply.mockRejectedValue({ code: 10_062 });
+    await respondWithInteractionError(interaction as never);
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });

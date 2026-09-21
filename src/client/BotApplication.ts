@@ -19,6 +19,9 @@ import { MusicService } from "../modules/music/MusicService";
 import { MusicRepository } from "../infrastructure/database/music/MusicRepository";
 import { MusicMuteRepository } from "../infrastructure/database/music/MusicMuteRepository";
 import { MusicVoiceMute } from "../modules/music/MusicVoiceMute";
+import { LevelRepository } from "../infrastructure/database/leveling/LevelRepository";
+import { LevelingService } from "../modules/community/leveling/LevelingService";
+import type { LevelRoleConfig } from "../infrastructure/config/leveling";
 
 export type BotClient = ArrakisClient;
 
@@ -27,6 +30,8 @@ interface BotConfig {
   voiceSetup?: VoiceSetupConfig;
   voicePanelPublic?: boolean;
   chatBridge?: ChatBridgeConfig;
+  levelingEnabled: boolean;
+  levelRoles: Readonly<LevelRoleConfig>;
   logLevel?: string;
   duneConsoleApiKey: string;
   duneConsoleUrl: string;
@@ -69,7 +74,7 @@ function createBotApplication(config: BotConfig) {
 
   systemLogger.info("[01] Loading commands, events and integrations.");
 
-  configLogger.info(`Player links: ${client.discordAdapter ? "enabled" : "off"} | Game chat: ${client.chatBridge ? "enabled" : "off"} | Voice rooms: ${client.voiceRooms ? "enabled" : "off"} | Music: ${client.music ? "enabled" : "off"}`);
+  configLogger.info(`Player links: ${client.discordAdapter ? "enabled" : "off"} | Game chat: ${client.chatBridge ? "enabled" : "off"} | Voice rooms: ${client.voiceRooms ? "enabled" : "off"} | Music: ${client.music ? "enabled" : "off"} | Leveling: ${client.leveling ? "enabled" : "off"}`);
 
   let isShuttingDown = false;
 
@@ -81,6 +86,7 @@ function createBotApplication(config: BotConfig) {
     }
     await client.voiceRooms?.initialize();
     await client.music?.initialize();
+    await client.leveling?.initialize();
 
     storageLogger.info(`${client.tickets ? "PostgreSQL initialized" : "Not configured"}.`);
     configLogger.debug(`Dune Console API key configured; ${client.duneApi.endpoints.length} endpoints catalogued.`);
@@ -105,7 +111,9 @@ function createBotApplication(config: BotConfig) {
     if (client.versionAnnouncementInterval) clearInterval(client.versionAnnouncementInterval);
     if (client.stormAnnouncementInterval) clearInterval(client.stormAnnouncementInterval);
 
+    // Dev note: Share one stop promise; asking the DJ twice does not make teardown a duet.
     const stopMusic = client.music?.stop() ?? Promise.resolve();
+    client.leveling?.stop();
     await cleanupResources(
       [
         { name: "RabbitMQ chat bridge", run: () => client.chatBridge?.stop() },
@@ -167,8 +175,13 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordTicketPanelChannelId = config.discordTicketPanelChannelId ?? undefined;
   client.discordTicketCategoryId = config.discordTicketCategoryId ?? undefined;
   client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
+  // Dev note: One PostgreSQL pool waters tickets, rooms, levels, and music—water discipline applies to sockets too.
   client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl) : null;
   client.voiceRooms = client.tickets ? new VoiceService(client, new VoiceRepository(client.tickets.pool), config.voicePanelPublic ?? true, config.voiceSetup) : undefined;
+  const levelingLogger = createLogger("LEVELING", config.logLevel);
+  client.leveling = config.levelingEnabled && client.tickets
+    ? new LevelingService(client, new LevelRepository(client.tickets.pool), config.levelRoles, (message, error) => levelingLogger.error(message, error))
+    : undefined;
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music = config.music && client.tickets ? new MusicService(client, config.music, new MusicRepository(client.tickets.pool),
     new MusicVoiceMute(client, config.music.guildId, config.music.voiceChannelId, new MusicMuteRepository(client.tickets.pool))) : undefined;

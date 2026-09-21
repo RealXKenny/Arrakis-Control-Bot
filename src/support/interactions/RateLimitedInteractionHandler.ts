@@ -1,5 +1,6 @@
 import { InteractionHandler } from "@sapphire/framework";
 import { MessageFlags, type AnySelectMenuInteraction, type ButtonInteraction, type Interaction, type ModalSubmitInteraction } from "discord.js";
+import { isUnknownInteractionError } from "./interactionResponses";
 
 type SupportedInteraction = ButtonInteraction | AnySelectMenuInteraction | ModalSubmitInteraction;
 
@@ -20,12 +21,16 @@ abstract class RateLimitedInteractionHandler<TInteraction extends SupportedInter
 }
 
 async function respondWithRateLimit(interaction: SupportedInteraction): Promise<void> {
-  if (interaction.deferred) {
-    await interaction.editReply({ content: "Please wait a moment before trying that again." });
-  } else if (interaction.replied) {
-    await interaction.followUp({ content: "Please wait a moment before trying that again.", flags: MessageFlags.Ephemeral });
-  } else {
-    await interaction.reply({ content: "Please wait a moment before trying that again.", flags: MessageFlags.Ephemeral });
+  try {
+    if (interaction.deferred) {
+      await interaction.editReply({ content: "Please wait a moment before trying that again." });
+    } else if (interaction.replied) {
+      await interaction.followUp({ content: "Please wait a moment before trying that again.", flags: MessageFlags.Ephemeral });
+    } else {
+      await interaction.reply({ content: "Please wait a moment before trying that again.", flags: MessageFlags.Ephemeral });
+    }
+  } catch (error: unknown) {
+    if (!isUnknownInteractionError(error)) throw error;
   }
 }
 

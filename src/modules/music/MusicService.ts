@@ -10,9 +10,27 @@ import { MusicPanelPublisher } from "./musicPanel";
 import { MusicNowPlayingPanel, NOW_PLAYING_MARKER } from "./MusicNowPlayingPanel";
 
 import { MusicLyrics } from "./musicLyrics";
+import { playbackProgress } from "./musicProgress";
 import { scopedLogger, type Logger } from "../../client/logger";
 
 export type MusicAction = "skip" | "pause" | "resume" | "stop" | "clear" | "volume";
+
+export interface MusicAuditSnapshot {
+  available: boolean;
+  connected: boolean;
+  paused: boolean;
+  volume: number;
+  position: number;
+  current?: {
+    title: string;
+    artist: string;
+    requester: string;
+    source: string;
+    duration: number;
+    uri?: string;
+  };
+  queue: Array<{ title: string; artist: string; requester: string }>;
+}
 
 export class MusicService {
   private readonly backend: LavalinkConnection;
@@ -42,6 +60,7 @@ export class MusicService {
   private lastCheckpointWarning = 0;
   private pendingEnd?: { id: string };
   private lastAnnouncedId?: string;
+  private lastProgressCardAt = 0;
   private announcements: Promise<void> = Promise.resolve();
   private readonly nowPlayingPanel: MusicNowPlayingPanel;
   private readonly logger: Logger;
@@ -67,7 +86,12 @@ export class MusicService {
     this.checkpointTimer = setInterval(() => {
       if (this.checkpointPending || this.stopped || !this.current || !this.client.guilds.cache.has(this.config.guildId)) return;
       this.checkpointPending = true;
-      void this.serial(async () => { this.checkProgress(); this.capturePosition(); await this.commit(this.snapshot()); }, true)
+      void this.serial(async () => {
+        this.checkProgress();
+        this.capturePosition();
+        await this.commit(this.snapshot());
+        if (Date.now() - this.lastProgressCardAt >= 15_000) this.refreshSongCard();
+      }, true)
         .catch(() => {
           if (Date.now() - this.lastCheckpointWarning < 60_000) return;
           this.lastCheckpointWarning = Date.now();
@@ -189,7 +213,8 @@ export class MusicService {
     return this.serial(async () => {
       await this.authorize(guild, channelId, userId);
       const player = await this.ensurePlayer();
-      const tracks = loadedTracks(await this.backend.resolve(identifier));
+      const requestedSearch = identifier.startsWith(`${this.config.searchPrefix}:`) ? query : undefined;
+      const tracks = loadedTracks(await this.backend.resolve(identifier), requestedSearch);
       await this.authorize(guild, channelId, userId);
       if (tracks.length + this.queue.length + (this.current ? 1 : 0) > this.config.maxQueue) {
         throw new MusicUserError(`That request exceeds the ${this.config.maxQueue}-song limit. Wait for space or request fewer songs.`);
@@ -264,12 +289,41 @@ export class MusicService {
 
   public describeQueue(nowOnly = false): string {
     const title = this.current ? escapeMarkdown(this.current.track.info.title.slice(0, 180)) : "Nothing playing — ready for requests";
-    const lines = [`**${this.paused ? "Paused" : "Now playing"}:** ${title}`, `Volume: ${this.volume}% · Waiting: ${this.queue.length}`];
+    const lines = [`**${this.paused ? "Paused" : "Now playing"}:** ${title}`];
+    if (this.current) {
+      const progress = playbackProgress(this.position, this.current.track.info.length, this.current.track.info.isStream);
+      if (progress) lines.push(progress);
+    }
+    lines.push(`Volume: ${this.volume}% · Waiting: ${this.queue.length}`);
     if (!nowOnly) {
       lines.push(...this.queue.slice(0, 8).map((entry, index) => `${index + 1}. ${escapeMarkdown(entry.track.info.title.slice(0, 120))}`));
       if (this.queue.length > 8) lines.push(`…and ${this.queue.length - 8} more.`);
     }
     return lines.join("\n").slice(0, 1_990);
+  }
+
+  public auditSnapshot(): MusicAuditSnapshot {
+    this.capturePosition();
+    return {
+      available: this.backend.available(),
+      connected: Boolean(this.backend.player(this.config.guildId)),
+      paused: this.paused,
+      volume: this.volume,
+      position: this.position,
+      current: this.current ? {
+        title: this.current.track.info.title,
+        artist: this.current.track.info.author,
+        requester: this.current.requester,
+        source: this.current.track.info.sourceName,
+        duration: this.current.track.info.length,
+        uri: this.current.track.info.uri,
+      } : undefined,
+      queue: this.queue.map((entry) => ({
+        title: entry.track.info.title,
+        artist: entry.track.info.author,
+        requester: entry.requester,
+      })),
+    };
   }
 
   public async onMessage(message: Message): Promise<void> {
@@ -294,6 +348,7 @@ export class MusicService {
   }
 
   public nowPlayingMessage() {
+    this.capturePosition();
     const embed = new EmbedBuilder().setColor(0xc58b45).setDescription(this.describeQueue(true));
     const info = this.current?.track.info;
     let artwork: string | undefined;
@@ -328,6 +383,7 @@ export class MusicService {
   }
 
   private refreshSongCard(): void {
+    this.lastProgressCardAt = Date.now();
     this.announcements = this.announcements.then(async () => {
       if (this.stopped) return;
       const message = this.nowPlayingMessage();
