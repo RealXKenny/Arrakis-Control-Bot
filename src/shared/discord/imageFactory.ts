@@ -3,7 +3,7 @@ import path from "node:path";
 import { AttachmentBuilder, type GuildMember } from "discord.js";
 import { createCanvas, Image, loadImage, type CanvasRenderingContext2D } from "canvas";
 
-type PanelArtworkKey = "backups" | "blueprint" | "bot-control" | "bot-info" | "faq" | "goodbye" | "market" | "music" | "ping" | "player-link" | "players" | "profile" | "release" | "roles" | "rules" | "server-info" | "server-status" | "staff-application" | "storm" | "tickets" | "verification" | "voice" | "vps" | "welcome";
+type PanelArtworkKey = "backups" | "blueprint" | "bot-control" | "bot-info" | "faq" | "goodbye" | "market" | "music" | "ping" | "player-link" | "players" | "profile" | "release" | "roles" | "rules" | "server-info" | "server-status" | "staff-application" | "storm" | "temporary" | "tickets" | "verification" | "voice" | "vps" | "welcome";
 
 const PANEL_ARTWORK: Readonly<Record<PanelArtworkKey, string>> = Object.freeze({
   backups: "panel-backups.png",
@@ -25,6 +25,7 @@ const PANEL_ARTWORK: Readonly<Record<PanelArtworkKey, string>> = Object.freeze({
   "server-status": "panel-server-status.png",
   "staff-application": "panel-staff-application.png",
   storm: "panel-storm.png",
+  temporary: "panel-temporary.png",
   tickets: "panel-tickets.png",
   verification: "panel-verification.png",
   voice: "panel-voice.png",
@@ -90,9 +91,8 @@ function createDuneBanner({ artwork, filename, title, subtitle, detail }: DuneBa
     detail,
   });
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), {
-    name: filename,
-  });
+  return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
+    .setDescription(`${title} — ${subtitle ?? "Arrakis Control"}. ${detail ?? "Dune: Awakening"}.`);
 }
 
 function createTicketSupportBanner({ filename, categories }: TicketSupportBannerOptions): AttachmentBuilder {
@@ -146,7 +146,8 @@ function createTicketSupportBanner({ filename, categories }: TicketSupportBanner
 
   drawCategoryCard(context, categories);
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename });
+  return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
+    .setDescription("Arrakis Control support desk and available ticket routes.");
 }
 
 function drawCategoryCard(context: CanvasRenderingContext2D, categories: readonly string[]): void {
@@ -262,9 +263,8 @@ async function createMemberBanner({ artwork, filename, title, member }: MemberBa
 
   context.restore();
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), {
-    name: filename,
-  });
+  return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
+    .setDescription(`${title} card for ${member.user.tag} in ${member.guild.name}.`);
 }
 
 function panelArtwork(key: PanelArtworkKey): Image {

@@ -96,6 +96,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
   };
   const continuationPayload: MessageCreateOptions = {
     components: continuationResponse.components,
+    files: continuationResponse.files,
     flags: MessageFlags.IsComponentsV2,
   };
 

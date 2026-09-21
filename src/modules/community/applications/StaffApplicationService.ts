@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, PermissionFlagsBits, SeparatorSpacingSize, escapeMarkdown, type ButtonInteraction, type Client, type ModalSubmitInteraction } from "discord.js";
+import { ButtonBuilder, ButtonStyle, ContainerBuilder, PermissionFlagsBits, SeparatorSpacingSize, escapeMarkdown, type ButtonInteraction, type Client, type ModalSubmitInteraction } from "discord.js";
 import type { StaffApplicationConfig } from "../../../infrastructure/config/staffApplications";
 import { StaffApplicationRepository, type StaffApplicationAnswers, type StaffApplicationRecord, type StaffApplicationStatus } from "../../../infrastructure/database/applications/StaffApplicationRepository";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { getConfiguredStaffRoleIds } from "../../../support/access/staffAccess";
+import { createV2Response } from "../../../shared/discord/componentFactory";
 
 class StaffApplicationService {
   public constructor(public readonly client: Client, public readonly repository: StaffApplicationRepository, public readonly config: StaffApplicationConfig) {}
@@ -39,7 +40,7 @@ class StaffApplicationService {
       }
       const channel = await this.client.channels.fetch(this.config.reviewChannelId);
       if (!channel || !channel.isSendable()) throw new Error(`Review channel ${this.config.reviewChannelId} is not sendable.`);
-      const message = await channel.send({ components: [buildReviewCard(record, interaction.user.tag)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+      const message = await channel.send({ ...createV2Response([buildReviewCard(record, interaction.user.tag)]), allowedMentions: { parse: [] } });
       await this.repository.attachReview(id, message.channelId, message.id);
       await this.client.auditLogger.send("Staff application submitted", [`**Applicant:** ${safe(interaction.user.tag)} (${interaction.user.id})`, `**Application:** ${id}`, `**Review channel:** <#${message.channelId}>`]);
       return "Your staff application has been sent to the leadership team. You will receive the decision privately.";
@@ -78,7 +79,7 @@ class StaffApplicationService {
     if (!channel || !channel.isTextBased()) return;
     const message = await channel.messages.fetch(record.reviewMessageId).catch(() => null);
     if (!message) return;
-    await message.edit({ components: [buildReviewCard(record, undefined, reviewerTag)], allowedMentions: { parse: [] } });
+    await message.edit({ ...createV2Response([buildReviewCard(record, undefined, reviewerTag)]), attachments: [], allowedMentions: { parse: [] } });
   }
 }
 

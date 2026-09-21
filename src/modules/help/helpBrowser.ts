@@ -1,7 +1,8 @@
 import { container } from "@sapphire/framework";
-import { ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, SeparatorSpacingSize, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, type ButtonInteraction, type ChatInputCommandInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { ButtonBuilder, ButtonStyle, ContainerBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, type ButtonInteraction, type ChatInputCommandInteraction, type StringSelectMenuInteraction } from "discord.js";
 
 import { truncateDiscordText } from "../../shared/discord/discordLimits";
+import { createV2Response } from "../../shared/discord/componentFactory";
 import { HELP_CATEGORIES, getHelpCategory, type HelpAccess } from "./helpCatalog";
 import type { HelpSession } from "./helpSessions";
 
@@ -48,8 +49,8 @@ async function renderHelpBrowser(interaction: HelpInteraction, session: HelpSess
   await interaction.editReply({
     content: null,
     embeds: [],
-    components: [createHelpCard(session)],
-    flags: MessageFlags.IsComponentsV2,
+    ...createV2Response([createHelpCard(session)]),
+    attachments: [],
     allowedMentions: { parse: [] },
   });
 }

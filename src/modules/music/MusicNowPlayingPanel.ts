@@ -26,7 +26,7 @@ export class MusicNowPlayingPanel {
     }
     if (this.message) {
       try {
-        await this.message.edit({ content: payload.content ?? "", embeds: payload.embeds, allowedMentions: { parse: [] } });
+        await this.message.edit({ content: payload.content ?? "", embeds: payload.embeds, files: payload.files, attachments: [], allowedMentions: { parse: [] } });
         return;
       } catch (error) {
         if (!(error && typeof error === "object" && "code" in error && error.code === 10008)) throw error;

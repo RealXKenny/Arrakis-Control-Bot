@@ -35,7 +35,9 @@ class GuildMemberAdd extends Listener<typeof Events.GuildMemberAdd> {
       member,
     });
 
-    const mediaGallery = new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://member-welcome.png"));
+    const mediaGallery = new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder()
+      .setURL("attachment://member-welcome.png")
+      .setDescription(`Welcome card for ${member.user.tag}`));
 
     const container = createContainer({
       title: "## Welcome to Arrakis!",

@@ -10,6 +10,7 @@ import { ensurePlayerLinkPanel } from "../../players/linking/playerLinkPanel";
 import { ensureServerInfoPanel } from "../../server/information/serverInfoPanel";
 import { ensureTicketPanel } from "../../tickets/ticketPanel";
 import { ensureStaffApplicationPanel } from "../../community/applications/staffApplicationPanel";
+import { refreshReleaseAnnouncements } from "../../releases/versionAnnouncement";
 import { readStormChannelId, refreshStormAnnouncement } from "../../world/storms/stormAnnouncement";
 
 interface PersistentPanelTask {
@@ -38,6 +39,7 @@ function persistentPanelTasks(client: Client, guild?: Guild): PersistentPanelTas
   configured(client.discordServerInfoChannelId, "server information panel", () => ensureServerInfoPanel(client, client.discordServerInfoChannelId));
   configured(client.discordFaqPanelChannelId, "FAQ panel", () => ensureFaqPanel(client, client.discordFaqPanelChannelId));
   configured(client.discordTicketPanelChannelId, "ticket panel", () => ensureTicketPanel(client, client.discordTicketPanelChannelId));
+  configured(client.discordAnnouncementChannelId, "release announcement cards", () => refreshReleaseAnnouncements(client, client.discordAnnouncementChannelId));
   if (client.staffApplications) tasks.push({ label: "staff application panel", run: () => ensureStaffApplicationPanel(client) });
 
   if (client.discordAdapter) {
@@ -45,7 +47,7 @@ function persistentPanelTasks(client: Client, guild?: Guild): PersistentPanelTas
     configured(client.discordAdapterBlueprintPanelChannelId, "blueprint upload panel", () => ensureBlueprintUploadPanel(client, client.discordAdapterBlueprintPanelChannelId));
   }
   if (client.music) tasks.push({ label: "music panel", run: () => client.music!.publishPanel() });
-  if (guild && client.voiceRooms) tasks.push({ label: "voice panel", run: () => client.voiceRooms!.panel(guild) });
+  if (client.voiceRooms) tasks.push({ label: "voice panel", run: () => guild ? client.voiceRooms!.panel(guild) : client.voiceRooms!.panels() });
   if (readStormChannelId()) tasks.push({ label: "storm panel", run: () => refreshStormAnnouncement(client) });
 
   return tasks;

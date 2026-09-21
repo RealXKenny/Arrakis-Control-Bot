@@ -12,6 +12,7 @@ import { MusicNowPlayingPanel, NOW_PLAYING_MARKER } from "./MusicNowPlayingPanel
 import { MusicLyrics } from "./musicLyrics";
 import { playbackProgress } from "./musicProgress";
 import { scopedLogger, type Logger } from "../../client/logger";
+import { createDuneBanner } from "../../shared/discord/imageFactory";
 
 export type MusicAction = "skip" | "pause" | "resume" | "stop" | "clear" | "volume";
 
@@ -187,7 +188,11 @@ export class MusicService {
     finally { await this.backend.close(this.config.guildId); }
   }
 
-  public async publishPanel(): Promise<void> { await this.panel.publish(); }
+  public async publishPanel(): Promise<void> {
+    await this.panel.publish();
+    this.refreshSongCard();
+    await this.announcements;
+  }
 
   public async onVoiceState(oldState: VoiceState, newState: VoiceState): Promise<void> {
     await this.voiceMute?.onVoiceState(oldState, newState);
@@ -364,6 +369,7 @@ export class MusicService {
 
   public nowPlayingMessage() {
     const embed = new EmbedBuilder().setColor(0xc58b45).setDescription(this.describeQueue(true));
+    const files = [];
     const info = (this.current ?? this.idleCurrent)?.track.info;
     let artwork: string | undefined;
     if (info?.artworkUrl) {
@@ -375,8 +381,13 @@ export class MusicService {
     if (!artwork && info?.sourceName === "youtube" && /^[A-Za-z0-9_-]{11}$/.test(info.identifier)) {
       artwork = `https://i.ytimg.com/vi/${info.identifier}/hqdefault.jpg`;
     }
+    if (!artwork) {
+      const filename = "music-now-playing.png";
+      artwork = `attachment://${filename}`;
+      files.push(createDuneBanner({ artwork: "music", filename, title: "Music Lounge", subtitle: "NOW PLAYING", detail: "THE SPICE MUST FLOW • SO MUST THE MUSIC" }));
+    }
     if (artwork) embed.setImage(artwork);
-    return { content: "", embeds: [embed], allowedMentions: { parse: [] as never[] } };
+    return { content: "", embeds: [embed], files, allowedMentions: { parse: [] as never[] } };
   }
 
   private announceTrack(id: string): void {

@@ -222,6 +222,14 @@ describe("temporary voice rooms", () => {
     expect(edit).toHaveBeenCalledTimes(1);
   });
 
+  it("refreshes panels for every configured cached guild", async () => {
+    const f = fixture();
+    const panel = vi.spyOn(f.service, "panel").mockResolvedValue(undefined);
+    await f.service.panels();
+    expect(f.repo.settings).toHaveBeenCalledWith("guild");
+    expect(panel).toHaveBeenCalledWith(f.guild);
+  });
+
   it("resets defaults while preserving individual member access", async () => {
     const f = fixture(); const saved = f.seed(); f.member.voice.channelId = "room";
     const access = PermissionFlagsBits.Connect | PermissionFlagsBits.ViewChannel;

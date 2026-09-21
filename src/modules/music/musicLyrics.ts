@@ -1,5 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } from "discord.js";
 import type { Track } from "shoukaku";
+import { createDuneBanner } from "../../shared/discord/imageFactory";
 
 const LRCLIB_API = "https://lrclib.net/api";
 const CACHE_TTL_MS = 15 * 60_000;
@@ -67,7 +68,9 @@ export class MusicLyrics {
         .setColor(0xc58b45)
         .setTitle(`Lyrics · ${metadata.title}`.slice(0, 256))
         .setDescription(pages[index])
+        .setImage("attachment://music-lyrics.png")
         .setFooter({ text: `${source.slice(0, 1_900)} · Page ${index + 1}/${pages.length}` })],
+      files: [createDuneBanner({ artwork: "music", filename: "music-lyrics.png", title: "Lyrics Archive", subtitle: "MUSIC LOUNGE", detail: "WORDS CARRIED ACROSS THE SANDS" })],
       components: [row],
       allowedMentions: { parse: [] as never[] },
     };

@@ -1,4 +1,5 @@
-import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, ContainerBuilder, SlashCommandBuilder } from "discord.js";
+import { createV2Response } from "../../../shared/discord/componentFactory";
 
 
 const ACCENT_COLOR = 0xc58b45;
@@ -27,8 +28,7 @@ const command = {
       .addTextDisplayComponents((text) => text.setContent([`**User ID:** \`${user.id}\``, `**Account created:** ${createdAt}`, `**Joined this server:** ${joinedAt}`, `**Bot account:** ${user.bot ? "Yes" : "No"}`].join("\n")));
 
     await interaction.reply({
-      components: [card],
-      flags: MessageFlags.IsComponentsV2,
+      ...createV2Response([card]),
       allowedMentions: {
         parse: [],
       },

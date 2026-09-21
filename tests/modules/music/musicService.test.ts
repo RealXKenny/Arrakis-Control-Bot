@@ -206,7 +206,8 @@ it("shows current artwork and drops it after playback stops", async () => {
   await service.request(guild, "requests", "user", "song");
   expect(service.nowPlayingMessage().embeds[0].toJSON().image?.url).toBe(song.info.artworkUrl);
   await service.action(guild, "requests", "user", "stop");
-  expect(service.nowPlayingMessage().embeds[0].toJSON().image).toBeUndefined();
+  expect(service.nowPlayingMessage().embeds[0].toJSON().image?.url).toBe("attachment://music-now-playing.png");
+  expect(service.nowPlayingMessage().files).toHaveLength(1);
 });
 
 it("falls back to a YouTube thumbnail when artwork is missing or invalid", async () => {

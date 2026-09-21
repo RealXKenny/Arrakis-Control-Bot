@@ -6,6 +6,26 @@ All notable changes to Arrakis Control Bot are documented here.
 
 No changes yet.
 
+## [1.10.9] - 2026-09-20
+
+### Added
+
+- Add dedicated Arrakis field-console artwork for short-lived command, moderation, error, help, review, archive, and other Components V2 responses that did not already have panel-specific art.
+
+### Changed
+
+- Refresh every configured guild's voice panel and both music lounge messages during startup and Bot Control panel refreshes.
+- Refresh every previously published bot and dashboard release card in place so changelog announcements adopt the current artwork and layout without being reposted.
+- Ensure lyrics, voice-room information, ticket and staff review cards, server-information continuations, and music tracks without remote cover art always include an image.
+- Preserve each panel's existing unique artwork while automatically filling only image-less temporary responses.
+- Update every new member-join and member-leave card with its dedicated scene, full member avatar treatment, and accessible image description.
+- Compact Sapphire's global application-command overwrite report into a short single-line command count before terminal-width fitting.
+
+### Verification
+
+- TypeScript build, ESLint, all 477 automated tests across 78 files, production dependency audit, and `git diff --check` pass locally.
+- Live Discord message replacement, lifecycle cards, and release-announcement edits still require deployment verification.
+
 ## [1.10.8] - 2026-09-20
 
 ### Added

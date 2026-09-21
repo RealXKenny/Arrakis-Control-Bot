@@ -1,6 +1,7 @@
 import { Command, container } from "@sapphire/framework";
 import { ContainerBuilder, MessageFlags, SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import { scopedLogger } from "../../../client/logger";
+import { createV2Response } from "../../../shared/discord/componentFactory";
 import { buildStormPanel, parseCoriolisEnd, stormWindowFromEnd } from "../../../modules/world/storms/stormAnnouncement";
 import { registerApplicationCommand } from "../../../support/commands/registerApplicationCommand";
 
@@ -25,7 +26,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       .setAccentColor(0x8f3025)
       .addTextDisplayComponents((text) => text.setContent("## Coriolis Storm Schedule"))
       .addTextDisplayComponents((text) => text.setContent("The live storm schedule is unavailable. Please try again shortly."));
-    await interaction.editReply({ content: null, components: [card], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+    await interaction.editReply({ content: null, ...createV2Response([card]), allowedMentions: { parse: [] } });
   }
 }
 

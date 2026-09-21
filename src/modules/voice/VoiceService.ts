@@ -107,6 +107,12 @@ export class VoiceService {
     await this.serial(guild.id, () => this.publishPanel(guild));
   }
 
+  public async panels(): Promise<void> {
+    for (const guild of this.client.guilds.cache.values()) {
+      if (await this.configured(guild.id)) await this.panel(guild);
+    }
+  }
+
   public async configured(guildId: string): Promise<boolean> {
     return Boolean(await this.repository.settings(guildId));
   }

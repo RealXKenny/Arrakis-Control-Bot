@@ -4,6 +4,7 @@ import { RateLimitedInteractionHandler } from "../../support/interactions/RateLi
 import { VOICE_BUTTON_ACTIONS } from "../../modules/voice/voicePanel";
 import { runVoiceInteraction } from "../../modules/voice/voiceInteractions";
 import { voiceKickPicker } from "../../modules/voice/voiceKickPicker";
+import { createDuneBanner } from "../../shared/discord/imageFactory";
 
 export class VoiceButton extends RateLimitedInteractionHandler<ButtonInteraction> {
   public constructor(context: InteractionHandler.LoaderContext, options: InteractionHandler.Options) {
@@ -41,7 +42,8 @@ export class VoiceButton extends RateLimitedInteractionHandler<ButtonInteraction
           { name: "User limit", value: channel.userLimit ? String(channel.userLimit) : "Unlimited", inline: true },
           { name: "Default access", value: defaults?.has(PermissionFlagsBits.Connect) ? "Open" : "Restricted", inline: true },
           { name: "Default visibility", value: defaults?.has(PermissionFlagsBits.ViewChannel) ? "Visible" : "Hidden", inline: true },
-        ).setFooter({ text: "Explicit member permissions and administrator access may differ." })] });
+        ).setImage("attachment://voice-room-info.png").setFooter({ text: "Explicit member permissions and administrator access may differ." })],
+          files: [createDuneBanner({ artwork: "voice", filename: "voice-room-info.png", title: "Voice Room", subtitle: "PRIVATE CONTROLS", detail: "YOUR ROOM • YOUR CREW" })] });
       } else if (action === "permit" || action === "reject" || action === "kick" || action === "delete" || action === "reset") {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const { channel } = await service.authorize(interaction.guild!, interaction.user.id, interaction.channelId, undefined, interaction.message.id);

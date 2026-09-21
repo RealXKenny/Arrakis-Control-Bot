@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LogLevel } from "@sapphire/framework";
 
-import { createLogger, createSapphireLogger, fitConsoleLine } from "../../src/client/logger";
+import { compactSapphireMessage, createLogger, createSapphireLogger, fitConsoleLine } from "../../src/client/logger";
 
 function stripAnsi(value: string): string {
   return value
@@ -48,6 +48,11 @@ describe("Sapphire logger adapter", () => {
 
     expect(output).toHaveBeenCalledWith(expect.stringContaining("[INFO] [GATEWAY] Connected."));
     expect(output.mock.calls.flat().join(" ")).not.toContain("[SAPPHIRE] Connected.");
+  });
+
+  it("compacts Sapphire's global command overwrite report to one useful line", () => {
+    expect(compactSapphireMessage("ApplicationCommandRegistries(BulkOverwrite) Successfully overwrote global application commands. The application now has 13 global commands"))
+      .toBe("Global application commands synchronized (13).");
   });
 });
 

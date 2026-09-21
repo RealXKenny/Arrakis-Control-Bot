@@ -138,6 +138,12 @@ function oneLine(value: string): string {
   return value.replace(/\s+/gu, " ").trim();
 }
 
+function compactSapphireMessage(value: string): string {
+  const overwrite = value.match(/^ApplicationCommandRegistries\(BulkOverwrite\) Successfully overwrote global application commands\. The application now has (\d+) global commands\.?$/u);
+  if (overwrite) return `Global application commands synchronized (${overwrite[1]}).`;
+  return value;
+}
+
 function visibleLength(value: string): number {
   return Array.from(value.replace(ANSI_COLOR_PATTERN, "")).length;
 }
@@ -318,7 +324,7 @@ function createSapphireLogger(scope: string, minimumLevel: string = process.env.
       details = remainingValues;
     }
 
-    logger[level.toLowerCase() as Lowercase<LogLevel>](message, details);
+    logger[level.toLowerCase() as Lowercase<LogLevel>](compactSapphireMessage(message), details);
   }
 
   function write(level: SapphireLogLevel, ...values: readonly unknown[]): void {
@@ -394,6 +400,6 @@ function formatTimestamp(date: Date): string {
   return `${values.month}/${values.day}/${values.year} ` + `${values.hour}:${values.minute}:${values.second} ` + `${values.dayPeriod}`;
 }
 
-export { createLogger, createRequestLogger, createSapphireLogger, fitConsoleLine, formatTimestamp, scopedLogger };
+export { compactSapphireMessage, createLogger, createRequestLogger, createSapphireLogger, fitConsoleLine, formatTimestamp, scopedLogger };
 
 export type { LogContext, LogLevel, Logger, ScopedSapphireLogger };

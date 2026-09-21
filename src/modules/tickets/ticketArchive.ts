@@ -1,8 +1,9 @@
-import { AttachmentBuilder, ContainerBuilder, FileBuilder, MessageFlags, SeparatorSpacingSize, type Client, type TextChannel } from "discord.js";
+import { AttachmentBuilder, ContainerBuilder, FileBuilder, SeparatorSpacingSize, type Client, type TextChannel } from "discord.js";
 
 import type { TicketRecord } from "../../infrastructure/database/tickets/TicketRepository";
 import { createLogger } from "../../client/logger";
 import { truncateDiscordText } from "../../shared/discord/discordLimits";
+import { createV2Response } from "../../shared/discord/componentFactory";
 
 const logger = createLogger("TICKET ARCHIVE");
 
@@ -112,9 +113,7 @@ async function publishTicketArchive(ticketChannel: TextChannel, ticket: TicketRe
     if (!channel?.isSendable()) throw new Error(`Transcript channel ${archiveChannelId} is not sendable.`);
 
     const message = await channel.send({
-      components: [buildTicketArchiveContainer(ticket)],
-      files: createArchiveFiles(ticket),
-      flags: MessageFlags.IsComponentsV2,
+      ...createV2Response([buildTicketArchiveContainer(ticket)], createArchiveFiles(ticket)),
       allowedMentions: { parse: [] },
     });
 
@@ -141,8 +140,7 @@ async function updateTicketArchive(client: Client, ticket: TicketRecord): Promis
       .map((attachment) => ({ id: attachment.id }));
 
     await message.edit({
-      components: [buildTicketArchiveContainer(ticket)],
-      files: [createJsonFile(ticket)],
+      ...createV2Response([buildTicketArchiveContainer(ticket)], [createJsonFile(ticket)]),
       attachments: retainedAttachments,
       allowedMentions: { parse: [] },
     });

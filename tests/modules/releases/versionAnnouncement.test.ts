@@ -1,7 +1,7 @@
 import { Collection, type Client } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { announceCurrentVersion } from "../../../src/modules/releases/versionAnnouncement";
+import { announceCurrentVersion, refreshReleaseAnnouncements } from "../../../src/modules/releases/versionAnnouncement";
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
 
 vi.mock("../../../src/shared/discord/imageFactory", () => ({
@@ -31,18 +31,19 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
   vi.stubGlobal("fetch", fetchMock);
   const crosspost = vi.fn().mockResolvedValue(undefined);
   const send = vi.fn().mockResolvedValue({ crosspostable: true, crosspost });
+  const existing = markers.map((marker, index) => {
+    const edit = vi.fn().mockResolvedValue(undefined);
+    return [String(index), { content: "", components: [{ components: [{ content: marker }] }], edit }] as const;
+  });
   const channel = {
     isSendable: () => true,
     messages: {
-      fetch: vi.fn().mockResolvedValue(new Collection(markers.map((marker, index) => [String(index), {
-        content: "",
-        components: [{ components: [{ content: marker }] }],
-      }]))),
+      fetch: vi.fn().mockResolvedValue(new Collection(existing)),
     },
     send,
   };
   const client = { user: {}, channels: { fetch: vi.fn().mockResolvedValue(channel) } } as unknown as Client;
-  return { client, send, crosspost, fetchMock };
+  return { client, send, crosspost, fetchMock, existing };
 }
 
 describe("version announcements", () => {
@@ -69,6 +70,15 @@ describe("version announcements", () => {
     const { client, send } = setup(["## Arrakis Control Bot v1.0.0", "## Arrakis Control Dashboard v1.0.0"]);
     await announceCurrentVersion(client, "announcements");
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("refreshes every existing release card with current artwork without reposting", async () => {
+    const { client, send, existing } = setup(["## Arrakis Control Bot v1.0.0", "## Arrakis Control Dashboard v1.0.0"]);
+    await refreshReleaseAnnouncements(client, "announcements");
+    expect(send).not.toHaveBeenCalled();
+    for (const [, message] of existing) {
+      expect(message.edit).toHaveBeenCalledWith(expect.objectContaining({ attachments: [], files: expect.any(Array), components: expect.any(Array) }));
+    }
   });
 
   it("publishes release messages sent to an announcement channel", async () => {

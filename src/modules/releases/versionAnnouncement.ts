@@ -70,33 +70,33 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
   }
 }
 
+async function refreshReleaseAnnouncements(client: Client, channelId?: string | null): Promise<void> {
+  if (!channelId || !isPrimaryShard()) return;
+  if (!client.user) throw new Error("Cannot refresh release announcements before the Discord client is ready.");
+
+  const channel = await client.channels.fetch(channelId);
+  if (!channel?.isSendable()) throw new Error(`Version announcement channel ${channelId} is not a sendable channel.`);
+
+  const [releases, history] = await Promise.all([loadReleases(), readChannelHistory(channel)]);
+  const messagesByMarker = new Map(history.map((message) => [findReleaseMarker(message), message]));
+
+  // Dev note: Even yesterday's changelog deserves today's coat of desert paint.
+  for (const release of releases) {
+    const marker = `## Arrakis Control ${release.project.name} v${release.version}`;
+    const legacyMarker = release.project.name === "Bot" ? `## Arrakis Control v${release.version}` : null;
+    const message = messagesByMarker.get(marker) ?? (legacyMarker ? messagesByMarker.get(legacyMarker) : undefined);
+    if (!message) continue;
+    await message.edit({ ...releasePayload(release, marker, null), attachments: [] });
+  }
+}
+
 async function sendReleaseAnnouncement(channel: SendableChannels, release: Release, marker: string): Promise<void> {
   const roleId = getAnnouncementRoleId();
   const roleMention = roleId ? `<@&${roleId}>` : null;
 
-  const card = buildReleaseCard(release, marker, roleMention);
-  const filename = sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png");
-  const banner = createDuneBanner({
-    artwork: "release",
-    filename,
-    title: `${release.project.name} v${release.version}`,
-    subtitle: "RELEASE ANNOUNCEMENT",
-    detail: "ARRAKIS CONTROL",
-  });
-
   const payload: MessageCreateOptions = {
-    components: [card],
-    files: [
-      {
-        attachment: banner.attachment,
-        name: filename,
-        description: banner.description ?? undefined,
-      },
-    ],
+    ...releasePayload(release, marker, roleMention),
     flags: MessageFlags.IsComponentsV2,
-    allowedMentions: {
-      roles: roleId ? [roleId] : [],
-    },
   };
 
   const message = await channel.send(payload);
@@ -106,6 +106,22 @@ async function sendReleaseAnnouncement(channel: SendableChannels, release: Relea
       logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
     });
   }
+}
+
+function releasePayload(release: Release, marker: string, roleMention: string | null) {
+  const filename = sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png");
+  const banner = createDuneBanner({
+    artwork: "release",
+    filename,
+    title: `${release.project.name} v${release.version}`,
+    subtitle: "RELEASE ANNOUNCEMENT",
+    detail: "ARRAKIS CONTROL",
+  });
+  return {
+    components: [buildReleaseCard(release, marker, roleMention)],
+    files: [{ attachment: banner.attachment, name: filename, description: banner.description ?? undefined }],
+    allowedMentions: { roles: roleMention ? [getAnnouncementRoleId()!] : [] },
+  };
 }
 
 function buildReleaseCard(release: Release, marker: string, roleMention: string | null): ContainerBuilder {
@@ -250,4 +266,4 @@ async function readChannelHistory(channel: SendableChannels): Promise<Message[]>
   return messages;
 }
 
-export { announceCurrentVersion, buildReleaseCard };
+export { announceCurrentVersion, buildReleaseCard, refreshReleaseAnnouncements };

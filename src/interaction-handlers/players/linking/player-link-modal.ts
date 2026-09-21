@@ -4,6 +4,7 @@ import { ButtonBuilder, ButtonStyle, ContainerBuilder, MessageFlags, ModalSubmit
 import { scopedLogger } from "../../../client/logger";
 import { createActorContext } from "../../../shared/actors/createActorContext";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+import { createV2Response } from "../../../shared/discord/componentFactory";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { matchesCustomId } from "../../../support/interactions/componentCustomIds";
 
@@ -64,8 +65,7 @@ const handler = {
 
     await interaction.editReply({
       content: null,
-      components: [verificationCard],
-      flags: MessageFlags.IsComponentsV2,
+      ...createV2Response([verificationCard]),
     });
   },
 };

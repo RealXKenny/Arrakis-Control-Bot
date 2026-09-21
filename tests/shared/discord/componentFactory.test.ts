@@ -1,4 +1,4 @@
-import { MessageFlags } from "discord.js";
+import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags } from "discord.js";
 import { describe, expect, it } from "vitest";
 import { createContainer, createV2Response } from "../../../src/shared/discord/componentFactory";
 
@@ -15,6 +15,18 @@ describe("componentFactory", () => {
   it("creates a Components V2 response without mutating its inputs", () => {
     const components = [createContainer({ title: "Status" })];
     const files: never[] = [];
-    expect(createV2Response(components, files)).toEqual({ components, files, flags: MessageFlags.IsComponentsV2 });
+    const response = createV2Response(components, files);
+    expect(response.flags).toBe(MessageFlags.IsComponentsV2);
+    expect(response.components).toHaveLength(2);
+    expect(response.files).toHaveLength(1);
+    expect(components).toHaveLength(1);
+    expect(files).toHaveLength(0);
+  });
+
+  it("preserves panels that already provide their own visual", () => {
+    const panel = new ContainerBuilder().addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://existing.png")));
+    const response = createV2Response([panel], [{ attachment: Buffer.from("image"), name: "existing.png" }]);
+    expect(response.components).toEqual([panel]);
+    expect(response.files).toHaveLength(1);
   });
 });

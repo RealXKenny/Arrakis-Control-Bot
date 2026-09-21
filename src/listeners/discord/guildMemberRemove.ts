@@ -33,7 +33,9 @@ class GuildMemberRemove extends Listener<typeof Events.GuildMemberRemove> {
       member,
     });
 
-    const mediaGallery = new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://member-goodbye.png"));
+    const mediaGallery = new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder()
+      .setURL("attachment://member-goodbye.png")
+      .setDescription(`Departure card for ${member.user.tag}`));
 
     const container = createContainer({
       title: "## A Traveler Has Departed",

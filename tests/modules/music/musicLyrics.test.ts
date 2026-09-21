@@ -20,6 +20,8 @@ it("shows lyrics in pages and coalesces concurrent lookups", async () => {
   expect(second.embeds[0].toJSON().footer?.text).toContain("Page 2/2");
   expect(first.components[0].toJSON().components[1]).toMatchObject({ custom_id: "music:lyrics:request:1" });
   expect(first.embeds[0].toJSON().footer?.text).toContain("LRCLIB · Example Artist — Example Song");
+  expect(first.embeds[0].toJSON().image?.url).toBe("attachment://music-lyrics.png");
+  expect(first.files).toHaveLength(1);
   expect(first.allowedMentions).toEqual({ parse: [] });
 });
 it.each([404, 429, 503])("handles lookup HTTP %s without exposing errors", async (status) => {
