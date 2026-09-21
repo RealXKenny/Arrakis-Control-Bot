@@ -4,7 +4,7 @@ Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: A
 
 See [AGENTS.md](AGENTS.md) for the repository structure, ownership boundaries, development rules, and verification workflow. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.10.10.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.10.11.
 
 ## Requirements
 
@@ -86,6 +86,8 @@ npm audit --omit=dev
 ```
 
 Pushes and pull requests targeting `main` run the `CI` GitHub Actions workflow. After a successful push to `main`, the `Release` workflow reads the stable semantic version from `package.json`. If its `v<version>` tag does not exist, the workflow requires a matching non-empty `## [<version>]` section in `CHANGELOG.md`, creates the tag at the exact CI-verified commit, and publishes an `Arrakis Control Bot <version>` GitHub release from those notes. Commits that do not bump the version safely skip release creation.
+
+The running bot checks published Bot and Dashboard GitHub releases at startup and every `VERSION_ANNOUNCEMENT_INTERVAL_MINUTES` minutes (five by default). Set `ANNOUNCEMENT_CHANNEL_ID` to a channel where it can view history, send messages, and attach files; an announcement channel also needs Publish Messages permission for crossposting. A package-version push alone does not announce until the GitHub release is published. Release checks retry after transient failures and avoid reposting messages already found in channel history.
 
 ### Docker image for Pterodactyl
 

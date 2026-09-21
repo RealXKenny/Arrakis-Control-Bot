@@ -54,20 +54,28 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
     throw new Error(`Version announcement channel ${channelId} is not a sendable channel.`);
   }
 
-  const [releases, history] = await Promise.all([loadReleases(), readChannelHistory(channel)]);
+  const [{ releases, failures: sourceFailures }, history] = await Promise.all([loadReleases(), readChannelHistory(channel)]);
 
   const announcedMarkers = new Set(history.map(findReleaseMarker).filter((marker): marker is string => marker !== null));
+  const failures: unknown[] = [...sourceFailures];
 
-  for (const release of [...releases].reverse()) {
+  // Dev note: A stubborn old release must not make the newest dispatch wait in line.
+  for (const release of releases) {
     const marker = `## Arrakis Control ${release.project.name} v${release.version}`;
 
     if (announcedMarkers.has(marker) || (release.project.name === "Bot" && announcedMarkers.has(`## Arrakis Control v${release.version}`))) {
       continue;
     }
 
-    await sendReleaseAnnouncement(channel, release, marker);
-    announcedMarkers.add(marker);
+    try {
+      await sendReleaseAnnouncement(channel, release, marker);
+      announcedMarkers.add(marker);
+    } catch (error) {
+      failures.push(error);
+    }
   }
+
+  if (failures.length) throw new AggregateError(failures, `${failures.length} release check operation(s) failed.`);
 }
 
 async function refreshReleaseAnnouncements(client: Client, channelId?: string | null): Promise<void> {
@@ -77,7 +85,7 @@ async function refreshReleaseAnnouncements(client: Client, channelId?: string | 
   const channel = await client.channels.fetch(channelId);
   if (!channel?.isSendable()) throw new Error(`Version announcement channel ${channelId} is not a sendable channel.`);
 
-  const [releases, history] = await Promise.all([loadReleases(), readChannelHistory(channel)]);
+  const [{ releases, failures }, history] = await Promise.all([loadReleases(), readChannelHistory(channel)]);
   const messagesByMarker = new Map(history.map((message) => [findReleaseMarker(message), message]));
 
   // Dev note: Even yesterday's changelog deserves today's coat of desert paint.
@@ -88,6 +96,7 @@ async function refreshReleaseAnnouncements(client: Client, channelId?: string | 
     if (!message) continue;
     await message.edit({ ...releasePayload(release, marker, null), attachments: [] });
   }
+  if (failures.length) throw new AggregateError(failures, `${failures.length} release source(s) could not be refreshed.`);
 }
 
 async function sendReleaseAnnouncement(channel: SendableChannels, release: Release, marker: string): Promise<void> {
@@ -205,10 +214,14 @@ function formatDiscordTimestamp(date: string | null): string {
   return `<t:${Math.floor(timestamp / 1000)}:F>`;
 }
 
-async function loadReleases(): Promise<Release[]> {
-  const releases = await Promise.all(RELEASE_PROJECTS.map(loadProjectReleases));
-
-  return releases.flat().sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0));
+async function loadReleases(): Promise<{ releases: Release[]; failures: unknown[] }> {
+  const results = await Promise.allSettled(RELEASE_PROJECTS.map(loadProjectReleases));
+  const releases = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  const failures = results.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+  if (results.every((result) => result.status === "rejected")) {
+    throw new AggregateError(failures, "Could not fetch releases from either GitHub repository.");
+  }
+  return { releases: releases.sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0)), failures };
 }
 
 async function loadProjectReleases(project: ReleaseProject): Promise<Release[]> {

@@ -16,7 +16,7 @@ afterEach(() => {
 function setup(markers: string[] = [], releaseBody = "Release changes") {
   vi.stubEnv("DISCORD_SHARD_ID", "0");
   vi.stubEnv("ROLE_ANNOUNCEMENTS_ID", "");
-  const fetchMock = vi.fn((url: string) => Promise.resolve({
+  const fetchMock = vi.fn((url: string): Promise<Response> => Promise.resolve({
     ok: true,
     json: () => Promise.resolve([{
       tag_name: "v1.0.0",
@@ -27,7 +27,7 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
       draft: false,
       prerelease: false,
     }]),
-  }));
+  } as Response));
   vi.stubGlobal("fetch", fetchMock);
   const crosspost = vi.fn().mockResolvedValue(undefined);
   const send = vi.fn().mockResolvedValue({ crosspostable: true, crosspost });
@@ -47,16 +47,47 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
 }
 
 describe("version announcements", () => {
-  it("announces matching versions from both repositories in date order with project links", async () => {
+  it("announces the newest release first with project links", async () => {
     const { client, send, fetchMock } = setup();
     await announceCurrentVersion(client, "announcements");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledTimes(2);
     const cards = send.mock.calls.map(([payload]) => JSON.stringify(payload.components[0].toJSON()));
-    expect(cards[0]).toContain("## Arrakis Control Bot v1.0.0");
-    expect(cards[0]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot"');
-    expect(cards[1]).toContain("## Arrakis Control Dashboard v1.0.0");
-    expect(cards[1]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Dashboard"');
+    expect(cards[0]).toContain("## Arrakis Control Dashboard v1.0.0");
+    expect(cards[0]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Dashboard"');
+    expect(cards[1]).toContain("## Arrakis Control Bot v1.0.0");
+    expect(cards[1]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot"');
+  });
+
+  it("announces a bot release when the Dashboard release API fails", async () => {
+    const { client, send, fetchMock } = setup();
+    fetchMock.mockImplementationOnce((url: string) => Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve([{ tag_name: "v1.0.0", name: "Bot release", published_at: "2026-09-21T12:00:00Z",
+        body: "Changes", html_url: url.replace("api.github.com/repos/", "github.com/").replace("?per_page=100", "/tag/v1.0.0"), draft: false, prerelease: false }]),
+    } as Response)).mockImplementationOnce(() => Promise.resolve({ ok: false, status: 503, statusText: "Unavailable" } as Response));
+
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("1 release check operation");
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(JSON.stringify(send.mock.calls[0][0].components[0].toJSON())).toContain("## Arrakis Control Bot v1.0.0");
+  });
+
+  it("tries the next release when an announcement fails, then reports the failure", async () => {
+    const { client, send } = setup();
+    send.mockRejectedValueOnce(new Error("Discord rejected the first release"));
+
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("1 release check operation");
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(send.mock.calls[1][0].components[0].toJSON())).toContain("## Arrakis Control Bot v1.0.0");
+  });
+
+  it("reports a failed check when neither GitHub release source is available", async () => {
+    const { client, send, fetchMock } = setup();
+    fetchMock.mockResolvedValue({ ok: false, status: 503, statusText: "Unavailable" } as Response);
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("either GitHub repository");
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("recognizes legacy bot announcements without suppressing dashboard releases", async () => {
@@ -92,7 +123,8 @@ describe("version announcements", () => {
 
     await announceCurrentVersion(client, "announcements");
 
-    const card = send.mock.calls[0][0].components[0].toJSON();
+    const card = send.mock.calls.map(([payload]) => payload.components[0].toJSON())
+      .find((candidate) => JSON.stringify(candidate).includes("## Arrakis Control Bot v1.0.0"))!;
     const displayableText = collectDisplayableText(card);
 
     expect(countDisplayableText(card)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);

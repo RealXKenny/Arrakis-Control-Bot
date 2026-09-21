@@ -4,6 +4,17 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.10.11] - 2026-09-21
+
+### Fixed
+
+- Check new GitHub releases before restoring persistent panels, and let a Bot release announcement proceed when the Dashboard release API or another announcement fails.
+
+### Verification
+
+- TypeScript build, ESLint, all 506 automated tests across 82 files, production dependency audit, and `git diff --check` pass locally.
+- The Docker image smoke check runs in the release workflow; live Discord announcement delivery still requires deployment verification.
+
 ## [1.10.10] - 2026-09-21
 
 ### Added

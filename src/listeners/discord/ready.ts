@@ -96,8 +96,8 @@ class Ready extends Listener<typeof Events.ClientReady> {
       return Promise.resolve();
     });
 
-    await ensurePanels();
     await runReadyTask("configure version announcements", setupVersionAnnouncements);
+    await ensurePanels();
     systemLogger.info("[WATCH ACTIVE] Startup tasks finished. Check any service warnings above.");
   }
 }
