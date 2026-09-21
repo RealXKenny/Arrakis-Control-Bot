@@ -15,7 +15,7 @@ The bot is stored in `/opt/arrakis` because Pterodactyl mounts server files at `
 
 - `CONSOLE_URL` must be HTTPS in production. Use externally reachable hostnames for the Console, PostgreSQL, RabbitMQ, and Lavalink services; `localhost` inside the bot container means the bot container itself.
 - `DATABASE_URL` enables persistent features such as tickets, community levels, and music state. Set `DATABASE_SSL=true` when your PostgreSQL service requires TLS.
-- When using RabbitMQ with a private CA, upload its **public** PEM file to the server's Files tab and set `RABBITMQ_CA_FILE` to its absolute path, such as `/home/container/rabbitmq-ca.pem`. Do not upload a private key.
+- The image includes this repository's public RabbitMQ server certificates at `/opt/arrakis/certificates/production-rabbitmq-server.pem` and `/opt/arrakis/certificates/development-rabbitmq-server.pem`. Set `RABBITMQ_CA_FILE` to the matching absolute path when trusting one of those brokers. For another broker or a rotated certificate, upload its trusted public CA PEM and set `RABBITMQ_CA_FILE` to that file, such as `/home/container/rabbitmq-ca.pem`. Do not upload a private key.
 - The egg exposes credential variables in the server Startup tab so the server administrator can edit them. Limit access to that tab and avoid sharing screenshots or exports containing configured values.
 - Use one Pterodactyl server for this bot deployment. Give shutdown at least 15 seconds so the shard manager can close its child processes and connections.
 

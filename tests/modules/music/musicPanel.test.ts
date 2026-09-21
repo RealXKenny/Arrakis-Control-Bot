@@ -1,4 +1,4 @@
-import { Collection, type Client, type ButtonInteraction, type ModalSubmitInteraction, type Interaction } from "discord.js";
+import { Collection, ComponentType, type Client, type ButtonInteraction, type ModalSubmitInteraction, type Interaction } from "discord.js";
 import { expect, it, vi } from "vitest";
 import { MusicPanelPublisher, musicPanel } from "../../../src/modules/music/musicPanel";
 import { handleMusicInteraction } from "../../../src/modules/music/musicInteractions";
@@ -41,7 +41,7 @@ it("does not create a duplicate when history cannot be read", async () => {
 
 function interaction(customId: string, modal = false) {
   const musicInteraction = vi.fn();
-  const service = { authorize: vi.fn(), requireRequester: vi.fn(), requireOwnerRole: vi.fn(), action: vi.fn(), request: vi.fn().mockResolvedValue("Queued"),
+  const service = { authorize: vi.fn(), waitUntilReady: vi.fn().mockResolvedValue(undefined), requireRequester: vi.fn(), requireOwnerRole: vi.fn(), action: vi.fn(), request: vi.fn().mockResolvedValue("Queued"),
     lyricsMessage: vi.fn().mockReturnValue({ content: "Lyrics link", components: [] }), describeQueue: vi.fn().mockReturnValue("Queue"), errorMessage: () => "Join the music voice channel.",
     auditSnapshot: vi.fn().mockReturnValue({ available: true, connected: true, paused: false, volume: 30, position: 1_000, queue: [] }) };
   const value = { customId, client: { music: service, auditLogger: { musicInteraction } }, guild: { id: "guild" }, channelId: "requests", user: { id: "user" },
@@ -87,11 +87,42 @@ it("allows lyrics viewing without voice membership or playback ownership", async
   expect(mocks.editReply).toHaveBeenCalledWith({ content: "Lyrics link", components: [] });
 });
 
+it("keeps the public music panel within component and display-text limits", () => {
+  const components = musicPanel("voice").components[0].toJSON().components;
+  const text = components.filter((component) => component.type === ComponentType.TextDisplay)
+    .map((component) => component.content).join("");
+  expect(components).toHaveLength(12);
+  expect(text.length).toBeLessThanOrEqual(4_000);
+});
+
 it.each(["music:request", "music:volume"])("opens %s modal before performing member lookups", async (customId) => {
   const { value, service, mocks } = interaction(customId);
   await handleMusicInteraction(value);
   expect(mocks.showModal).toHaveBeenCalledOnce();
   expect(service.authorize).not.toHaveBeenCalled();
+});
+
+it("keeps a submitted song interaction deferred while music becomes ready", async () => {
+  const { value, service, mocks } = interaction("music-edit:request", true);
+  let release!: () => void;
+  service.waitUntilReady.mockReturnValueOnce(new Promise<void>((resolve) => { release = resolve; }));
+  const response = handleMusicInteraction(value);
+  await vi.waitFor(() => expect(service.waitUntilReady).toHaveBeenCalledOnce());
+  expect(mocks.deferReply).toHaveBeenCalledOnce();
+  expect(service.request).not.toHaveBeenCalled();
+  expect(mocks.editReply).not.toHaveBeenCalled();
+  release();
+  await response;
+  expect(service.request).toHaveBeenCalledOnce();
+  expect(mocks.editReply).toHaveBeenCalledWith(expect.objectContaining({ content: "Queued" }));
+});
+
+it("does not submit a song when the readiness wait expires", async () => {
+  const { value, service, mocks } = interaction("music-edit:request", true);
+  service.waitUntilReady.mockRejectedValueOnce(new Error("still reconnecting"));
+  await handleMusicInteraction(value);
+  expect(service.request).not.toHaveBeenCalled();
+  expect(mocks.editReply).toHaveBeenCalledOnce();
 });
 
 it("silently stops when Discord reports an expired interaction token", async () => {

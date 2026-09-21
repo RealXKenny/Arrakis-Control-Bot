@@ -77,10 +77,10 @@ describe("moderation commands", () => {
 });
 
 describe("Sapphire command store", () => {
-  it("discovers all 13 top-level commands without a gateway login", async () => {
+  it("discovers all 14 top-level commands without a gateway login", async () => {
     const { commands } = await getStoreSnapshot();
-    expect(commands).toEqual(expect.arrayContaining(["server-usage", "help", "level", "music", "voice", "market", "storm", "bot", "player", "backup", "server", "update", "moderation"]));
-    expect(commands).toHaveLength(13);
+    expect(commands).toEqual(expect.arrayContaining(["server-usage", "help", "level", "achievements", "music", "voice", "market", "storm", "bot", "player", "backup", "server", "update", "moderation"]));
+    expect(commands).toHaveLength(14);
     expect(commands.length).toBeLessThan(100);
   });
 

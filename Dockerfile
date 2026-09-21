@@ -25,6 +25,7 @@ COPY --chown=container:container --from=build /opt/arrakis/package.json ./
 COPY --chown=container:container --from=build /opt/arrakis/node_modules/ ./node_modules/
 COPY --chown=container:container --from=build /opt/arrakis/dist/ ./dist/
 COPY --chown=container:container --from=build /opt/arrakis/data/ ./data/
+COPY --chown=container:container certificates/production-rabbitmq-server.pem certificates/development-rabbitmq-server.pem ./certificates/
 COPY --chown=container:container docker/entrypoint.sh /entrypoint.sh
 
 USER container

@@ -4,7 +4,7 @@ Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: A
 
 See [AGENTS.md](AGENTS.md) for the repository structure, ownership boundaries, development rules, and verification workflow. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.10.9.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.10.10.
 
 ## Requirements
 
@@ -40,7 +40,7 @@ Server boosters always earn 2× message and voice XP. Manage Server administrato
 
 Set `LEVEL_ANNOUNCEMENT_CHANNEL_ID` to the one server channel that should receive every progression celebration. Level-ups use original golden-ascension banner artwork and the message “The sands recognize you…” whether the final XP came from chat or voice. Achievements use their own custom artwork: copper spice trails for **King of Spam** at 100/500/2,000 rewarded messages, moonlit cyan resonance for **Voice of the Sietch** at 60/300/1,200 rewarded voice minutes, and a violet celestial path for **Path of the Kwisatz** at levels 5/25/50. Each track awards Bronze, Silver, and Gold once; unlocks are stored atomically so restarts and multiple shards cannot announce the same achievement twice.
 
-Use `/level rank` to view the avatar-backed profile card with a member's tier, server rank, message/voice activity, current multiplier, progress, and XP. `/level leaderboard` uses its own night-desert artwork to render the server's top ten as a separate themed image with member avatars, tiers, levels, and XP. Leveling uses the existing Message Content and Voice States intents and creates or upgrades its tables automatically; no manual SQL is required.
+Use `/level rank` to view the avatar-backed profile card with a member's tier, server rank, message/voice activity, current multiplier, progress, and XP. `/level leaderboard` uses its own night-desert artwork to render the server's top ten as a separate themed image with member avatars, tiers, levels, and XP. `/achievements` shows recorded Bronze, Silver, and Gold unlocks and progress for yourself or another member. Leveling uses the existing Message Content and Voice States intents and creates or upgrades its tables automatically; no manual SQL is required.
 
 ## Self-assignable roles
 
@@ -58,7 +58,7 @@ See the [voice-room setup and control guide](guides/voice-rooms.md) for permissi
 
 ## Lavalink music lounge
 
-Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and music channel values from `.env.example` to enable a permanent music voice channel. `MUSIC_IDLE_PLAYLIST_URL` plays a separate waiting-music album whenever the request queue is empty; member requests take priority immediately and the idle rotation is never persisted as a user's song. The bot accepts Spotify, Apple Music, Deezer and traditional song links, and ranks searches for clean title/artist matches. The supplied LavaSrc profile searches Spotify metadata, mirrors playback through SoundCloud, and uses quality-focused encoding and buffering settings. The public panel and grouped `/music` commands provide queue controls, player-style progress and lyrics; queue checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
+Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and music channel values from `.env.example` to enable a permanent music voice channel. `MUSIC_IDLE_PLAYLIST_URL` plays a separate waiting-music album whenever the request queue is empty; member requests take priority immediately and the idle rotation is never persisted as a user's song. When a member leaves the music voice channel, their playing and queued requests are removed while other members' songs remain. The bot accepts Spotify, Apple Music, Deezer and traditional song links, and ranks searches for clean title/artist matches. The supplied LavaSrc profile searches Spotify metadata, mirrors playback through SoundCloud, and uses quality-focused encoding and buffering settings. The public panel and grouped `/music` commands provide queue controls, player-style progress and lyrics; queue checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
 
 ## Development
 
@@ -89,7 +89,7 @@ Pushes and pull requests targeting `main` run the `CI` GitHub Actions workflow. 
 
 ### Docker image for Pterodactyl
 
-After CI succeeds on `main`, the release workflow publishes an image only for a new stable package version with a matching changelog section. It updates `ghcr.io/realxkenny/arrakis-control-bot:latest` and adds `:v<version>` and immutable `:sha-<full commit SHA>` tags to GitHub Container Registry. Ordinary pushes leave the published image unchanged. The image uses Node.js 24, includes the compiled bot and artwork, and starts the shard manager. It does not bundle `.env`, certificates, or other local secrets.
+After CI succeeds on `main`, the release workflow publishes an image only for a new stable package version with a matching changelog section. It updates `ghcr.io/realxkenny/arrakis-control-bot:latest` and adds `:v<version>` and immutable `:sha-<full commit SHA>` tags to GitHub Container Registry. Ordinary pushes leave the published image unchanged. The image uses Node.js 24, includes the compiled bot, artwork, and the two bundled public RabbitMQ server certificates under `/opt/arrakis/certificates`, and starts the shard manager. It does not bundle `.env`, private keys, or other live secrets.
 
 Import the [Arrakis Control Bot egg](pterodactyl/egg-arrakis-control-bot.json) into a Pterodactyl nest. It uses the GHCR image, runs the bot from `/opt/arrakis`, and exposes all settings from `.env.example` in the Startup tab. Supply `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY` before starting. See the [Pterodactyl setup guide](guides/pterodactyl.md) for the import steps, optional integrations, and certificate placement.
 

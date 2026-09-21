@@ -41,6 +41,7 @@ interface LevelStorage {
   awardVoiceXp(guildId: string, userId: string, xp: number, cooldownMs: number): Promise<LevelProfile | null>;
   profile(guildId: string, userId: string): Promise<LevelProfile>;
   leaderboard(guildId: string, limit: number): Promise<LevelProfile[]>;
+  achievementIds(guildId: string, userId: string): Promise<string[]>;
   claimAchievements(guildId: string, userId: string, achievementIds: readonly string[]): Promise<string[]>;
   scheduleEvent(guildId: string, startsAt: Date, endsAt: Date, createdBy: string): Promise<LevelEvent>;
   upcomingEvent(guildId: string): Promise<LevelEvent | null>;
@@ -169,6 +170,15 @@ class LevelRepository implements LevelStorage {
        ON CONFLICT (guild_id, user_id, achievement_id) DO NOTHING
        RETURNING achievement_id`,
       [guildId, userId, achievementIds],
+    );
+    return result.rows.map((row) => row.achievement_id);
+  }
+
+  public async achievementIds(guildId: string, userId: string): Promise<string[]> {
+    const result = await this.pool.query<{ achievement_id: string }>(
+      `SELECT achievement_id FROM community_level_achievements
+       WHERE guild_id = $1 AND user_id = $2`,
+      [guildId, userId],
     );
     return result.rows.map((row) => row.achievement_id);
   }

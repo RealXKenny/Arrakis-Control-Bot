@@ -53,6 +53,14 @@ class LevelingService {
     return this.storage.profile(guildId, userId);
   }
 
+  public async achievements(guildId: string, userId: string): Promise<{ profile: LevelProfile; unlockedIds: string[] }> {
+    const [profile, unlockedIds] = await Promise.all([
+      this.storage.profile(guildId, userId),
+      this.storage.achievementIds(guildId, userId),
+    ]);
+    return { profile, unlockedIds };
+  }
+
   public leaderboard(guildId: string, limit = 10): Promise<LevelProfile[]> {
     return this.storage.leaderboard(guildId, limit);
   }

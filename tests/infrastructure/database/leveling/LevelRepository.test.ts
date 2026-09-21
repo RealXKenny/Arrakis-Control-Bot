@@ -68,6 +68,13 @@ describe("LevelRepository", () => {
     expect(result).toEqual(["message-king-of-spam-bronze"]);
   });
 
+  it("reads only a member's recorded achievement unlocks", async () => {
+    query.mockResolvedValue({ rows: [{ achievement_id: "voice-sietch-bronze" }] });
+    await expect(new LevelRepository(pool as never).achievementIds("guild", "user")).resolves.toEqual(["voice-sietch-bronze"]);
+    expect(query.mock.calls[0]?.[0]).toMatch(/WHERE guild_id = \$1 AND user_id = \$2/);
+    expect(query.mock.calls[0]?.[1]).toEqual(["guild", "user"]);
+  });
+
   it("persists, reads, and stops a double-XP event", async () => {
     const eventRow = { guild_id: "guild", starts_at: "2026-09-20T18:00:00Z", ends_at: "2026-09-20T20:00:00Z", created_by: "admin" };
     query.mockResolvedValueOnce({ rows: [eventRow] }).mockResolvedValueOnce({ rows: [eventRow] }).mockResolvedValueOnce({ rows: [], rowCount: 1 });

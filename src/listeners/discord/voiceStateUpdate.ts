@@ -9,7 +9,7 @@ export class VoiceStateUpdate extends Listener<typeof Events.VoiceStateUpdate> {
 
   public override async run(oldState: VoiceState, newState: VoiceState): Promise<void> {
     try { await this.container.client.music?.onVoiceState(oldState, newState); }
-    catch { scopedLogger(this.container.logger, "MUSIC").warn("Unable to update music voice mutes; recovery will retry."); }
+    catch (error) { scopedLogger(this.container.logger, "MUSIC").error("Unable to process a music voice-state change.", error); }
     try { await this.container.client.voiceRooms?.onVoiceState(oldState, newState); }
     catch (error) { scopedLogger(this.container.logger, "VOICE").error("Unable to update temporary voice rooms; recovery will retry.", error); }
   }

@@ -4,8 +4,12 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.10.10] - 2026-09-21
+
 ### Added
 
+- Add `/achievements [member]` to show saved Bronze, Silver, and Gold unlocks with progress toward every tier.
+- Bundle the public production and development RabbitMQ server certificates at `/opt/arrakis/certificates/` in the Docker image and verify both during the release image smoke test.
 - Package the compiled bot and bundled artwork as a production Docker image for custom Pterodactyl eggs.
 - Publish `latest`, version, and commit-SHA images to GitHub Container Registry only for new stable version releases after successful CI on `main`, with a runtime image smoke check before upload.
 - Provide an importable PTDL_v2 Pterodactyl egg covering the bot's environment settings and a setup guide.
@@ -13,9 +17,16 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Changed
 
+- Remove only a member's requested songs when they leave the music voice channel, advancing playback if their song was current.
+- Wait up to 30 seconds for Lavalink and the voice player before completing music playback interactions, including a retry for a temporary voice join failure.
 - Make the Docker image follow Pterodactyl's `container` user and `/home/container` startup contract while keeping the bundled bot under `/opt/arrakis`.
 - Require a valid choice in the self-assignable role menu and provide a dedicated Clear all roles option, avoiding Discord's invalid-form rejection while preserving role removal.
 - Log the rejected field path and error code when Discord rejects a panel payload, without exposing submitted values.
+
+### Verification
+
+- TypeScript build, ESLint, all 503 automated tests across 82 files, production dependency audit, and `git diff --check` pass locally.
+- Docker image smoke checks and live Discord, Lavalink, RabbitMQ, and Pterodactyl behavior require CI or deployment verification.
 
 ## [1.10.9] - 2026-09-20
 

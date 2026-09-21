@@ -195,7 +195,22 @@ export class MusicService {
   }
 
   public async onVoiceState(oldState: VoiceState, newState: VoiceState): Promise<void> {
-    await this.voiceMute?.onVoiceState(oldState, newState);
+    const leftLounge = oldState.guild.id === this.config.guildId && oldState.channelId === this.config.voiceChannelId &&
+      newState.channelId !== this.config.voiceChannelId;
+    await Promise.all([
+      this.voiceMute?.onVoiceState(oldState, newState),
+      leftLounge ? this.serial(async () => {
+        const queue = this.queue.filter((entry) => entry.requester !== oldState.id);
+        if (this.current?.requester === oldState.id) {
+          const player = this.backend.available() && !this.resetConnection && Date.now() >= this.retryAfter
+            ? this.backend.player(this.config.guildId) : undefined;
+          await this.advance(player, true, queue);
+        } else if (queue.length !== this.queue.length) {
+          await this.commit({ ...this.snapshot(), queue });
+        } else return;
+        this.refreshSongCard();
+      }, true) : undefined,
+    ]);
   }
 
   private async serial<T>(work: () => Promise<T>, internal = false): Promise<T> {
@@ -219,6 +234,26 @@ export class MusicService {
       const member = await guild.members.fetch(userId);
       if (member.voice.channelId !== this.config.voiceChannelId) throw new MusicUserError("Join the music voice channel before requesting songs or changing playback.");
     }
+  }
+
+  public async waitUntilReady(): Promise<void> {
+    const deadline = Date.now() + 30_000;
+    await this.initialize();
+    while (!this.stopped) {
+      if (this.backend.available() && Date.now() >= this.retryAfter) {
+        try {
+          await this.serial(async () => { await this.ensurePlayer(); }, true);
+          return;
+        } catch (error) {
+          if (error instanceof MusicUserError && this.backend.available() && Date.now() >= this.retryAfter) throw error;
+        }
+      }
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(500, remaining)));
+    }
+    throw new MusicUserError(this.stopped ? "Music is shutting down. Try again shortly." :
+      "Music is still reconnecting. Please try again in a moment.");
   }
 
   public async request(guild: Guild, channelId: string, userId: string, query: string): Promise<string> {
@@ -468,8 +503,8 @@ export class MusicService {
     catch (error) { this.interrupted(entry.id); throw error; }
   }
 
-  private async advance(player: Player | undefined, stopCurrent = false): Promise<void> {
-    const [entry, ...queue] = this.queue;
+  private async advance(player: Player | undefined, stopCurrent = false, remaining = this.queue): Promise<void> {
+    const [entry, ...queue] = remaining;
     await this.commit({ ...this.snapshot(), current: entry, queue, paused: false, position: 0 });
     this.idleCurrent = undefined;
     this.restoringId = undefined;

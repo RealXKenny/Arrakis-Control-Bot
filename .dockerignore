@@ -4,7 +4,9 @@
 **/dist
 **/.env
 **/.env.*
-**/certificates
+certificates/*
+!certificates/production-rabbitmq-server.pem
+!certificates/development-rabbitmq-server.pem
 **/test-results
 **/coverage
 **/tests

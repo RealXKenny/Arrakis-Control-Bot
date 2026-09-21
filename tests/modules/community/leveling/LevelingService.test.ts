@@ -58,6 +58,17 @@ describe("LevelingService", () => {
     expect(send.mock.calls[0]?.[0].files[0].name).toBe("arrakis-achievement-message.png");
   });
 
+  it("reads a member's profile and recorded achievement unlocks", async () => {
+    const storage = createStorage(createProfile(250));
+    storage.achievementIds.mockResolvedValue(["message-king-of-spam-bronze"]);
+    const service = new LevelingService(createClient(), storage);
+    await expect(service.achievements("guild", "user")).resolves.toMatchObject({
+      profile: { userId: "user", xp: 0 }, unlockedIds: ["message-king-of-spam-bronze"],
+    });
+    expect(storage.profile).toHaveBeenCalledWith("guild", "user");
+    expect(storage.achievementIds).toHaveBeenCalledWith("guild", "user");
+  });
+
   it("stacks booster and active-event bonuses multiplicatively", () => {
     const now = Date.now();
     const event = { guildId: "guild", startsAt: new Date(now - 1_000), endsAt: new Date(now + 60_000), createdBy: "admin" };
@@ -111,6 +122,7 @@ function createStorage(result: LevelProfile | null): LevelStorage & {
   awardMessageXp: ReturnType<typeof vi.fn>;
   awardVoiceXp: ReturnType<typeof vi.fn>;
   claimAchievements: ReturnType<typeof vi.fn>;
+  achievementIds: ReturnType<typeof vi.fn>;
   upcomingEvent: ReturnType<typeof vi.fn>;
 } {
   return {
@@ -120,6 +132,7 @@ function createStorage(result: LevelProfile | null): LevelStorage & {
     profile: vi.fn().mockResolvedValue(createProfile(0)),
     leaderboard: vi.fn().mockResolvedValue([]),
     claimAchievements: vi.fn().mockResolvedValue([]),
+    achievementIds: vi.fn().mockResolvedValue([]),
     scheduleEvent: vi.fn(),
     upcomingEvent: vi.fn().mockResolvedValue(null),
     stopEvent: vi.fn().mockResolvedValue(false),

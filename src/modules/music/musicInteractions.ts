@@ -27,6 +27,9 @@ export async function handleMusicInteraction(interaction: ButtonInteraction | Mo
     if (interaction.isButton() && (interaction.customId.startsWith("music-confirm:") || interaction.customId.startsWith("music:lyrics:") || action === "cancel")) await interaction.deferUpdate();
     else await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await service.authorize(interaction.guild, interaction.channelId, interaction.user.id, !["queue", "now", "lyrics", "cancel"].includes(action));
+    if ((interaction.isModalSubmit() && (action === "request" || action === "volume")) || action === "pause" || action === "resume") {
+      await service.waitUntilReady();
+    }
     let content: string;
     if (interaction.isModalSubmit()) {
       const value = interaction.fields.getTextInputValue("value").trim();

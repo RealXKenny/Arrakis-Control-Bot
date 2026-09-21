@@ -126,8 +126,12 @@ jobs:
           docker run --rm --workdir /opt/arrakis --entrypoint node "$IMAGE:latest" -e '
             const fs = require("node:fs");
             require("canvas");
-            for (const path of ["dist/src/index.js", "data/images/panel-welcome.png"]) {
+            for (const path of ["dist/src/index.js", "data/images/panel-welcome.png", "certificates/production-rabbitmq-server.pem", "certificates/development-rabbitmq-server.pem"]) {
               if (!fs.existsSync(path)) throw new Error(`Missing runtime file: ${path}`);
+            }
+            const { X509Certificate } = require("node:crypto");
+            for (const name of ["production", "development"]) {
+              new X509Certificate(fs.readFileSync(`certificates/${name}-rabbitmq-server.pem`));
             }
           '
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.description" }}' "$IMAGE:latest")" = 'Discord bot for Dune: Awakening communities with moderation, server operations, music, and integrations.'

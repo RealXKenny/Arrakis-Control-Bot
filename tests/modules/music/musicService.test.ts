@@ -1,4 +1,4 @@
-import { Collection, ChannelType, type Client, type Guild, type Message } from "discord.js";
+import { Collection, ChannelType, type Client, type Guild, type Message, type VoiceState } from "discord.js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { LoadType, type Track } from "shoukaku";
 import type { MusicConfig } from "../../../src/infrastructure/config/music";
@@ -42,6 +42,9 @@ function setup(saved?: MusicState, configOverrides: Partial<MusicConfig> = {}) {
   return { service, guild: guild as unknown as Guild, user, me, client, storage, send, edit, dm };
 }
 function requestId(index: number): string { return mocked.player.playTrack.mock.calls[index][0].track.userData.requestId; }
+function voiceState(guild: Guild, id: string, channelId: string | null): VoiceState {
+  return { guild, id, channelId } as VoiceState;
+}
 
 beforeEach(() => {
   vi.stubEnv("OWNER_ROLE_ID", "owner-role");
@@ -63,6 +66,119 @@ it("joins the permanent channel, sets volume and plays the first search result",
   expect(mocked.player.setGlobalVolume).toHaveBeenCalledWith(30);
   expect(mocked.player.playTrack).toHaveBeenCalledTimes(1);
   expect(service.describeQueue()).toContain("Song");
+});
+
+it("waits for Lavalink to become ready before accepting playback interactions", async () => {
+  vi.useFakeTimers();
+  try {
+    mocked.available = false;
+    const { service } = setup();
+    const ready = service.waitUntilReady();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(mocked.join).not.toHaveBeenCalled();
+    mocked.available = true;
+    await vi.advanceTimersByTimeAsync(500);
+    await ready;
+    expect(mocked.join).toHaveBeenCalledOnce();
+  } finally { vi.useRealTimers(); }
+});
+
+it("retries a transient voice join failure while the interaction remains deferred", async () => {
+  vi.useFakeTimers();
+  try {
+    const { service } = setup();
+    mocked.join.mockRejectedValueOnce(new Error("temporary voice handshake failure"));
+    const ready = service.waitUntilReady();
+    await vi.advanceTimersByTimeAsync(500);
+    await ready;
+    expect(mocked.join).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); }
+});
+
+it("ends a readiness wait with a clear retry message after 30 seconds", async () => {
+  vi.useFakeTimers();
+  try {
+    mocked.available = false;
+    const { service } = setup();
+    const result = expect(service.waitUntilReady()).rejects.toThrow("still reconnecting");
+    await vi.advanceTimersByTimeAsync(30_000);
+    await result;
+    expect(mocked.join).not.toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
+});
+
+it("removes a departing requester's current and queued songs while preserving other requests", async () => {
+  const { service, guild, storage } = setup(undefined, { maxQueue: 6 });
+  for (const title of ["A now", "B next", "A later", "C later"]) mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [track(title)] });
+  await service.request(guild, "requests", "A", "first");
+  await service.request(guild, "requests", "B", "second");
+  await service.request(guild, "requests", "A", "third");
+  await service.request(guild, "requests", "C", "fourth");
+
+  await service.onVoiceState(voiceState(guild, "A", "voice"), voiceState(guild, "A", null));
+
+  expect(storage.save.mock.lastCall![1]).toMatchObject({ current: { requester: "B" }, queue: [{ requester: "C" }], position: 0 });
+  expect(mocked.player.playTrack).toHaveBeenCalledTimes(2);
+  expect(mocked.player.playTrack.mock.lastCall![0].track.encoded).toBe("B next");
+  expect(service.describeQueue()).not.toContain("A later");
+});
+
+it("removes only a departing requester's queued songs without interrupting playback", async () => {
+  const { service, guild, storage } = setup(undefined, { maxQueue: 6 });
+  for (const title of ["A now", "B next", "C later", "B later"]) mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [track(title)] });
+  await service.request(guild, "requests", "A", "first");
+  await service.request(guild, "requests", "B", "second");
+  await service.request(guild, "requests", "C", "third");
+  await service.request(guild, "requests", "B", "fourth");
+
+  await service.onVoiceState(voiceState(guild, "B", "voice"), voiceState(guild, "B", "another-voice"));
+
+  expect(storage.save.mock.lastCall![1]).toMatchObject({ current: { requester: "A" }, queue: [{ requester: "C" }] });
+  expect(mocked.player.playTrack).toHaveBeenCalledTimes(1);
+});
+
+it("stops requested playback when its requester leaves and no other songs remain", async () => {
+  const { service, guild, storage } = setup();
+  await service.request(guild, "requests", "A", "song");
+
+  await service.onVoiceState(voiceState(guild, "A", "voice"), voiceState(guild, "A", null));
+
+  expect(storage.save.mock.lastCall![1]).toMatchObject({ current: undefined, queue: [], position: 0, paused: false });
+  expect(mocked.player.stopTrack).toHaveBeenCalledOnce();
+});
+
+it("returns to waiting music when the last requester's song is removed", async () => {
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.PLAYLIST, data: { tracks: [track("Waiting Song")] } });
+  const { service, guild } = setup(undefined, { idlePlaylistUrl: "https://example.com/idle" });
+  service.start();
+  await vi.waitFor(() => expect(mocked.player.playTrack).toHaveBeenCalledOnce());
+  mocked.resolve.mockResolvedValueOnce({ loadType: LoadType.SEARCH, data: [track("Requested Song")] });
+  await service.request(guild, "requests", "A", "song");
+
+  await service.onVoiceState(voiceState(guild, "A", "voice"), voiceState(guild, "A", null));
+
+  expect(mocked.player.playTrack).toHaveBeenCalledTimes(3);
+  expect(mocked.player.playTrack.mock.lastCall![0].track.encoded).toBe("Waiting Song");
+  expect(service.auditSnapshot().current?.requester).toBe("Waiting music");
+});
+
+it("ignores voice updates that do not leave the configured music channel", async () => {
+  const { service, guild, storage } = setup();
+  await service.request(guild, "requests", "A", "song");
+  const saves = storage.save.mock.calls.length;
+  await service.onVoiceState(voiceState(guild, "A", "voice"), voiceState(guild, "A", "voice"));
+  await service.onVoiceState(voiceState(guild, "A", "another-voice"), voiceState(guild, "A", null));
+  expect(storage.save).toHaveBeenCalledTimes(saves);
+  expect(mocked.player.playTrack).toHaveBeenCalledTimes(1);
+});
+
+it("keeps a departing requester's song when the database cannot save its removal", async () => {
+  const { service, guild, storage } = setup();
+  await service.request(guild, "requests", "A", "song");
+  storage.save.mockRejectedValueOnce(new Error("database offline"));
+  await expect(service.onVoiceState(voiceState(guild, "A", "voice"), voiceState(guild, "A", null))).rejects.toThrow("database");
+  expect(service.auditSnapshot().current?.requester).toBe("A");
+  expect(mocked.player.playTrack).toHaveBeenCalledTimes(1);
 });
 
 it("plays the configured waiting album while idle and gives real requests immediate priority", async () => {
