@@ -6,6 +6,7 @@ import { persistentPanelTasks } from "../../modules/administration/control/panel
 import { announceCurrentVersion } from "../../modules/releases/versionAnnouncement";
 import { startStormAnnouncements } from "../../modules/world/storms/stormAnnouncement";
 import { scopedLogger } from "../../client/logger";
+import { discordValidationIssues } from "../../shared/discord/discordValidation";
 
 const PRESENCE_INTERVAL_MS = 30_000;
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
@@ -113,7 +114,11 @@ async function runReadyTask(label: string, task: () => Promise<unknown>): Promis
     await task();
   } catch (error: unknown) {
     // Dev note: One broken signpost should not close every stall in the sietch.
-    scopedLogger(container.logger, "COMMUNITY").error(`Unable to ${label}.`, error);
+    const logger = scopedLogger(container.logger, "COMMUNITY");
+    logger.error(`Unable to ${label}.`, error);
+    for (const issue of discordValidationIssues(error)) {
+      logger.error(`Discord rejected ${label}: ${issue}`);
+    }
   }
 }
 

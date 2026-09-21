@@ -6,6 +6,8 @@ type RoleOption = {
   value: string;
 };
 
+const CLEAR_ROLES_VALUE = "clear-all-self-assignable-roles";
+
 const ROLE_DEFINITIONS: RoleDefinition[] = [
   ["⚔️ PvP", "Find warriors and join the fight.", "ROLE_PVP_ID"],
   ["🏹 PvE", "Hunt bosses, explore and conquer the desert.", "ROLE_PVE_ID"],
@@ -26,12 +28,15 @@ const ROLE_DEFINITIONS: RoleDefinition[] = [
 ];
 
 function getConfiguredRoleOptions(): RoleOption[] {
+  const seen = new Set<string>();
   return ROLE_DEFINITIONS.flatMap(([label, description, envName]) => {
-    const value = process.env[envName];
+    const value = process.env[envName]?.trim();
 
-    if (!value || value.startsWith("replace_with_")) {
+    if (!value || value.startsWith("replace_with_") || seen.has(value)) {
       return [];
     }
+
+    seen.add(value);
 
     return [
       {
@@ -47,4 +52,9 @@ function getConfiguredRoleIds(): Set<string> {
   return new Set(getConfiguredRoleOptions().map((option) => option.value));
 }
 
-export { getConfiguredRoleIds, getConfiguredRoleOptions };
+function selectedRoleIds(values: readonly string[], allowedRoleIds: ReadonlySet<string>): string[] {
+  if (values.includes(CLEAR_ROLES_VALUE)) return [];
+  return values.filter((id) => allowedRoleIds.has(id));
+}
+
+export { CLEAR_ROLES_VALUE, getConfiguredRoleIds, getConfiguredRoleOptions, selectedRoleIds };

@@ -13,6 +13,8 @@ All notable changes to Arrakis Control Bot are documented here.
 ### Changed
 
 - Make the Docker image follow Pterodactyl's `container` user and `/home/container` startup contract while keeping the bundled bot under `/opt/arrakis`.
+- Require a valid choice in the self-assignable role menu and provide a dedicated Clear all roles option, avoiding Discord's invalid-form rejection while preserving role removal.
+- Log the rejected field path and error code when Discord rejects a panel payload, without exposing submitted values.
 
 ## [1.10.9] - 2026-09-20
 

@@ -1,7 +1,7 @@
 import { InteractionHandler, InteractionHandlerTypes } from "@sapphire/framework";
 import { GuildMember, MessageFlags, StringSelectMenuInteraction } from "discord.js";
 
-import { getConfiguredRoleIds } from "../../../modules/community/roles/selfAssignableRoles";
+import { getConfiguredRoleIds, selectedRoleIds } from "../../../modules/community/roles/selfAssignableRoles";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { matchesCustomId } from "../../../support/interactions/componentCustomIds";
 
@@ -17,7 +17,7 @@ const handler = {
     }
 
     const allowedRoleIds = getConfiguredRoleIds();
-    const selectedRoleIds = interaction.values.filter((id) => allowedRoleIds.has(id));
+    const selectedIds = selectedRoleIds(interaction.values, allowedRoleIds);
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
@@ -26,8 +26,8 @@ const handler = {
     }
 
     const currentRoleIds = [...allowedRoleIds].filter((id) => member.roles.cache.has(id));
-    const rolesToAdd = selectedRoleIds.filter((id) => !member.roles.cache.has(id));
-    const rolesToRemove = currentRoleIds.filter((id) => !selectedRoleIds.includes(id));
+    const rolesToAdd = selectedIds.filter((id) => !member.roles.cache.has(id));
+    const rolesToRemove = currentRoleIds.filter((id) => !selectedIds.includes(id));
 
     if (rolesToAdd.length > 0) {
       await member.roles.add(rolesToAdd, "Self-assignable role selection");
@@ -37,7 +37,7 @@ const handler = {
       await member.roles.remove(rolesToRemove, "Self-assignable role update");
     }
 
-    const roleCount = selectedRoleIds.length;
+    const roleCount = selectedIds.length;
     const message = roleCount ? `Your roles were updated. Selected ${roleCount} role${roleCount === 1 ? "" : "s"}.` : "Your self-assignable roles were cleared.";
 
     await interaction.editReply({ content: message });

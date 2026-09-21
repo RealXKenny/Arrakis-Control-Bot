@@ -42,6 +42,10 @@ Set `LEVEL_ANNOUNCEMENT_CHANNEL_ID` to the one server channel that should receiv
 
 Use `/level rank` to view the avatar-backed profile card with a member's tier, server rank, message/voice activity, current multiplier, progress, and XP. `/level leaderboard` uses its own night-desert artwork to render the server's top ten as a separate themed image with member avatars, tiers, levels, and XP. Leveling uses the existing Message Content and Voice States intents and creates or upgrades its tables automatically; no manual SQL is required.
 
+## Self-assignable roles
+
+Set `ROLE_PANEL_CHANNEL_ID` and the `ROLE_*_ID` values from `.env.example` to publish the self-assignable role panel. Members can select their roles or choose **Clear all roles** to remove every self-assignable role. The bot must have Manage Roles and a role above the roles it assigns.
+
 ## Discord ↔ game chat over RabbitMQ
 
 See the [complete RabbitMQ ↔ Discord setup guide](guides/rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map.
