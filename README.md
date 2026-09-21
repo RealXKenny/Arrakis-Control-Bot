@@ -4,7 +4,7 @@ Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: A
 
 See [AGENTS.md](AGENTS.md) for the repository structure, ownership boundaries, development rules, and verification workflow. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.10.8.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.10.9.
 
 ## Requirements
 
@@ -82,6 +82,14 @@ npm audit --omit=dev
 ```
 
 Pushes and pull requests targeting `main` run the `CI` GitHub Actions workflow. After a successful push to `main`, the `Release` workflow reads the stable semantic version from `package.json`. If its `v<version>` tag does not exist, the workflow requires a matching non-empty `## [<version>]` section in `CHANGELOG.md`, creates the tag at the exact CI-verified commit, and publishes an `Arrakis Control Bot <version>` GitHub release from those notes. Commits that do not bump the version safely skip release creation.
+
+### Docker image for Pterodactyl
+
+After CI succeeds on `main`, its container job publishes `ghcr.io/realxkenny/arrakis-control-bot:latest` and an immutable `:sha-<full commit SHA>` tag to GitHub Container Registry. The image uses Node.js 24, includes the compiled bot and artwork, and starts the shard manager. It does not bundle `.env`, certificates, or other local secrets.
+
+For a custom Pterodactyl egg, set the Docker image to `ghcr.io/realxkenny/arrakis-control-bot:latest` and the startup command to `cd /opt/arrakis && node dist/src/index.js`. Pterodactyl normally mounts its server files at `/home/container`, so keep the application in `/opt/arrakis`; a startup command that runs from `/home/container` cannot find the compiled bot or artwork. Supply `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY` as egg environment variables, plus the optional values you use from `.env.example`. Use one server instance for this bot deployment. If RabbitMQ needs a private CA, upload its public PEM to the server files and set `RABBITMQ_CA_FILE` to its absolute `/home/container/...` path.
+
+Use the SHA tag to pin a deployment to a tested commit. To pull a public package, no registry credentials are needed. If the package is private, configure Pterodactyl's registry credentials with a token that has `read:packages`; package visibility is managed under the repository owner's GitHub Packages settings. Allow at least 15 seconds for graceful shutdown.
 
 ## Production
 

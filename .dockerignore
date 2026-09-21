@@ -1,0 +1,16 @@
+**/.git
+**/.github
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/certificates
+**/test-results
+**/coverage
+**/tests
+**/guides
+**/scripts
+**/*.log
+README.md
+CHANGELOG.md
+AGENTS.md

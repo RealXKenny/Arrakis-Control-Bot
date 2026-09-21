@@ -4,7 +4,10 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
-No changes yet.
+### Added
+
+- Package the compiled bot and bundled artwork as a production Docker image for custom Pterodactyl eggs.
+- Publish `latest` and commit-SHA images to GitHub Container Registry after successful CI on `main`, with a runtime image smoke check before upload.
 
 ## [1.10.9] - 2026-09-20
 
