@@ -89,7 +89,7 @@ Pushes and pull requests targeting `main` run the `CI` GitHub Actions workflow. 
 
 ### Docker image for Pterodactyl
 
-After CI succeeds on `main`, its container job publishes `ghcr.io/realxkenny/arrakis-control-bot:latest` and an immutable `:sha-<full commit SHA>` tag to GitHub Container Registry. The image uses Node.js 24, includes the compiled bot and artwork, and starts the shard manager. It does not bundle `.env`, certificates, or other local secrets.
+After CI succeeds on `main`, the release workflow publishes an image only for a new stable package version with a matching changelog section. It updates `ghcr.io/realxkenny/arrakis-control-bot:latest` and adds `:v<version>` and immutable `:sha-<full commit SHA>` tags to GitHub Container Registry. Ordinary pushes leave the published image unchanged. The image uses Node.js 24, includes the compiled bot and artwork, and starts the shard manager. It does not bundle `.env`, certificates, or other local secrets.
 
 Import the [Arrakis Control Bot egg](pterodactyl/egg-arrakis-control-bot.json) into a Pterodactyl nest. It uses the GHCR image, runs the bot from `/opt/arrakis`, and exposes all settings from `.env.example` in the Startup tab. Supply `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY` before starting. See the [Pterodactyl setup guide](guides/pterodactyl.md) for the import steps, optional integrations, and certificate placement.
 

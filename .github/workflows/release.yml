@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-main
@@ -17,9 +17,13 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: write
 
     steps:
       - name: Check out verified revision
@@ -90,6 +94,71 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$current_version" >> "$GITHUB_OUTPUT"
           echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+
+      - name: Name image
+        if: steps.release.outputs.create == 'true'
+        id: image
+        shell: bash
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build versioned image
+        if: steps.release.outputs.create == 'true'
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$RELEASE_SHA" \
+            --label "org.opencontainers.image.version=$RELEASE_TAG" \
+            --tag "$IMAGE:latest" \
+            --tag "$IMAGE:$RELEASE_TAG" \
+            --tag "$IMAGE:sha-$RELEASE_SHA" .
+
+      - name: Check runtime image
+        if: steps.release.outputs.create == 'true'
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          docker run --rm --workdir /opt/arrakis --entrypoint node "$IMAGE:latest" -e '
+            const fs = require("node:fs");
+            require("canvas");
+            for (const path of ["dist/src/index.js", "data/images/panel-welcome.png"]) {
+              if (!fs.existsSync(path)) throw new Error(`Missing runtime file: ${path}`);
+            }
+          '
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.description" }}' "$IMAGE:latest")" = 'Discord bot for Dune: Awakening communities with moderation, server operations, music, and integrations.'
+
+      - name: Check Pterodactyl startup contract
+        if: steps.release.outputs.create == 'true'
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          docker run --rm --entrypoint sh "$IMAGE:latest" -c '
+            test "$(id -un)" = container &&
+            test "$HOME" = /home/container &&
+            test "$PWD" = /home/container &&
+            test -f /opt/arrakis/dist/src/index.js
+          '
+          test "$(docker run --rm -e STARTUP='printf pterodactyl-ready' "$IMAGE:latest")" = pterodactyl-ready
+
+      - name: Log in to GitHub Container Registry
+        if: steps.release.outputs.create == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish versioned image
+        if: steps.release.outputs.create == 'true'
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: docker push --all-tags "$IMAGE"
 
       - name: Create GitHub release
         if: steps.release.outputs.create == 'true'

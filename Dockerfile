@@ -11,6 +11,8 @@ RUN npm run build && npm prune --omit=dev
 
 FROM node:24-bookworm-slim
 
+LABEL org.opencontainers.image.description="Discord bot for Dune: Awakening communities with moderation, server operations, music, and integrations."
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       ca-certificates libcairo2 libpango-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
