@@ -2,6 +2,7 @@ import path from "node:path";
 import { AttachmentBuilder, type User } from "discord.js";
 import { createCanvas, loadImage, type CanvasRenderingContext2D, type Image } from "canvas";
 import type { LevelProfile } from "../../../infrastructure/database/leveling/LevelRepository";
+import { canvasDisplayName } from "../../../shared/discord/canvasText";
 import { achievementProgressLabel, type AchievementKind, type LevelAchievement } from "./achievements";
 
 const LEVEL_UP_CARD_FILENAME = "arrakis-level-up.png";
@@ -170,7 +171,7 @@ function achievementTheme(kind: AchievementKind): { accent: string; icon: string
 }
 
 function cleanName(displayName: string, fallback: string): string {
-  return displayName.replace(/[\r\n]/g, " ").trim().slice(0, 80) || fallback;
+  return canvasDisplayName(displayName, fallback);
 }
 
 function initials(value: string): string {

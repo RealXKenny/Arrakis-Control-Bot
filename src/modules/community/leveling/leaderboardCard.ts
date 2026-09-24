@@ -2,6 +2,7 @@ import path from "node:path";
 import { AttachmentBuilder, type User } from "discord.js";
 import { createCanvas, loadImage, type CanvasRenderingContext2D, type Image } from "canvas";
 import type { LevelProfile } from "../../../infrastructure/database/leveling/LevelRepository";
+import { canvasDisplayName } from "../../../shared/discord/canvasText";
 import { levelForXp } from "./levelProgress";
 import { roleTierForLevel } from "./levelRoles";
 
@@ -186,7 +187,7 @@ function rankColor(rank: number): string {
 }
 
 function cleanName(value: string): string {
-  return value.replace(/[\r\n]/g, " ").trim().slice(0, 80) || "Unknown Traveler";
+  return canvasDisplayName(value, "Unknown Traveler");
 }
 
 function initials(value: string): string {

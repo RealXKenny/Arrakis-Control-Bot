@@ -2,6 +2,7 @@ import path from "node:path";
 import { AttachmentBuilder, type User } from "discord.js";
 import { createCanvas, loadImage, type CanvasRenderingContext2D, type Image } from "canvas";
 import type { LevelProfile } from "../../../infrastructure/database/leveling/LevelRepository";
+import { canvasDisplayName } from "../../../shared/discord/canvasText";
 import { levelForXp, xpForLevel } from "./levelProgress";
 import { nextRoleTier, roleTierForLevel } from "./levelRoles";
 
@@ -24,7 +25,7 @@ interface LevelCardOptions {
 }
 
 async function createLevelRankCard({ user, displayName, profile, multiplier = 1 }: LevelCardOptions): Promise<AttachmentBuilder> {
-  const safeDisplayName = displayName.replace(/[\r\n]/g, " ").trim().slice(0, 80) || user.username;
+  const safeDisplayName = canvasDisplayName(displayName, user.username);
   const canvas = createCanvas(CARD_WIDTH, CARD_HEIGHT);
   const context = canvas.getContext("2d");
   const background = await loadLevelBackground();

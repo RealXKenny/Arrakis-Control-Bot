@@ -57,4 +57,13 @@ describe("community level image card", () => {
       expect((card.attachment as Buffer).subarray(1, 4).toString()).toBe("PNG");
     }
   });
+
+  it("uses a canvas-safe display name for styled Unicode usernames", async () => {
+    const user = { username: "fallback", displayAvatarURL: () => "invalid-avatar" } as unknown as User;
+    const profile = { guildId: "guild", userId: "user", xp: 2_250, messageCount: 10, voiceMinutes: 2, lastAwardedAt: new Date(), rank: 2 };
+    const card = await createLevelUpCard({ user, displayName: "𝓔𝓜𝓢𝓖𝓐𝓜𝓔𝓡𝓓𝓤𝓓𝓔", profile, level: 3 });
+
+    expect(card.description).toContain("EMSGAMERDUDE");
+    expect(card.description).not.toContain("𝓔");
+  });
 });

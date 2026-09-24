@@ -4,6 +4,17 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.10.12] - 2026-09-24
+
+### Fixed
+
+- Normalize compatibility-styled Unicode usernames before drawing level, level-up, achievement, and leaderboard images so names such as `𝓔𝓜𝓢𝓖𝓐𝓜𝓔𝓡𝓓𝓤𝓓𝓔` render as readable text instead of missing-glyph boxes.
+
+### Verification
+
+- TypeScript build, ESLint, all 511 automated tests across 83 files, production dependency audit, and `git diff --check` pass locally.
+- A generated level-up card using the reported styled username was visually inspected and rendered `EMSGAMERDUDE` without missing-glyph boxes.
+
 ## [1.10.11] - 2026-09-21
 
 ### Fixed
