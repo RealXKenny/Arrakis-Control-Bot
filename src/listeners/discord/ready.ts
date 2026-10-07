@@ -7,6 +7,7 @@ import { announceCurrentVersion } from "../../modules/releases/versionAnnounceme
 import { startStormAnnouncements } from "../../modules/world/storms/stormAnnouncement";
 import { scopedLogger } from "../../client/logger";
 import { discordValidationIssues } from "../../shared/discord/discordValidation";
+import { ensureHoneypotPanel } from "../../modules/moderation/honeypot/honeypotPanel";
 
 const PRESENCE_INTERVAL_MS = 30_000;
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
@@ -90,6 +91,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
     communityLogger.info("[04] Restoring voice rooms and synchronizing panels.");
 
     client.auditLogInterval = startAuditLogForwarder(client);
+    await runReadyTask("publish the honeypot warning panel", () => ensureHoneypotPanel(client));
     await runReadyTask("recover temporary voice rooms", async () => { await client.voiceRooms?.start(); });
     await runReadyTask("configure storm announcements", () => {
       client.stormAnnouncementInterval = startStormAnnouncements(client);
@@ -105,6 +107,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
 async function ensurePanels(): Promise<void> {
   const { client } = container;
   for (const task of persistentPanelTasks(client)) {
+    if (task.label === "honeypot warning panel") continue;
     await runReadyTask(`publish the ${task.label}`, task.run);
   }
 }

@@ -16,6 +16,8 @@ describe("Sapphire interaction routing", () => {
     expect(isKnownComponentInteraction(fakeSelect("market-category:session"))).toBe(true);
     expect(isKnownComponentInteraction(fakeSelect("help-category:session"))).toBe(true);
     expect(isKnownComponentInteraction(fakeButton("expired-control"))).toBe(false);
+    expect(isKnownComponentInteraction(fakeButton("honeypot:status"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeButton("honeypot:status-extra"))).toBe(false);
   });
 
   it("returns the exact stale-control fallback ephemerally", async () => {

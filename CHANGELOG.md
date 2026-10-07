@@ -4,6 +4,21 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-10-07
+
+### Added
+
+- Add a safe Status button to the honeypot warning panel with private member-catch and moderation totals. PostgreSQL preserves per-channel statistics across restarts; deployments without a database show clearly labeled session totals.
+
+### Fixed
+
+- Publish the honeypot warning before slower startup tasks, report disabled configuration and missing guild/channel permissions clearly, and fall back to a text panel when artwork cannot be attached or generated.
+
+### Verification
+
+- TypeScript build, ESLint, all 545 tests across 88 files with two workers, production dependency audit, and patch whitespace checks pass locally.
+- Live Discord publication and the PostgreSQL migration were not tested against the deployed server. GitHub builds and smoke-checks the runtime image before publication.
+
 ## [1.11.1] - 2026-10-07
 
 ### Added

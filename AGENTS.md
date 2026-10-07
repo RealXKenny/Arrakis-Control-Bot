@@ -217,6 +217,8 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 
 ## Feature-Specific Invariants
 
+- Honeypot Status uses the exact `honeypot:status` button route and responds ephemerally after checking the bot author and configured guild/channel. Count distinct verified non-exempt members, deduplicate incidents by message ID, and separate successful sanctions from failures. Use the shared PostgreSQL pool for persistent statistics; label the optional in-memory fallback as counts since restart. Never let a statistics write failure prevent moderation.
+
 - The honeypot warning panel uses Components V2 and existing rules artwork, states the configured consequence, and joins `persistentPanelTasks` for startup and owner refresh. Publish only on the shard hosting its guild and reuse the recognized bot message; suppress simultaneous publications.
 
 - Honeypot moderation lives in `modules/moderation/honeypot/`, configuration in `infrastructure/config/honeypot.ts`, and the thin gateway adapter in `listeners/discord/honeypotMessages.ts`. It is opt-in for one exact guild/channel, defaults to ban, fetches current member roles, exempts owners/staff/moderators, and logs deletion and sanction outcomes separately. Keep its message-ID cache bounded, never shorten existing timeouts, and exclude trap messages from XP and music replies. See `guides/honeypot.md`.

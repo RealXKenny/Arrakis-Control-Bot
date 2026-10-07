@@ -2,6 +2,7 @@ import { PermissionFlagsBits, type Client, type Message } from "discord.js";
 import type { HoneypotConfig } from "../../../infrastructure/config/honeypot";
 import { createLogger } from "../../../client/logger";
 import { hasStaffRole } from "../../../support/access/staffAccess";
+import { InMemoryHoneypotStorage, type HoneypotStorage, type HoneypotOutcome, type HoneypotStats } from "../../../infrastructure/database/honeypot/HoneypotRepository";
 
 const logger = createLogger("HONEYPOT");
 const MODERATION_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
@@ -10,7 +11,11 @@ class HoneypotService {
   private readonly activeMembers = new Set<string>();
   private readonly seenMessages = new Set<string>();
 
-  public constructor(private readonly client: Client, public readonly config: Readonly<HoneypotConfig>) {}
+  public constructor(private readonly client: Client, public readonly config: Readonly<HoneypotConfig>, private readonly storage: HoneypotStorage = new InMemoryHoneypotStorage()) {}
+
+  public initialize(): Promise<void> { return this.storage.initialize(); }
+  public get persistentStats(): boolean { return this.storage.persistent; }
+  public stats(): Promise<HoneypotStats> { return this.storage.stats(this.config.guildId, this.config.channelId); }
 
   public isHoneypot(message: Message): boolean {
     return message.guildId === this.config.guildId && message.channelId === this.config.channelId;
@@ -39,22 +44,32 @@ class HoneypotService {
           outcomes.push("Message deletion failed; check Manage Messages permission.");
         }
         const reason = `Honeypot triggered in channel ${message.channelId}; message ${message.id}`;
+        let outcome: HoneypotOutcome = "failed";
         try {
           if (this.config.action === "ban") {
             if (!member.bannable) throw new Error("Member is not bannable: check Ban Members permission and role hierarchy.");
             await member.ban({ reason, deleteMessageSeconds: 0 });
             outcomes.push("Member banned.");
+            outcome = "ban";
           } else if (this.config.action === "timeout") {
             if (!member.moderatable) throw new Error("Member is not moderatable: check Moderate Members permission and role hierarchy.");
             const until = Date.now() + this.config.timeoutMinutes * 60_000;
             if ((member.communicationDisabledUntilTimestamp ?? 0) < until) await member.timeout(this.config.timeoutMinutes * 60_000, reason);
             outcomes.push(`Member timed out for at least ${this.config.timeoutMinutes} minutes.`);
+            outcome = "timeout";
           } else {
             outcomes.push("Log mode: no member sanction.");
+            outcome = "log";
           }
         } catch (error: unknown) {
           logger.error("Honeypot moderation action failed.", error);
           outcomes.push(`${this.config.action} failed; check bot permissions and role hierarchy.`);
+        }
+        try {
+          await this.storage.record({ messageId: message.id, guildId: this.config.guildId, channelId: message.channelId, userId: member.id, outcome });
+        } catch (error: unknown) {
+          logger.error("Unable to record honeypot statistics.", error);
+          outcomes.push("Statistics recording failed; this incident may be missing from totals.");
         }
       }
       const content = ["Honeypot incident", `Guild: ${message.guildId}`, `User: ${message.author.id}`, `Channel: ${message.channelId}`, `Message: ${message.id}`, `Configured action: ${this.config.action}`, ...outcomes].join("\n");

@@ -28,6 +28,7 @@ import { StaffApplicationService } from "../modules/community/applications/Staff
 import { MessageArchiveRepository } from "../infrastructure/database/messages/MessageArchiveRepository";
 import { MessageArchiveService } from "../modules/audit/MessageArchiveService";
 import { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
+import { HoneypotRepository } from "../infrastructure/database/honeypot/HoneypotRepository";
 import type { HoneypotConfig } from "../infrastructure/config/honeypot";
 
 export type BotClient = ArrakisClient;
@@ -87,6 +88,7 @@ function createBotApplication(config: BotConfig) {
   configLogger.info(
     `Links:${client.discordAdapter ? "on" : "off"} | Chat:${client.chatBridge ? "on" : "off"} | Voice:${client.voiceRooms ? "on" : "off"} | Music:${client.music ? "on" : "off"} | Levels:${client.leveling ? "on" : "off"} | Archive:${client.messageArchive ? "on" : "off"} | Honeypot:${client.honeypot ? client.honeypot.config.action : "off"}`,
   );
+  configLogger.info(client.honeypot ? `Honeypot enabled: action=${client.honeypot.config.action}, channel=${client.honeypot.config.channelId}.` : "Honeypot disabled: configure HONEYPOT_CHANNEL_ID and HONEYPOT_LOG_CHANNEL_ID to enable the panel.");
 
   let isShuttingDown = false;
 
@@ -101,6 +103,7 @@ function createBotApplication(config: BotConfig) {
     await client.leveling?.initialize();
     await client.staffApplications?.initialize();
     await client.messageArchive?.initialize();
+    await client.honeypot?.initialize();
 
     storageLogger.info(`${client.tickets ? "PostgreSQL initialized" : "Not configured"}.`);
     configLogger.debug(`Dune Console API key configured; ${client.duneApi.endpoints.length} endpoints catalogued.`);
@@ -179,7 +182,6 @@ function createClient(logLevel?: string): BotClient {
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {
-  client.honeypot = config.honeypot ? new HoneypotService(client, config.honeypot) : undefined;
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   if (config.chatBridge) {
     const chatNames = new ChatPlayerNames(client.duneApi);
@@ -209,6 +211,7 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
   // Dev note: One PostgreSQL pool waters tickets, rooms, levels, and music—water discipline applies to sockets too.
   client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl) : null;
+  client.honeypot = config.honeypot ? new HoneypotService(client, config.honeypot, client.tickets ? new HoneypotRepository(client.tickets.pool) : undefined) : undefined;
   client.voiceRooms = client.tickets ? new VoiceService(client, new VoiceRepository(client.tickets.pool), config.voicePanelPublic ?? true, config.voiceSetup) : undefined;
   const levelingLogger = createLogger("LEVELING", config.logLevel);
   client.leveling = config.levelingEnabled && client.tickets ? new LevelingService(client, new LevelRepository(client.tickets.pool), config.levelRoles, (message, error) => levelingLogger.error(message, error)) : undefined;

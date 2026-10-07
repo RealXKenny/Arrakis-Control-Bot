@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { MessageFlags, type Client } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, PermissionsBitField, ShardClientUtil, type Client } from "discord.js";
 import { buildHoneypotPanel, ensureHoneypotPanel } from "../../../../src/modules/moderation/honeypot/honeypotPanel";
 import { persistentPanelTasks } from "../../../../src/modules/administration/control/panelRefresh";
 import { countComponents, countDisplayableText, DISCORD_LIMITS } from "../../../../src/shared/discord/discordLimits";
 import type { HoneypotConfig } from "../../../../src/infrastructure/config/honeypot";
+import { createDuneBanner } from "../../../../src/shared/discord/imageFactory";
 
-vi.mock("../../../../src/shared/discord/imageFactory", () => ({ createDuneBanner: () => ({ attachment: Buffer.from("banner"), name: "honeypot-warning.png" }) }));
+vi.mock("../../../../src/shared/discord/imageFactory", () => ({ createDuneBanner: vi.fn(() => ({ attachment: Buffer.from("banner"), name: "honeypot-warning.png" })) }));
 const config: HoneypotConfig = { guildId: "123456789012345678", channelId: "223456789012345678", logChannelId: "323456789012345678", action: "ban", timeoutMinutes: 1440 };
 
 function fixture(existing = false) {
@@ -26,6 +27,7 @@ describe("honeypot warning panel", () => {
       const panel = buildHoneypotPanel({ ...config, action }).toJSON();
       const text = JSON.stringify(panel);
       expect(text).toContain("spam trap"); expect(text).toContain("Do not send messages"); expect(text).toContain("contact staff");
+      expect(text).toContain("honeypot:status"); expect(text).toContain('"label":"Status"');
       expect(countComponents(panel)).toBeLessThanOrEqual(DISCORD_LIMITS.componentCount);
       expect(countDisplayableText(panel)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
       if (action === "ban") expect(text).toContain("automatic ban");
@@ -50,8 +52,34 @@ describe("honeypot warning panel", () => {
     await Promise.all([f.ensure(), f.ensure()]); expect(f.send).toHaveBeenCalledOnce();
   });
   it("skips disabled honeypots and guilds owned by other shards", async () => {
-    const f = fixture(); f.client.guilds.cache.clear(); await f.ensure(); expect(f.fetch).not.toHaveBeenCalled();
+    const f = fixture(); f.client.guilds.cache.clear();
+    const owner = ShardClientUtil.shardIdForGuildId(config.guildId, 2);
+    Object.assign(f.client, { shard: { count: 2, ids: [1 - owner] } });
+    await f.ensure(); expect(f.fetch).not.toHaveBeenCalled();
     await ensureHoneypotPanel({} as Client);
+  });
+  it("reports a wrong guild configuration instead of silently skipping publication", async () => {
+    const f = fixture(); f.client.guilds.cache.clear();
+    await expect(f.ensure()).rejects.toThrow("Check GUILD_ID");
+  });
+  it("publishes without artwork when Attach Files permission is absent", async () => {
+    const f = fixture();
+    Object.assign(f.channel, { permissionsFor: () => new PermissionsBitField([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]) });
+    await f.ensure();
+    expect(f.send).toHaveBeenCalledWith(expect.objectContaining({ files: [] }));
+    expect(JSON.stringify(f.send.mock.calls[0])).not.toContain("attachment://");
+    expect(JSON.stringify(f.send.mock.calls[0])).toContain("honeypot:status");
+  });
+  it("still sends the warning and Status button if banner generation fails", async () => {
+    const f = fixture(); vi.mocked(createDuneBanner).mockImplementationOnce(() => { throw new Error("Artwork unavailable"); });
+    await f.ensure();
+    expect(f.send).toHaveBeenCalledWith(expect.objectContaining({ files: [] }));
+    expect(JSON.stringify(f.send.mock.calls[0])).toContain("honeypot:status");
+  });
+  it("names missing channel permissions before attempting publication", async () => {
+    const f = fixture(); Object.assign(f.channel, { permissionsFor: () => new PermissionsBitField([]) });
+    await expect(f.ensure()).rejects.toThrow("View Channel, Send Messages, Read Message History");
+    expect(f.send).not.toHaveBeenCalled();
   });
   it("reports invalid destinations and failed publication, and permits retry", async () => {
     const f = fixture(); f.channel.guildId = "other";

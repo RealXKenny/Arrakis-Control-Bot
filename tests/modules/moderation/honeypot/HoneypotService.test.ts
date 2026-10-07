@@ -2,24 +2,44 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Client, Message } from "discord.js";
 import { HoneypotService } from "../../../../src/modules/moderation/honeypot/HoneypotService";
 import type { HoneypotConfig } from "../../../../src/infrastructure/config/honeypot";
+import type { HoneypotStorage } from "../../../../src/infrastructure/database/honeypot/HoneypotRepository";
 
 vi.mock("../../../../src/client/logger", () => ({ createLogger: () => ({ error: vi.fn(), warn: vi.fn() }) }));
 
 const config: HoneypotConfig = { guildId: "123456789012345678", channelId: "223456789012345678", logChannelId: "323456789012345678", action: "ban", timeoutMinutes: 1440 };
-function fixture(action: HoneypotConfig["action"] = "ban") {
+function fixture(action: HoneypotConfig["action"] = "ban", storage?: HoneypotStorage) {
   const member = { id: "423456789012345678", roles: { cache: new Map<string, unknown>() }, permissions: { any: vi.fn().mockReturnValue(false) }, bannable: true, moderatable: true, communicationDisabledUntilTimestamp: null as number | null, ban: vi.fn().mockResolvedValue(undefined), timeout: vi.fn().mockResolvedValue(undefined) };
   const fetchMember = vi.fn().mockResolvedValue(member);
   const send = vi.fn().mockResolvedValue(undefined);
   const channel = { guildId: config.guildId, isSendable: () => true, send };
   const fetchChannel = vi.fn().mockResolvedValue(channel);
   const message = { id: "523456789012345678", guildId: config.guildId, channelId: config.channelId, guild: { ownerId: "623456789012345678", members: { fetch: fetchMember } }, author: { id: member.id, bot: false }, webhookId: null, system: false, delete: vi.fn().mockResolvedValue(undefined) };
-  const service = new HoneypotService({ channels: { fetch: fetchChannel } } as unknown as Client, { ...config, action });
+  const service = new HoneypotService({ channels: { fetch: fetchChannel } } as unknown as Client, { ...config, action }, storage);
   const handle = () => service.handleMessage(message as unknown as Message);
   return { service, message, member, channel, fetchMember, fetchChannel, send, handle };
 }
 
 afterEach(() => vi.unstubAllEnvs());
 describe("honeypot moderation", () => {
+  it("keeps moderation and incident logging working when statistics writes fail", async () => {
+    const record = vi.fn().mockRejectedValue(new Error("Database unavailable"));
+    const f = fixture("ban", { persistent: true, initialize: () => Promise.resolve(), record, stats: vi.fn() });
+    await f.handle();
+    expect(f.member.ban).toHaveBeenCalledOnce();
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ outcome: "ban", userId: f.member.id }));
+    expect(f.send).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Statistics recording failed") }));
+  });
+  it("counts verified non-exempt members once and separates successful from failed actions", async () => {
+    const f = fixture(); await f.handle(); await f.handle();
+    expect(await f.service.stats()).toMatchObject({ members: "1", messages: "1", bans: "1", failed: "0" });
+    f.message.id = "923456789012345678"; f.member.ban.mockRejectedValue(new Error("Forbidden"));
+    await f.handle();
+    expect(await f.service.stats()).toMatchObject({ members: "1", messages: "2", bans: "1", failed: "1" });
+    const exempt = fixture(); exempt.member.permissions.any.mockReturnValue(true); await exempt.handle();
+    expect((await exempt.service.stats()).members).toBe("0");
+    const unresolved = fixture(); unresolved.fetchMember.mockResolvedValue(null); await unresolved.handle();
+    expect((await unresolved.service.stats()).members).toBe("0");
+  });
   it("deletes a trap message, bans the current member, and logs without mentions", async () => {
     const f = fixture();
     await f.handle();

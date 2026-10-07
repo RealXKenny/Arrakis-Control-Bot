@@ -88,6 +88,7 @@ describe("Sapphire interaction-handler store", () => {
     const { handlers } = await getStoreSnapshot();
     expect(handlers).toEqual(
       expect.arrayContaining([
+        "honeypot-status-button",
         "voice-button",
         "music-button",
         "music-modal",
@@ -123,6 +124,6 @@ describe("Sapphire interaction-handler store", () => {
         "staff-application-modal",
       ]),
     );
-    expect(handlers).toHaveLength(33);
+    expect(handlers).toHaveLength(34);
   });
 });
