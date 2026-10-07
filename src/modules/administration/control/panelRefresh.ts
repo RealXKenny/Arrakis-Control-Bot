@@ -1,6 +1,7 @@
 import type { Client, Guild } from "discord.js";
 
 import { ensureBotControlPanel } from "./botControlPanel";
+import { ensureHoneypotPanel } from "../../moderation/honeypot/honeypotPanel";
 import { ensureFaqPanel } from "../../community/faq/faqPanel";
 import { ensureRolePanel } from "../../community/roles/rolePanel";
 import { ensureRulesPanel } from "../../community/rules/rulesPanel";
@@ -41,6 +42,7 @@ function persistentPanelTasks(client: Client, guild?: Guild): PersistentPanelTas
   configured(client.discordTicketPanelChannelId, "ticket panel", () => ensureTicketPanel(client, client.discordTicketPanelChannelId));
   configured(client.discordAnnouncementChannelId, "release announcement cards", () => refreshReleaseAnnouncements(client, client.discordAnnouncementChannelId));
   if (client.staffApplications) tasks.push({ label: "staff application panel", run: () => ensureStaffApplicationPanel(client) });
+  if (client.honeypot) tasks.push({ label: "honeypot warning panel", run: () => ensureHoneypotPanel(client) });
 
   if (client.discordAdapter) {
     configured(client.discordAdapterLinkPanelChannelId, "player link panel", () => ensurePlayerLinkPanel(client, client.discordAdapterLinkPanelChannelId));

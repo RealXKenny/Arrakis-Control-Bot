@@ -4,6 +4,17 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-07
+
+### Added
+
+- Automatically publish a honeypot warning panel explaining the spam trap, posting consequences, staff exemptions, and support route. Startup and owner panel refresh update the existing warning to match the configured ban, timeout, or log mode.
+
+### Verification
+
+- TypeScript build, ESLint, all 532 tests across 86 files with two workers, production dependency audit, and patch whitespace checks pass locally.
+- Live Discord panel publication is not verified locally; the release workflow builds and smoke-checks the Pterodactyl image.
+
 ## [1.11.0] - 2026-10-07
 
 ### Added

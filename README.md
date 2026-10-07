@@ -205,3 +205,5 @@ Use `/server-usage` for Convoy CPU, memory, network and disk graphs. See the [Co
 ## Honeypot moderation
 
 Optional automatic spam traps are available through `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, and `HONEYPOT_ACTION` (default `ban`). Leave the channel IDs empty to disable. The trap removes non-staff messages, applies the configured action, and logs outcomes. See [the setup guide](guides/honeypot.md) for channel permissions, exemptions, and testing.
+
+The bot publishes a warning panel in the trap channel on startup. It explains the channel's purpose and the configured consequence, and updates through the owner's Refresh Panels control.
