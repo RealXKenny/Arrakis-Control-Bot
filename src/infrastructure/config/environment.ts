@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { loadHoneypotConfig, type HoneypotConfig } from "./honeypot";
 import path from "node:path";
 import { loadChatBridgeConfig, type ChatBridgeConfig } from "./chatBridge";
 import { loadVoiceSetup, type VoiceSetupConfig } from "./voiceRooms";
@@ -11,6 +12,7 @@ dotenv.config({
 });
 
 interface EnvironmentConfig {
+  honeypot?: HoneypotConfig;
   music?: MusicConfig;
   voiceSetup?: VoiceSetupConfig;
   voicePanelPublic: boolean;
@@ -178,6 +180,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   }
 
   return Object.freeze({
+    honeypot: loadHoneypotConfig(process.env),
     music: loadMusicConfig(process.env),
     voiceSetup: loadVoiceSetup(process.env),
     voicePanelPublic: parseBoolean(process.env.VOICE_PANEL_PUBLIC, true, "VOICE_PANEL_PUBLIC"),

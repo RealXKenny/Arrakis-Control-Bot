@@ -4,6 +4,7 @@ import "@sapphire/plugin-subcommands/register";
 import path from "node:path";
 import { SapphireClient, ApplicationCommandRegistries, RegisterBehavior } from "@sapphire/framework";
 import type { ClientOptions } from "discord.js";
+import type { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
 import type { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
 import type { VoiceService } from "../modules/voice/VoiceService";
 import type { MusicService } from "../modules/music/MusicService";
@@ -23,6 +24,7 @@ const PIECES_DIRECTORY = path.join(__dirname, "..");
 type ArrakisClientOptions = ClientOptions & { baseUserDirectory?: string };
 
 class ArrakisClient extends SapphireClient {
+  public honeypot?: HoneypotService;
   public music?: MusicService;
   public leveling?: LevelingService;
   public staffApplications?: StaffApplicationService;

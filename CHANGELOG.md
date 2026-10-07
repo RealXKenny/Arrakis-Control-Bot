@@ -4,6 +4,25 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-07
+
+### Added
+
+- Opt-in Discord honeypot channel with automatic bans, optional timeout/log modes, current-member staff exemptions, message removal, and incident logging with accurate failure outcomes. Trap messages do not award XP or trigger music replies.
+
+### Fixed
+
+- Remove unused `concurrently` production dependency and its vulnerable `shell-quote` dependency chain so production audits pass without a forced downgrade.
+
+### Deployment
+
+- Regenerate the Pterodactyl egg with honeypot settings. The release workflow builds and smoke-checks the runtime image before publishing `latest`, `v1.11.0`, and the commit-specific image tag.
+
+### Verification
+
+- TypeScript build, ESLint, all 525 tests across 85 files (with two test workers), production dependency audit, and patch whitespace checks pass locally.
+- Live Discord moderation and the target Pterodactyl panel were not tested locally. Image build and startup checks run in the GitHub release workflow.
+
 ## [1.10.12] - 2026-09-24
 
 ### Fixed

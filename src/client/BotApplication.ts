@@ -27,10 +27,13 @@ import { StaffApplicationRepository } from "../infrastructure/database/applicati
 import { StaffApplicationService } from "../modules/community/applications/StaffApplicationService";
 import { MessageArchiveRepository } from "../infrastructure/database/messages/MessageArchiveRepository";
 import { MessageArchiveService } from "../modules/audit/MessageArchiveService";
+import { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
+import type { HoneypotConfig } from "../infrastructure/config/honeypot";
 
 export type BotClient = ArrakisClient;
 
 interface BotConfig {
+  honeypot?: HoneypotConfig;
   music?: MusicConfig;
   voiceSetup?: VoiceSetupConfig;
   voicePanelPublic?: boolean;
@@ -82,7 +85,7 @@ function createBotApplication(config: BotConfig) {
   systemLogger.info("[01] Loading commands, events and integrations.");
 
   configLogger.info(
-    `Links:${client.discordAdapter ? "on" : "off"} | Chat:${client.chatBridge ? "on" : "off"} | Voice:${client.voiceRooms ? "on" : "off"} | Music:${client.music ? "on" : "off"} | Levels:${client.leveling ? "on" : "off"} | Archive:${client.messageArchive ? "on" : "off"}`,
+    `Links:${client.discordAdapter ? "on" : "off"} | Chat:${client.chatBridge ? "on" : "off"} | Voice:${client.voiceRooms ? "on" : "off"} | Music:${client.music ? "on" : "off"} | Levels:${client.leveling ? "on" : "off"} | Archive:${client.messageArchive ? "on" : "off"} | Honeypot:${client.honeypot ? client.honeypot.config.action : "off"}`,
   );
 
   let isShuttingDown = false;
@@ -176,6 +179,7 @@ function createClient(logLevel?: string): BotClient {
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {
+  client.honeypot = config.honeypot ? new HoneypotService(client, config.honeypot) : undefined;
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   if (config.chatBridge) {
     const chatNames = new ChatPlayerNames(client.duneApi);

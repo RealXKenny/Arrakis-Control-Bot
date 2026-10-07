@@ -13,6 +13,8 @@ The bot is stored in `/opt/arrakis` because Pterodactyl mounts server files at `
 
 ## Integrations and secrets
 
+- For releases with honeypot support, re-import the updated egg to expose `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, `HONEYPOT_ACTION`, and `HONEYPOT_TIMEOUT_MINUTES`. Configure the trap and private log channels as described in [the honeypot guide](honeypot.md). Leave both channel IDs empty to disable it. The default action is an automatic ban.
+
 - `CONSOLE_URL` must be HTTPS in production. Use externally reachable hostnames for the Console, PostgreSQL, RabbitMQ, and Lavalink services; `localhost` inside the bot container means the bot container itself.
 - `DATABASE_URL` enables persistent features such as tickets, community levels, and music state. Set `DATABASE_SSL=true` when your PostgreSQL service requires TLS.
 - The image includes this repository's public RabbitMQ server certificates at `/opt/arrakis/certificates/production-rabbitmq-server.pem` and `/opt/arrakis/certificates/development-rabbitmq-server.pem`. Set `RABBITMQ_CA_FILE` to the matching absolute path when trusting one of those brokers. For another broker or a rotated certificate, upload its trusted public CA PEM and set `RABBITMQ_CA_FILE` to that file, such as `/home/container/rabbitmq-ca.pem`. Do not upload a private key.

@@ -957,6 +957,46 @@
       "user_editable": true,
       "rules": "nullable|string",
       "field_type": "text"
+    },
+    {
+      "name": "Honeypot Channel ID",
+      "description": "Optional bot setting (HONEYPOT_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "HONEYPOT_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Honeypot Log Channel ID",
+      "description": "Optional bot setting (HONEYPOT_LOG_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "HONEYPOT_LOG_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Honeypot Action",
+      "description": "Optional bot setting (HONEYPOT_ACTION). See .env.example in the repository.",
+      "env_variable": "HONEYPOT_ACTION",
+      "default_value": "ban",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Honeypot Timeout Minutes",
+      "description": "Optional bot setting (HONEYPOT_TIMEOUT_MINUTES). See .env.example in the repository.",
+      "env_variable": "HONEYPOT_TIMEOUT_MINUTES",
+      "default_value": "1440",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
     }
   ]
 }

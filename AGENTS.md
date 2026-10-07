@@ -217,6 +217,8 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 
 ## Feature-Specific Invariants
 
+- Honeypot moderation lives in `modules/moderation/honeypot/`, configuration in `infrastructure/config/honeypot.ts`, and the thin gateway adapter in `listeners/discord/honeypotMessages.ts`. It is opt-in for one exact guild/channel, defaults to ban, fetches current member roles, exempts owners/staff/moderators, and logs deletion and sanction outcomes separately. Keep its message-ID cache bounded, never shorten existing timeouts, and exclude trap messages from XP and music replies. See `guides/honeypot.md`.
+
 - `/market` is read-only. Preserve decimal-string prices, convert its public one-based page to the API's zero-based page, and show lowest asking price plus configured Buyback guidance.
 - `/help` catalogs every command once, uses public Components V2 output, binds controls to its requester, and expires sessions after 15 minutes.
 - Persistent panels must update recognized bot messages idempotently, avoid duplicate publication, and recover safely from deleted or partially published messages.

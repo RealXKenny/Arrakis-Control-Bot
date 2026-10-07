@@ -201,3 +201,7 @@ Every user-facing Discord panel uses cinematic artwork from `data/images/`. The 
 See the [complete command migration table](guides/commands.md) for all command groups and their actions.
 
 Use `/server-usage` for Convoy CPU, memory, network and disk graphs. See the [Convoy guide](guides/convoy.md).
+
+## Honeypot moderation
+
+Optional automatic spam traps are available through `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, and `HONEYPOT_ACTION` (default `ban`). Leave the channel IDs empty to disable. The trap removes non-staff messages, applies the configured action, and logs outcomes. See [the setup guide](guides/honeypot.md) for channel permissions, exemptions, and testing.

@@ -10,6 +10,7 @@ describe("Sapphire listener store", () => {
         "guildMemberAdd",
         "guildMemberRemove",
         "levelingMessages",
+        "honeypotMessages",
         "voiceStateUpdate",
         "musicRequest",
         "interactionCreate",

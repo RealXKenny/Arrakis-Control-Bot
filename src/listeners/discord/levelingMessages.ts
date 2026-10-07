@@ -8,6 +8,7 @@ class LevelingMessages extends Listener<typeof Events.MessageCreate> {
   }
 
   public override async run(message: Message): Promise<void> {
+    if (this.container.client.honeypot?.isHoneypot(message)) return;
     try {
       await this.container.client.leveling?.handleMessage(message);
     } catch (error: unknown) {

@@ -1,4 +1,5 @@
 import type { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
+import type { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
 import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
 import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import type { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
@@ -13,6 +14,7 @@ import type { MessageArchiveService } from "../modules/audit/MessageArchiveServi
 
 declare module "discord.js" {
   interface Client {
+    honeypot?: HoneypotService;
     music?: MusicService;
     leveling?: LevelingService;
     staffApplications?: StaffApplicationService;

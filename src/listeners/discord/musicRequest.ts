@@ -5,6 +5,7 @@ import { scopedLogger } from "../../client/logger";
 export class MusicRequest extends Listener<typeof Events.MessageCreate> {
   public constructor(context: Listener.LoaderContext) { super(context, { event: Events.MessageCreate }); }
   public override async run(message: Message): Promise<void> {
+    if (this.container.client.honeypot?.isHoneypot(message)) return;
     try { await this.container.client.music?.onMessage(message); }
     catch { scopedLogger(this.container.logger, "MUSIC").warn("Unable to reply to a music request. Check request-channel permissions."); }
   }
