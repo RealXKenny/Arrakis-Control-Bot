@@ -4,6 +4,21 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-10-19
+
+### Fixed
+
+- Refresh the production RabbitMQ public trust certificate after the broker update, including the certificate bundled in the Docker image. The certificate is valid from October 19, 2026 through October 19, 2027.
+
+### Deployment
+
+- Update the bot image to this release and restart the bot to load the new certificate. Deployments using an external certificate file must replace that file separately.
+- Live broker connectivity and Discord/game chat delivery were not verified locally.
+
+### Verification
+
+- TypeScript build, ESLint, all 545 tests across 88 files with two workers, certificate parsing/self-signature/expiry and matching-copy checks, package version consistency, and patch whitespace checks pass locally.
+
 ## [1.11.2] - 2026-10-07
 
 ### Added

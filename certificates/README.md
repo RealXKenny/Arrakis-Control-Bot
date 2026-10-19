@@ -4,6 +4,9 @@ These PEM files contain public server certificates only. They are deployment-spe
 
 - `development-rabbitmq-server.pem`: development broker.
 - `production-rabbitmq-server.pem`: production broker.
+- `rabbitmq-server.pem`: matching copy of the current production public certificate extracted from the broker.
+
+The production certificate was refreshed on October 19, 2026 and expires on October 19, 2027. Its SHA-256 fingerprint is `03:2A:6B:13:69:16:86:BA:2D:ED:4F:9D:58:D7:9D:21:5B:10:D1:D7:33:BD:46:B6:69:0B:95:98:ED:0C:51:6F`. Keep the two production copies synchronized when rotating the certificate; the Docker image uses `production-rabbitmq-server.pem`.
 
 Select the certificate matching your broker. For the production deployment, start the bot from the repository root and configure:
 
