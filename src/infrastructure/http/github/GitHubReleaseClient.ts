@@ -15,15 +15,19 @@ async function fetchGitHubReleases(repository: string, token?: string): Promise<
     "User-Agent": "Arrakis-Control",
   };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(`https://api.github.com/repos/${repository}/releases?per_page=100`, {
-    headers, signal: AbortSignal.timeout(15_000), redirect: "error",
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${repository} GitHub releases: ${response.status} ${response.statusText}`);
+  const releases: GitHubRelease[] = [];
+  for (let page = 1; ; page++) {
+    const response = await fetch(`https://api.github.com/repos/${repository}/releases?per_page=100${page === 1 ? "" : `&page=${page}`}`, {
+      headers, signal: AbortSignal.timeout(15_000), redirect: "error",
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${repository} GitHub releases: ${response.status} ${response.statusText}`);
+    }
+    const batch: unknown = await response.json();
+    if (!Array.isArray(batch)) throw new Error(`Invalid GitHub release list for ${repository}.`);
+    releases.push(...batch as GitHubRelease[]);
+    if (batch.length < 100) return releases;
   }
-  const releases: unknown = await response.json();
-  if (!Array.isArray(releases)) throw new Error(`Invalid GitHub release list for ${repository}.`);
-  return releases as GitHubRelease[];
 }
 
 export { fetchGitHubReleases };

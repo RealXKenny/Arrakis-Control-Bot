@@ -4,6 +4,24 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.5] - 2026-10-19
+
+### Fixed
+
+- Remove role pings from Bot and Dashboard changelog posts and disable all role, user, and everyone mentions, including mentions embedded in external release notes.
+- Add a channel-scoped operator replay that resets only Bot/Dashboard changelog receipts and resends published releases under the existing database lock. Preserve the history-import marker, leave panel records untouched, and keep successful receipts if another send fails.
+- Follow all GitHub release pages so older changelogs beyond the first hundred are included.
+
+### Deployment
+
+- Pull `ghcr.io/realxkenny/arrakis-control-bot:v1.11.5` (or refreshed `latest`) and restart Pterodactyl to remove role mentions from all future changelogs. Existing role-selection configuration remains unchanged.
+- Changelog reset/replay is an explicit operator action for one database/channel; updating alone does not erase receipts or repost history. Other persistent panels and bot data are unaffected.
+
+### Verification
+
+- TypeScript build, ESLint, all 615 tests across 93 files with two workers, production dependency audit, and patch whitespace checks pass locally.
+- Production replay outcome is reported separately from release verification.
+
 ## [1.11.4] - 2026-10-19
 
 ### Added

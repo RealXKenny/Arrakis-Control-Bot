@@ -49,33 +49,53 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
   await storage.withChannel(channelId, async (stored) => {
     await importExistingAnnouncements(client, channel, stored);
     const { releases, failures } = await loadReleases(client.githubToken);
-    const announced = new Set((await stored.list()).map((row) => releaseKey(row.repository, row.version)));
-
-    for (const release of releases) {
-      if (announced.has(releaseKey(release.project.repo, release.version))) continue;
-      let message: Message;
-      try {
-        const roleId = getAnnouncementRoleId();
-        message = await channel.send({
-          ...releasePayload(release, releaseMarker(release), roleId ? `<@&${roleId}>` : null),
-          flags: MessageFlags.IsComponentsV2,
-        });
-      } catch (error) {
-        failures.push(error);
-        continue;
-      }
-      // Save immediately after sending, before optional publication or the next release.
-      // A failed database write aborts this batch instead of sending more untracked posts.
-      await stored.record({ repository: release.project.repo, version: release.version, messageId: message.id });
-      announced.add(releaseKey(release.project.repo, release.version));
-      if (message.crosspostable) {
-        await message.crosspost().catch((error: unknown) => {
-          logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
-        });
-      }
-    }
-    if (failures.length) throw new AggregateError(failures, `${failures.length} release check operation(s) failed.`);
+    await sendUnannouncedReleases(channel, stored, releases, failures);
   });
+}
+
+async function replayReleaseAnnouncements(client: Client, channelId: string): Promise<void> {
+  if (!client.user) throw new Error("Cannot replay changelogs before the Discord client is ready.");
+  const storage = requireStorage(client);
+  const channel = await client.channels.fetch(channelId);
+  if (!channel?.isSendable()) throw new Error(`Version announcement channel ${channelId} is not a sendable channel.`);
+  let acquired = false;
+  await storage.withChannel(channelId, async (stored) => {
+    acquired = true;
+    // Fetch both sources before changing durable state. A source outage must not erase the ledger.
+    const { releases, failures } = await loadReleases(client.githubToken);
+    if (failures.length) throw new AggregateError(failures, "Cannot reset changelogs while a release source is unavailable.");
+    await stored.reset(RELEASE_PROJECTS.map((project) => project.repo));
+    await sendUnannouncedReleases(channel, stored, releases, []);
+  });
+  if (!acquired) throw new Error("Another release check holds the channel lock; retry the replay later.");
+}
+
+async function sendUnannouncedReleases(channel: SendableChannels, stored: ReleaseAnnouncementChannel, releases: Release[], failures: unknown[]): Promise<void> {
+  const announced = new Set((await stored.list()).map((row) => releaseKey(row.repository, row.version)));
+
+  for (const release of releases) {
+    if (announced.has(releaseKey(release.project.repo, release.version))) continue;
+    let message: Message;
+    try {
+      message = await channel.send({
+        ...releasePayload(release, releaseMarker(release)),
+        flags: MessageFlags.IsComponentsV2,
+      });
+    } catch (error) {
+      failures.push(error);
+      continue;
+    }
+    // Save immediately after sending, before optional publication or the next release.
+    // A failed database write aborts this batch instead of sending more untracked posts.
+    await stored.record({ repository: release.project.repo, version: release.version, messageId: message.id });
+    announced.add(releaseKey(release.project.repo, release.version));
+    if (message.crosspostable) {
+      await message.crosspost().catch((error: unknown) => {
+        logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, `${failures.length} release check operation(s) failed.`);
 }
 
 async function refreshReleaseAnnouncements(client: Client, channelId?: string | null): Promise<void> {
@@ -96,7 +116,7 @@ async function refreshReleaseAnnouncements(client: Client, channelId?: string | 
       try {
         const message = await channel.messages.fetch(record.messageId);
         if (message.author.id !== client.user!.id || message.webhookId) continue;
-        await message.edit({ ...releasePayload(release, releaseMarker(release), null), attachments: [] });
+        await message.edit({ ...releasePayload(release, releaseMarker(release)), attachments: [] });
       } catch (error) {
         // Deleted announcements stay recorded so deletion never triggers a repost.
         if (typeof error === "object" && error !== null && "code" in error && error.code === 10008) continue;
@@ -130,7 +150,7 @@ async function importExistingAnnouncements(client: Client, channel: SendableChan
   await stored.markImported();
 }
 
-function releasePayload(release: Release, marker: string, roleMention: string | null) {
+function releasePayload(release: Release, marker: string) {
   const filename = sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png");
   const banner = createDuneBanner({
     artwork: "release",
@@ -140,17 +160,17 @@ function releasePayload(release: Release, marker: string, roleMention: string | 
     detail: "ARRAKIS CONTROL",
   });
   return {
-    components: [buildReleaseCard(release, marker, roleMention)],
+    components: [buildReleaseCard(release, marker)],
     files: [{ attachment: banner.attachment, name: filename, description: banner.description ?? undefined }],
-    allowedMentions: { roles: roleMention ? [getAnnouncementRoleId()!] : [] },
+    allowedMentions: { parse: [] as const },
   };
 }
 
-function buildReleaseCard(release: Release, marker: string, roleMention: string | null): ContainerBuilder {
+function buildReleaseCard(release: Release, marker: string): ContainerBuilder {
   const summary = truncateDiscordText(release.summary, MAX_RELEASE_SUMMARY_TEXT, "…");
   const releaseMetadata = `${summary}\n\n**Released:** ${formatDiscordTimestamp(release.date)}`;
   const changeHeading = "### What changed";
-  const fixedDisplayableText = marker.length + releaseMetadata.length + changeHeading.length + (roleMention?.length ?? 0);
+  const fixedDisplayableText = marker.length + releaseMetadata.length + changeHeading.length;
   const releaseNotesBudget = Math.max(0, DISCORD_LIMITS.componentDisplayableText - DISPLAYABLE_TEXT_SAFETY_MARGIN - fixedDisplayableText);
   const releaseNotes = truncateDiscordText(release.body.trim() || "No release notes provided.", releaseNotesBudget, RELEASE_NOTES_TRUNCATED_NOTICE);
   const card = new ContainerBuilder()
@@ -158,10 +178,6 @@ function buildReleaseCard(release: Release, marker: string, roleMention: string 
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png")}`)))
     .addTextDisplayComponents((text) => text.setContent(marker))
     .addTextDisplayComponents((text) => text.setContent(releaseMetadata));
-
-  if (roleMention) {
-    card.addTextDisplayComponents((text) => text.setContent(roleMention));
-  }
 
   card
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
@@ -205,16 +221,6 @@ function getComponentContents(message: Message): string[] {
   }
 
   return contents;
-}
-
-function getAnnouncementRoleId(): string | null {
-  const roleId = process.env.ROLE_ANNOUNCEMENTS_ID;
-
-  if (!roleId || roleId.startsWith("replace_with_")) {
-    return null;
-  }
-
-  return roleId;
 }
 
 function formatDiscordTimestamp(date: string | null): string {
@@ -280,4 +286,4 @@ async function readChannelHistory(channel: SendableChannels): Promise<Message[]>
   return messages;
 }
 
-export { announceCurrentVersion, buildReleaseCard, refreshReleaseAnnouncements };
+export { announceCurrentVersion, buildReleaseCard, refreshReleaseAnnouncements, replayReleaseAnnouncements };

@@ -6,6 +6,7 @@ interface ReleaseAnnouncementChannel {
   list(): Promise<ReleaseAnnouncementRecord[]>;
   record(release: ReleaseAnnouncementRecord): Promise<void>;
   markImported(): Promise<void>;
+  reset(repositories: readonly string[]): Promise<void>;
 }
 interface ReleaseAnnouncementStorage {
   withChannel(channelId: string, task: (channel: ReleaseAnnouncementChannel) => Promise<void>): Promise<void>;
@@ -74,6 +75,17 @@ class StoredReleaseChannel implements ReleaseAnnouncementChannel {
   }
   public async markImported(): Promise<void> {
     await this.connection.query("INSERT INTO bot_release_announcement_channels (channel_id) VALUES ($1) ON CONFLICT (channel_id) DO NOTHING", [this.channelId]);
+  }
+  public async reset(repositories: readonly string[]): Promise<void> {
+    await this.connection.query("BEGIN");
+    try {
+      await this.markImported();
+      await this.connection.query("DELETE FROM bot_release_announcements WHERE channel_id=$1 AND repository=ANY($2::text[])", [this.channelId, repositories]);
+      await this.connection.query("COMMIT");
+    } catch (error) {
+      await this.connection.query("ROLLBACK");
+      throw error;
+    }
   }
 }
 

@@ -2,7 +2,7 @@ import type { ReleaseAnnouncementChannel, ReleaseAnnouncementRecord, ReleaseAnno
 import { Collection, type Client } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { announceCurrentVersion, refreshReleaseAnnouncements } from "../../../src/modules/releases/versionAnnouncement";
+import { announceCurrentVersion, refreshReleaseAnnouncements, replayReleaseAnnouncements } from "../../../src/modules/releases/versionAnnouncement";
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
 
 vi.mock("../../../src/shared/discord/imageFactory", () => ({
@@ -56,6 +56,11 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
       return Promise.resolve();
     }),
     markImported: vi.fn(() => { imported = true; return Promise.resolve(); }),
+    reset: vi.fn((repositories: readonly string[]) => {
+      imported = true;
+      for (const [key, record] of records) if (repositories.includes(record.repository)) records.delete(key);
+      return Promise.resolve();
+    }),
   };
   const storage: ReleaseAnnouncementStorage = { withChannel: async (_channelId, task) => { await task(stored); } };
   const client = { releaseAnnouncements: storage, user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue(channel) } } as unknown as Client;
@@ -63,6 +68,53 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
 }
 
 describe("version announcements", () => {
+  it("resets and resends both projects without importing the old Discord posts again", async () => {
+    const { client, send, channel, stored, records } = setup(["## Arrakis Control Bot v1.0.0"]);
+    records.set("other/repo:1.0.0", { repository: "other/repo", version: "1.0.0", messageId: "unrelated" });
+    await replayReleaseAnnouncements(client, "announcements");
+    expect(stored.reset).toHaveBeenCalledWith(["RealXKenny/Arrakis-Control-Bot", "RealXKenny/Arrakis-Control-Dashboard"]);
+    expect(channel.messages.fetch).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(records.has("other/repo:1.0.0")).toBe(true);
+    await announceCurrentVersion(client, "announcements");
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves existing receipts intact if either GitHub source fails before replay", async () => {
+    const { client, stored, fetchMock, send } = setup();
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503, statusText: "Unavailable" } as Response);
+    await expect(replayReleaseAnnouncements(client, "announcements")).rejects.toThrow("source is unavailable");
+    expect(stored.reset).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("preserves successful replay receipts so normal checks retry only failed sends", async () => {
+    const { client, stored, send } = setup();
+    send.mockRejectedValueOnce(new Error("Discord unavailable"));
+    await expect(replayReleaseAnnouncements(client, "announcements")).rejects.toThrow("1 release check operation");
+    await announceCurrentVersion(client, "announcements");
+    expect(stored.reset).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledTimes(3);
+  });
+
+  it("reports a busy channel without resetting or sending", async () => {
+    const { client, stored, send } = setup();
+    client.releaseAnnouncements = { withChannel: () => Promise.resolve() };
+    await expect(replayReleaseAnnouncements(client, "announcements")).rejects.toThrow("holds the channel lock");
+    expect(stored.reset).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("never pings roles, users, or everyone even when an announcements role is configured", async () => {
+    const { client, send } = setup([], "Changes @everyone <@123456789012345678> <@&223456789012345678>");
+    vi.stubEnv("ROLE_ANNOUNCEMENTS_ID", "323456789012345678");
+    await announceCurrentVersion(client, "announcements");
+    for (const [payload] of send.mock.calls) {
+      expect(payload.allowedMentions).toEqual({ parse: [] });
+      expect(JSON.stringify(payload.components)).not.toContain("<@&323456789012345678>");
+    }
+  });
+
   it("uses the configured GitHub token for both Bot and Dashboard releases", async () => {
     const { client, fetchMock } = setup();
     client.githubToken = "test-github-token";

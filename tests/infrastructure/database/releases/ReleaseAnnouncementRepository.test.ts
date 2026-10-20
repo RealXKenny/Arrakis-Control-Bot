@@ -12,6 +12,25 @@ function setup(locked = true) {
 }
 
 describe("release announcement persistence", () => {
+  it("resets only the selected channel/repositories and preserves the import marker atomically", async () => {
+    const { repository, connectionQuery } = setup();
+    await repository.withChannel("announcements", async (stored) => { await stored.reset(["owner/bot", "owner/dashboard"]); });
+    expect(connectionQuery).toHaveBeenCalledWith("BEGIN");
+    expect(connectionQuery).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO bot_release_announcement_channels"), ["announcements"]);
+    expect(connectionQuery).toHaveBeenCalledWith("DELETE FROM bot_release_announcements WHERE channel_id=$1 AND repository=ANY($2::text[])", ["announcements", ["owner/bot", "owner/dashboard"]]);
+    expect(connectionQuery).toHaveBeenCalledWith("COMMIT");
+    expect(connectionQuery.mock.calls.some(([sql]) => /bot_persistent_panels|TRUNCATE/.test(sql))).toBe(false);
+  });
+
+  it("rolls the reset back if deletion fails", async () => {
+    const { repository, connectionQuery } = setup();
+    await expect(repository.withChannel("announcements", async (stored) => {
+      connectionQuery.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] }).mockRejectedValueOnce(new Error("delete failed"));
+      await stored.reset(["owner/bot"]);
+    })).rejects.toThrow("delete failed");
+    expect(connectionQuery).toHaveBeenCalledWith("ROLLBACK");
+    expect(connectionQuery).not.toHaveBeenCalledWith("COMMIT");
+  });
   it("creates the schema once and stores parameterized channel/repository/version/message records", async () => {
     const { repository, query, connectionQuery } = setup();
     await repository.withChannel("channel", async (stored) => {

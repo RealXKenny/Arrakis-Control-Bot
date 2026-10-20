@@ -4,6 +4,15 @@ import { fetchGitHubReleases } from "../../../../src/infrastructure/http/github/
 afterEach(() => vi.unstubAllGlobals());
 
 describe("GitHub release transport", () => {
+  it("loads every page so a replay includes releases beyond the first hundred", async () => {
+    const first = Array.from({ length: 100 }, (_, index) => ({ tag_name: `v${index}` }));
+    const last = [{ tag_name: "v100" }];
+    const fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(first) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(last) });
+    vi.stubGlobal("fetch", fetch);
+    expect(await fetchGitHubReleases("owner/repo", "test-github-token")).toHaveLength(101);
+    expect(fetch).toHaveBeenLastCalledWith("https://api.github.com/repos/owner/repo/releases?per_page=100&page=2", expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer test-github-token" }) }));
+  });
   it("authenticates only against the GitHub API and disallows redirects", async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) });
     vi.stubGlobal("fetch", fetch);
