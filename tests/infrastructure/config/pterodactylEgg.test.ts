@@ -6,6 +6,8 @@ interface EggVariable {
   env_variable: string;
   default_value: string;
   rules: string;
+  user_viewable: boolean;
+  user_editable: boolean;
 }
 
 interface Egg {
@@ -21,6 +23,11 @@ const egg = JSON.parse(fs.readFileSync(path.join(root, "pterodactyl", "egg-arrak
 const template = fs.readFileSync(path.join(root, ".env.example"), "utf8");
 
 describe("Pterodactyl egg", () => {
+  it("keeps the optional GitHub token blank and hidden from server users", () => {
+    expect(egg.variables.find((variable) => variable.env_variable === "GITHUB_TOKEN")).toMatchObject({
+      default_value: "", rules: "nullable|string", user_viewable: false, user_editable: false,
+    });
+  });
   it("exposes every documented bot setting once without placeholder credentials", () => {
     const documented = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((match) => match[1]);
     const included = egg.variables.map((variable) => variable.env_variable);

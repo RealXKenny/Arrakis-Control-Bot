@@ -63,6 +63,18 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
 }
 
 describe("version announcements", () => {
+  it("uses the configured GitHub token for both Bot and Dashboard releases", async () => {
+    const { client, fetchMock } = setup();
+    client.githubToken = "test-github-token";
+    await announceCurrentVersion(client, "announcements");
+    for (const call of fetchMock.mock.calls) {
+      expect(call).toEqual([expect.stringMatching(/^https:\/\/api\.github\.com\/repos\//), expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer test-github-token" }),
+      })]);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("announces the newest release first with project links", async () => {
     const { client, send, fetchMock } = setup();
     await announceCurrentVersion(client, "announcements");

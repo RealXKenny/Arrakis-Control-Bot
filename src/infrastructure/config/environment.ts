@@ -46,6 +46,7 @@ interface EnvironmentConfig {
   databaseUrl?: string;
   databaseSsl: boolean;
   versionAnnouncementIntervalMinutes: number;
+  githubToken?: string;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   logLevel: string;
@@ -128,6 +129,9 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   const discordToken = process.env.TOKEN;
   const duneConsoleUrl = process.env.CONSOLE_URL;
   const duneConsoleApiKey = process.env.CONSOLE_API_KEY?.trim() || undefined;
+  const rawGithubToken = process.env.GITHUB_TOKEN?.trim();
+  const githubToken = rawGithubToken && !rawGithubToken.startsWith("replace_with_") ? rawGithubToken : undefined;
+  if (githubToken && !/^[\x21-\x7e]+$/.test(githubToken)) throw new Error("GITHUB_TOKEN must contain only printable non-whitespace characters.");
 
   if (!discordToken || !duneConsoleUrl) {
     throw new Error("Required environment variables are missing.");
@@ -214,6 +218,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     databaseUrl: process.env.DATABASE_URL,
     databaseSsl,
     versionAnnouncementIntervalMinutes,
+    githubToken,
     interactionCooldownMs,
     rateLimitMaxEntries,
     logLevel,

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadEnvironment } from "../../../src/infrastructure/config/environment";
 
-const TEST_ENVIRONMENT_KEYS = ["STAFF_APPLICATION_PANEL_CHANNEL_ID", "STAFF_APPLICATION_REVIEW_CHANNEL_ID", "STAFF_APPLICATION_REVIEWER_ROLE_ID", "STAFF_APPLICATION_PENDING_ROLE_ID", "STAFF_APPLICATION_ACCEPTED_ROLE_ID", "STAFF_APPLICATION_COOLDOWN_DAYS", "LAVALINK_URL", "LAVALINK_PASSWORD", "MUSIC_GUILD_ID", "MUSIC_VOICE_CHANNEL_ID", "MUSIC_REQUEST_CHANNEL_ID", "MUSIC_IDLE_PLAYLIST_URL", "MUSIC_SEARCH_SOURCE", "MUSIC_VOLUME", "MUSIC_MAX_QUEUE", "VOICE_GUILD_ID", "VOICE_JOIN_CHANNEL_ID", "VOICE_CATEGORY_ID", "VOICE_PANEL_CHANNEL_ID", "VOICE_PANEL_PUBLIC", "LEVELING_ENABLED", "LEVEL_ANNOUNCEMENT_CHANNEL_ID", "LEVEL_ROLE_ARRAKIS_WANDERER_ID", "LEVEL_ROLE_SIETCH_DWELLER_ID", "LEVEL_ROLE_DESERT_SURVIVOR_ID", "LEVEL_ROLE_SAND_WARRIOR_ID", "LEVEL_ROLE_SPICE_HUNTER_ID", "LEVEL_ROLE_FREMEN_INITIATE_ID", "LEVEL_ROLE_DESERT_MASTER_ID", "LEVEL_ROLE_CHOSEN_OF_ARRAKIS_ID", "TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY", "NODE_ENV", "LOG_LEVEL", "TOTAL_SHARDS", "CLIENT_ID", "GUILD_ID", "DATABASE_URL", "DATABASE_SSL", "TICKET_PANEL_CHANNEL_ID", "BOT_CONTROL_CHANNEL_ID", "TICKET_CATEGORY_ID", "TICKET_TRANSCRIPT_CHANNEL_ID"] as const;
+const TEST_ENVIRONMENT_KEYS = ["GITHUB_TOKEN","STAFF_APPLICATION_PANEL_CHANNEL_ID", "STAFF_APPLICATION_REVIEW_CHANNEL_ID", "STAFF_APPLICATION_REVIEWER_ROLE_ID", "STAFF_APPLICATION_PENDING_ROLE_ID", "STAFF_APPLICATION_ACCEPTED_ROLE_ID", "STAFF_APPLICATION_COOLDOWN_DAYS", "LAVALINK_URL", "LAVALINK_PASSWORD", "MUSIC_GUILD_ID", "MUSIC_VOICE_CHANNEL_ID", "MUSIC_REQUEST_CHANNEL_ID", "MUSIC_IDLE_PLAYLIST_URL", "MUSIC_SEARCH_SOURCE", "MUSIC_VOLUME", "MUSIC_MAX_QUEUE", "VOICE_GUILD_ID", "VOICE_JOIN_CHANNEL_ID", "VOICE_CATEGORY_ID", "VOICE_PANEL_CHANNEL_ID", "VOICE_PANEL_PUBLIC", "LEVELING_ENABLED", "LEVEL_ANNOUNCEMENT_CHANNEL_ID", "LEVEL_ROLE_ARRAKIS_WANDERER_ID", "LEVEL_ROLE_SIETCH_DWELLER_ID", "LEVEL_ROLE_DESERT_SURVIVOR_ID", "LEVEL_ROLE_SAND_WARRIOR_ID", "LEVEL_ROLE_SPICE_HUNTER_ID", "LEVEL_ROLE_FREMEN_INITIATE_ID", "LEVEL_ROLE_DESERT_MASTER_ID", "LEVEL_ROLE_CHOSEN_OF_ARRAKIS_ID", "TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY", "NODE_ENV", "LOG_LEVEL", "TOTAL_SHARDS", "CLIENT_ID", "GUILD_ID", "DATABASE_URL", "DATABASE_SSL", "TICKET_PANEL_CHANNEL_ID", "BOT_CONTROL_CHANNEL_ID", "TICKET_CATEGORY_ID", "TICKET_TRANSCRIPT_CHANNEL_ID"] as const;
 
 beforeEach(clearTestEnvironment);
 afterEach(() => {
@@ -17,6 +17,23 @@ function clearTestEnvironment(): void {
 }
 
 describe("loadEnvironment", () => {
+  it.each([undefined, "", "   ", "replace_with_github_token", "  test-github-token  "])("loads optional GitHub credentials safely: %s", (token) => {
+    process.env.TOKEN = "token";
+    process.env.CONSOLE_URL = "https://localhost:3000";
+    process.env.CONSOLE_API_KEY = "dune-key";
+    if (token !== undefined) process.env.GITHUB_TOKEN = token;
+    expect(loadEnvironment().githubToken).toBe(token?.trim() === "test-github-token" ? "test-github-token" : undefined);
+  });
+
+  it("rejects malformed GitHub credentials without reflecting the secret", () => {
+    process.env.TOKEN = "token";
+    process.env.CONSOLE_URL = "https://localhost:3000";
+    process.env.CONSOLE_API_KEY = "dune-key";
+    process.env.GITHUB_TOKEN = "secret token";
+    expect(() => loadEnvironment()).toThrow("GITHUB_TOKEN must contain only printable non-whitespace characters");
+    expect(() => loadEnvironment()).not.toThrow("secret token");
+  });
+
   it("fails when required credentials are missing", () => {
     expect(() => loadEnvironment(["__ARRAKIS_TEST_REQUIRED_KEY__"])).toThrow("Missing required environment variable");
   });

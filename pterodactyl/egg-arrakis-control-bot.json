@@ -729,6 +729,16 @@
       "field_type": "text"
     },
     {
+      "name": "GitHub Release API Token",
+      "description": "Optional. GitHub token for authenticated Bot/Dashboard release checks with a higher API allowance. Configure in admin startup variables; hidden from server users. Never bake into the image.",
+      "env_variable": "GITHUB_TOKEN",
+      "default_value": "",
+      "user_viewable": false,
+      "user_editable": false,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
       "name": "Version Announcement Interval Minutes",
       "description": "Optional bot setting (VERSION_ANNOUNCEMENT_INTERVAL_MINUTES). See .env.example in the repository.",
       "env_variable": "VERSION_ANNOUNCEMENT_INTERVAL_MINUTES",

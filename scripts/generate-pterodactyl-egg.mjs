@@ -10,6 +10,7 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
   const defaultValue = placeholder ? "" : rawDefault;
   const labels = {
     TOKEN: "Discord Bot Token",
+    GITHUB_TOKEN: "GitHub Release API Token",
     CLIENT_ID: "Discord Application ID",
     GUILD_ID: "Discord Server ID",
     CONSOLE_URL: "Dune Console URL",
@@ -22,6 +23,7 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
   };
   const details = {
     TOKEN: "Required. Discord bot token. Treat as a secret.",
+    GITHUB_TOKEN: "Optional. GitHub token for authenticated Bot/Dashboard release checks with a higher API allowance. Configure in admin startup variables; hidden from server users. Never bake into the image.",
     CONSOLE_URL: "Required HTTPS base URL for the Dune Console.",
     CONSOLE_API_KEY: "Required scoped Dune Console API key. Treat as a secret.",
     DATABASE_URL: "Optional PostgreSQL connection URL. Required for tickets, leveling, music state, and other persistent features.",
@@ -37,8 +39,8 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     description: details[key] ?? `${required ? "Required" : "Optional"} bot setting (${key}). See .env.example in the repository.`,
     env_variable: key,
     default_value: defaultValue,
-    user_viewable: true,
-    user_editable: true,
+    user_viewable: key !== "GITHUB_TOKEN",
+    user_editable: key !== "GITHUB_TOKEN",
     rules: required ? "required|string" : "nullable|string",
     field_type: "text",
   };

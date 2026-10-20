@@ -16,6 +16,7 @@ import type { MessageArchiveService } from "../modules/audit/MessageArchiveServi
 
 declare module "discord.js" {
   interface Client {
+    githubToken?: string;
     panelStorage?: PanelStorage;
     releaseAnnouncements?: ReleaseAnnouncementStorage;
     honeypot?: HoneypotService;

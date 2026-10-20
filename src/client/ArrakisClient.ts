@@ -26,6 +26,7 @@ const PIECES_DIRECTORY = path.join(__dirname, "..");
 type ArrakisClientOptions = ClientOptions & { baseUserDirectory?: string };
 
 class ArrakisClient extends SapphireClient {
+  public githubToken?: string;
   public panelStorage?: PanelStorage;
   public releaseAnnouncements?: ReleaseAnnouncementStorage;
   public honeypot?: HoneypotService;

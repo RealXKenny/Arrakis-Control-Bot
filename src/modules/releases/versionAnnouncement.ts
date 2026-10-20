@@ -1,3 +1,4 @@
+import { fetchGitHubReleases } from "../../infrastructure/http/github/GitHubReleaseClient";
 import type { ReleaseAnnouncementChannel } from "../../infrastructure/database/releases/ReleaseAnnouncementRepository";
 import { isPrimaryShard } from "../../shared/process/shardIdentity";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type SendableChannels } from "discord.js";
@@ -19,17 +20,6 @@ const DISPLAYABLE_TEXT_SAFETY_MARGIN = 200;
 const MAX_RELEASE_SUMMARY_TEXT = 500;
 const RELEASE_NOTES_TRUNCATED_NOTICE = "\n\n_Release notes shortened for Discord. Use **View full release notes** below._";
 const logger = createLogger("VERSION ANNOUNCEMENTS");
-
-interface GitHubRelease {
-  tag_name: string;
-  name: string | null;
-  published_at: string | null;
-  created_at: string;
-  body: string | null;
-  html_url: string;
-  draft: boolean;
-  prerelease: boolean;
-}
 
 interface Release {
   project: ReleaseProject;
@@ -58,7 +48,7 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
 
   await storage.withChannel(channelId, async (stored) => {
     await importExistingAnnouncements(client, channel, stored);
-    const { releases, failures } = await loadReleases();
+    const { releases, failures } = await loadReleases(client.githubToken);
     const announced = new Set((await stored.list()).map((row) => releaseKey(row.repository, row.version)));
 
     for (const release of releases) {
@@ -98,7 +88,7 @@ async function refreshReleaseAnnouncements(client: Client, channelId?: string | 
 
   await storage.withChannel(channelId, async (stored) => {
     await importExistingAnnouncements(client, channel, stored);
-    const { releases, failures } = await loadReleases();
+    const { releases, failures } = await loadReleases(client.githubToken);
     const records = new Map((await stored.list()).map((row) => [releaseKey(row.repository, row.version), row]));
     for (const release of releases) {
       const record = records.get(releaseKey(release.project.repo, release.version));
@@ -237,8 +227,8 @@ function formatDiscordTimestamp(date: string | null): string {
   return `<t:${Math.floor(timestamp / 1000)}:F>`;
 }
 
-async function loadReleases(): Promise<{ releases: Release[]; failures: unknown[] }> {
-  const results = await Promise.allSettled(RELEASE_PROJECTS.map(loadProjectReleases));
+async function loadReleases(token?: string): Promise<{ releases: Release[]; failures: unknown[] }> {
+  const results = await Promise.allSettled(RELEASE_PROJECTS.map((project) => loadProjectReleases(project, token)));
   const releases = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   const failures = results.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
   if (results.every((result) => result.status === "rejected")) {
@@ -247,20 +237,8 @@ async function loadReleases(): Promise<{ releases: Release[]; failures: unknown[
   return { releases: releases.sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0)), failures };
 }
 
-async function loadProjectReleases(project: ReleaseProject): Promise<Release[]> {
-  const response = await fetch(`https://api.github.com/repos/${project.repo}/releases?per_page=100`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": "Arrakis-Control",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${project.name} GitHub releases: ${response.status} ${response.statusText}`);
-  }
-
-  const releases = (await response.json()) as GitHubRelease[];
+async function loadProjectReleases(project: ReleaseProject, token?: string): Promise<Release[]> {
+  const releases = await fetchGitHubReleases(project.repo, token);
 
   return releases
     .filter(({ draft, prerelease }) => !draft && !prerelease)

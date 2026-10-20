@@ -67,6 +67,7 @@ interface BotConfig {
   databaseUrl?: string | null;
   databaseSsl: boolean;
   versionAnnouncementIntervalMinutes?: number;
+  githubToken?: string;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   duneDiscordAuditChannelId?: string | null;
@@ -213,6 +214,7 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
   // Dev note: One PostgreSQL pool waters tickets, rooms, levels, and music—water discipline applies to sockets too.
   client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl) : null;
+  client.githubToken = config.githubToken;
   client.panelStorage = client.tickets ? new PanelRepository(client.tickets.pool) : undefined;
   client.releaseAnnouncements = client.tickets ? new ReleaseAnnouncementRepository(client.tickets.pool) : undefined;
   client.honeypot = config.honeypot ? new HoneypotService(client, config.honeypot, client.tickets ? new HoneypotRepository(client.tickets.pool) : undefined) : undefined;
