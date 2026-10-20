@@ -4,6 +4,24 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.4] - 2026-10-19
+
+### Fixed
+
+- Track all history-based persistent public panels in PostgreSQL, including separate server-info sections, music controls/now-playing, and storm schedules. Import existing posts once, recover saved IDs across restarts, serialize publishers across processes, recreate confirmed deleted panels, and stop on permission/network/database errors.
+- Persist Bot and Dashboard GitHub changelog announcements in PostgreSQL per channel, repository, and version, saving the Discord message ID immediately after sending. Import existing bot-authored posts once, then use database records instead of scanning history on every check. Deleted announcements stay recorded, refreshes use saved message IDs, overlapping checks share a database lock, and missing/unavailable persistence pauses posting.
+
+### Deployment
+
+- Update the Pterodactyl image to `ghcr.io/realxkenny/arrakis-control-bot:v1.11.4` (or pull the refreshed `latest`) and restart the bot. Keep the existing `DATABASE_URL`; the bot creates its panel and announcement tables automatically.
+- Persistent public panels and GitHub release announcements now require PostgreSQL. On the first run, existing bot-authored messages are imported once; panel discovery pauses if it cannot finish within 10,000 messages. Subsequent checks use saved message IDs. Preserve the new tables in database backups.
+- A confirmed deleted interactive panel is recreated, while deleted release announcements remain marked as sent. Database, permission, and network errors pause publication. Discord sends and database writes are separate operations, so a crash or failed write immediately after sending can still leave an unrecorded post.
+
+### Verification
+
+- TypeScript build, ESLint, all 593 tests across 92 files with two workers, production dependency audit, and patch whitespace checks pass locally.
+- Live Discord publication and PostgreSQL initialization on the deployed server were not verified. The release workflow builds and smoke-checks the runtime image and Pterodactyl startup contract before publication.
+
 ## [1.11.3] - 2026-10-19
 
 ### Fixed

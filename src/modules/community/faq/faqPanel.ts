@@ -1,6 +1,7 @@
-import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
+import { publishPersistentPanel } from "../../panels/persistentPanel";
+import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client } from "discord.js";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 
 const PANEL_MARKER = "# ❓・CRIMSON SKIES FAQ";
 const PANEL_IMAGE_NAME = "crimson-skies-faq.png";
@@ -59,14 +60,10 @@ async function ensureFaqPanel(client: Client, channelId?: string | null): Promis
   const banner = createDuneBanner({ artwork: "faq", filename: PANEL_IMAGE_NAME, title: "Crimson Skies", subtitle: "COMMUNITY FAQ", detail: "EXPLORE • BUILD • TRADE • SURVIVE" });
   const components = buildFaqPanel();
   const files = [{ attachment: banner.attachment, name: PANEL_IMAGE_NAME, description: banner.description ?? undefined }];
-  const existing = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
-  if (existing) {
-    const payload: MessageEditOptions = { content: null, embeds: [], attachments: [], components, files };
-    await existing.edit(payload);
-    return;
-  }
-  const payload: MessageCreateOptions = { components, files, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } };
-  await channel.send(payload);
+  await publishPersistentPanel(client, channel, "faq", {
+    matches: (message) => containsText(message.components, PANEL_MARKER),
+    payload: { components, files, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } },
+  });
 }
 
 export { buildFaqPanel, ensureFaqPanel };

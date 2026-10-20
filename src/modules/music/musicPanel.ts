@@ -1,3 +1,4 @@
+import { publishPersistentPanel } from "../panels/persistentPanel";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client } from "discord.js";
 import { createDuneBanner } from "../../shared/discord/imageFactory";
 
@@ -40,22 +41,9 @@ export class MusicPanelPublisher {
   private async update(): Promise<void> {
     const channel = await this.client.channels.fetch(this.channelId);
     if (!channel?.isTextBased() || !channel.isSendable() || channel.isDMBased()) throw new Error("Music panel requires a server text channel.");
-    let before: string | undefined;
-    // Dev note: One music panel is a feature; two is a duet nobody requested.
-    for (let page = 0; page < 100; page++) {
-      const messages = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
-      const existing = messages.find((message) => message.author.id === this.client.user?.id &&
-        message.components.some((component) => JSON.stringify(component.toJSON()).includes('"music:request"')));
-      if (existing) {
-        await existing.edit({ ...musicPanel(this.voiceId), attachments: [] });
-        return;
-      }
-      if (messages.size < 100) {
-        await channel.send(musicPanel(this.voiceId));
-        return;
-      }
-      before = messages.last()!.id;
-    }
-    throw new Error("Music panel discovery exceeded its history limit; use a dedicated request channel.");
+    await publishPersistentPanel(this.client, channel, "music-controls", {
+      matches: (message) => message.components.some((component) => JSON.stringify(component.toJSON()).includes('"music:request"')),
+      payload: musicPanel(this.voiceId),
+    });
   }
 }

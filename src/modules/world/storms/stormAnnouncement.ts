@@ -1,5 +1,6 @@
+import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { isPrimaryShard } from "../../../shared/process/shardIdentity";
-import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type Message, type MessageCreateOptions } from "discord.js";
+import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions } from "discord.js";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 import { createLogger } from "../../../client/logger";
 
@@ -47,10 +48,8 @@ export function buildStormPanel(start: number, end: number, now = Date.now()): M
   return { components: [card], files: [banner], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } };
 }
 
-export function createStormAnnouncer(client: Client, channelId: string): (now?: number) => Promise<void> {
+export function createStormAnnouncer(client: Client, channelId: string, forceRefresh = false): (now?: number) => Promise<void> {
   let busy = false;
-  let messageId: string | undefined;
-  let renderedKey: string | undefined;
   return async (now = Date.now()): Promise<void> => {
     if (busy || !client.user || !isPrimaryShard()) return;
     busy = true;
@@ -59,39 +58,15 @@ export function createStormAnnouncer(client: Client, channelId: string): (now?: 
       const window = stormWindowFromEnd(parseCoriolisEnd(response));
       const channel = await client.channels.fetch(channelId);
       if (!channel?.isSendable()) throw new Error(`Storm announcement channel ${channelId} is not sendable.`);
-      let existing: Message | undefined;
-      if (messageId) {
-        try { existing = await channel.messages.fetch(messageId); }
-        catch (error) {
-          if (!(error && typeof error === "object" && "code" in error && error.code === 10008)) throw error;
-          messageId = undefined;
-          renderedKey = undefined;
-        }
-      }
-      if (!existing) {
-        const panels: Message[] = [];
-        let before: string | undefined;
-        for (let page = 0; ; page++) {
-          if (page === 100) throw new Error("Storm panel discovery exceeded 10,000 messages.");
-          const messages = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
-          panels.push(...messages.filter((message) => message.author.id === client.user!.id &&
-            /Coriolis Storm Schedule|Coriolis end \d+/.test(JSON.stringify(message.components))).values());
-          if (messages.size < 100) break;
-          before = messages.last()!.id;
-        }
-        existing = panels.pop();
-        for (const duplicate of panels) await duplicate.delete();
-      }
       const key = `${window.end}:${now < window.start ? "upcoming" : now < window.end ? "active" : "ended"}`;
-      if (existing) {
-        if (renderedKey !== key) {
-          const panel = buildStormPanel(window.start, window.end, now);
-          await existing.edit({ components: panel.components, files: panel.files, attachments: [],
-            flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] }, content: null, embeds: [] });
-        }
-      } else existing = await channel.send(buildStormPanel(window.start, window.end, now));
-      messageId = existing.id;
-      renderedKey = key;
+      await publishPersistentPanel(client, channel, "coriolis-storm", {
+        matches: (message) => /Coriolis Storm Schedule|Coriolis end \d+/.test(JSON.stringify(message.components)),
+        payload: () => buildStormPanel(window.start, window.end, now),
+        renderKey: key,
+        forceRefresh,
+        keepOldest: true,
+        removeDuplicates: true,
+      });
     } finally {
       busy = false;
     }
@@ -110,5 +85,5 @@ export function startStormAnnouncements(client: Client): NodeJS.Timeout | undefi
 export async function refreshStormAnnouncement(client: Client): Promise<void> {
   const channelId = readStormChannelId();
   if (!channelId || !isPrimaryShard()) return;
-  await createStormAnnouncer(client, channelId)();
+  await createStormAnnouncer(client, channelId, true)();
 }

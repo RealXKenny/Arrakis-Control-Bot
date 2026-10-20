@@ -1,5 +1,6 @@
+import type { ReleaseAnnouncementChannel } from "../../infrastructure/database/releases/ReleaseAnnouncementRepository";
 import { isPrimaryShard } from "../../shared/process/shardIdentity";
-import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type MessageCreateOptions, type SendableChannels } from "discord.js";
+import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type SendableChannels } from "discord.js";
 
 import { createDuneBanner } from "../../shared/discord/imageFactory";
 import { DISCORD_LIMITS, sanitizeAttachmentName, truncateDiscordText } from "../../shared/discord/discordLimits";
@@ -48,73 +49,95 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
     throw new Error("Cannot announce releases before the Discord client is ready.");
   }
 
+  const storage = requireStorage(client);
   const channel = await client.channels.fetch(channelId);
 
   if (!channel?.isSendable()) {
     throw new Error(`Version announcement channel ${channelId} is not a sendable channel.`);
   }
 
-  const [{ releases, failures: sourceFailures }, history] = await Promise.all([loadReleases(), readChannelHistory(channel)]);
+  await storage.withChannel(channelId, async (stored) => {
+    await importExistingAnnouncements(client, channel, stored);
+    const { releases, failures } = await loadReleases();
+    const announced = new Set((await stored.list()).map((row) => releaseKey(row.repository, row.version)));
 
-  const announcedMarkers = new Set(history.map(findReleaseMarker).filter((marker): marker is string => marker !== null));
-  const failures: unknown[] = [...sourceFailures];
-
-  // Dev note: A stubborn old release must not make the newest dispatch wait in line.
-  for (const release of releases) {
-    const marker = `## Arrakis Control ${release.project.name} v${release.version}`;
-
-    if (announcedMarkers.has(marker) || (release.project.name === "Bot" && announcedMarkers.has(`## Arrakis Control v${release.version}`))) {
-      continue;
+    for (const release of releases) {
+      if (announced.has(releaseKey(release.project.repo, release.version))) continue;
+      let message: Message;
+      try {
+        const roleId = getAnnouncementRoleId();
+        message = await channel.send({
+          ...releasePayload(release, releaseMarker(release), roleId ? `<@&${roleId}>` : null),
+          flags: MessageFlags.IsComponentsV2,
+        });
+      } catch (error) {
+        failures.push(error);
+        continue;
+      }
+      // Save immediately after sending, before optional publication or the next release.
+      // A failed database write aborts this batch instead of sending more untracked posts.
+      await stored.record({ repository: release.project.repo, version: release.version, messageId: message.id });
+      announced.add(releaseKey(release.project.repo, release.version));
+      if (message.crosspostable) {
+        await message.crosspost().catch((error: unknown) => {
+          logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
     }
-
-    try {
-      await sendReleaseAnnouncement(channel, release, marker);
-      announcedMarkers.add(marker);
-    } catch (error) {
-      failures.push(error);
-    }
-  }
-
-  if (failures.length) throw new AggregateError(failures, `${failures.length} release check operation(s) failed.`);
+    if (failures.length) throw new AggregateError(failures, `${failures.length} release check operation(s) failed.`);
+  });
 }
 
 async function refreshReleaseAnnouncements(client: Client, channelId?: string | null): Promise<void> {
   if (!channelId || !isPrimaryShard()) return;
   if (!client.user) throw new Error("Cannot refresh release announcements before the Discord client is ready.");
 
+  const storage = requireStorage(client);
   const channel = await client.channels.fetch(channelId);
   if (!channel?.isSendable()) throw new Error(`Version announcement channel ${channelId} is not a sendable channel.`);
 
-  const [{ releases, failures }, history] = await Promise.all([loadReleases(), readChannelHistory(channel)]);
-  const messagesByMarker = new Map(history.map((message) => [findReleaseMarker(message), message]));
-
-  // Dev note: Even yesterday's changelog deserves today's coat of desert paint.
-  for (const release of releases) {
-    const marker = `## Arrakis Control ${release.project.name} v${release.version}`;
-    const legacyMarker = release.project.name === "Bot" ? `## Arrakis Control v${release.version}` : null;
-    const message = messagesByMarker.get(marker) ?? (legacyMarker ? messagesByMarker.get(legacyMarker) : undefined);
-    if (!message) continue;
-    await message.edit({ ...releasePayload(release, marker, null), attachments: [] });
-  }
-  if (failures.length) throw new AggregateError(failures, `${failures.length} release source(s) could not be refreshed.`);
+  await storage.withChannel(channelId, async (stored) => {
+    await importExistingAnnouncements(client, channel, stored);
+    const { releases, failures } = await loadReleases();
+    const records = new Map((await stored.list()).map((row) => [releaseKey(row.repository, row.version), row]));
+    for (const release of releases) {
+      const record = records.get(releaseKey(release.project.repo, release.version));
+      if (!record) continue;
+      try {
+        const message = await channel.messages.fetch(record.messageId);
+        if (message.author.id !== client.user!.id || message.webhookId) continue;
+        await message.edit({ ...releasePayload(release, releaseMarker(release), null), attachments: [] });
+      } catch (error) {
+        // Deleted announcements stay recorded so deletion never triggers a repost.
+        if (typeof error === "object" && error !== null && "code" in error && error.code === 10008) continue;
+        failures.push(error);
+      }
+    }
+    if (failures.length) throw new AggregateError(failures, `${failures.length} release operation(s) could not be refreshed.`);
+  });
 }
 
-async function sendReleaseAnnouncement(channel: SendableChannels, release: Release, marker: string): Promise<void> {
-  const roleId = getAnnouncementRoleId();
-  const roleMention = roleId ? `<@&${roleId}>` : null;
+function requireStorage(client: Client) {
+  if (!client.releaseAnnouncements) throw new Error("Release announcements require DATABASE_URL; posting is paused to prevent untracked duplicates.");
+  return client.releaseAnnouncements;
+}
 
-  const payload: MessageCreateOptions = {
-    ...releasePayload(release, marker, roleMention),
-    flags: MessageFlags.IsComponentsV2,
-  };
+function releaseKey(repository: string, version: string): string { return `${repository}:${version}`; }
+function releaseMarker(release: Release): string { return `## Arrakis Control ${release.project.name} v${release.version}`; }
 
-  const message = await channel.send(payload);
-
-  if (message.crosspostable) {
-    await message.crosspost().catch((error: unknown) => {
-      logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
-    });
+async function importExistingAnnouncements(client: Client, channel: SendableChannels, stored: ReleaseAnnouncementChannel): Promise<void> {
+  if (await stored.isImported()) return;
+  // One-time upgrade: retain existing announcements before switching to database-only checks.
+  const history = await readChannelHistory(channel);
+  for (const message of history) {
+    if (message.author.id !== client.user!.id || message.webhookId) continue;
+    const marker = findReleaseMarker(message);
+    const match = marker?.match(/^## Arrakis Control(?: (Bot|Dashboard))? v(\S+)$/);
+    if (!match) continue;
+    const project = RELEASE_PROJECTS.find((project) => project.name === (match[1] ?? "Bot"))!;
+    await stored.record({ repository: project.repo, version: match[2], messageId: message.id });
   }
+  await stored.markImported();
 }
 
 function releasePayload(release: Release, marker: string, roleMention: string | null) {

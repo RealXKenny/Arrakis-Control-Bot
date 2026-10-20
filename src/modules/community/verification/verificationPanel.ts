@@ -1,8 +1,9 @@
-import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
+import { publishPersistentPanel } from "../../panels/persistentPanel";
+import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions } from "discord.js";
 
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 
 const PANEL_MARKER = "## Verify Your Membership";
 const PANEL_IMAGE_NAME = "membership-verification.png";
@@ -52,24 +53,9 @@ async function ensureVerificationPanel(client: Client, channelId?: string | null
     flags: MessageFlags.IsComponentsV2,
   };
 
-  const existing = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
-
-  if (existing) {
-    // Dev note: Create and edit payloads are cousins, not identical twins.
-    const editPayload: MessageEditOptions = {
-      content: null,
-      embeds: [],
-      attachments: [],
-      components: response.components,
-      files: response.files,
-    };
-
-    await existing.edit(editPayload);
-
-    return;
-  }
-
-  await channel.send(payload);
+  await publishPersistentPanel(client, channel, "verification", {
+    matches: (message) => containsText(message.components, PANEL_MARKER), payload,
+  });
 }
 
 export { ensureVerificationPanel };

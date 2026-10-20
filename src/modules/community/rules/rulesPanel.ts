@@ -1,7 +1,8 @@
+import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client } from "discord.js";
 
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 
 const PANEL_MARKER = "## Arrakis Community Rules";
 const PANEL_IMAGE_NAME = "community-rules.png";
@@ -51,46 +52,9 @@ async function ensureRulesPanel(client: Client, channelId?: string | null): Prom
     throw new Error(`Rules panel channel ${channelId} is not a sendable channel.`);
   }
 
-  const existingPanel = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
-
-  if (existingPanel) {
-    const banner = createDuneBanner({
-      artwork: "rules",
-      filename: PANEL_IMAGE_NAME,
-      title: "Rules",
-      subtitle: "COMMUNITY GUIDELINES",
-      detail: "RESPECT • PLAY FAIR • ENJOY ARRAKIS",
-    });
-
-    await existingPanel.edit({
-      content: null,
-      embeds: [],
-      attachments: [],
-      components: [buildRulesPanel()],
-      files: [
-        {
-          attachment: banner.attachment,
-          name: PANEL_IMAGE_NAME,
-        },
-      ],
-      flags: MessageFlags.IsComponentsV2,
-    });
-
-    return;
-  }
-
-  const banner = createDuneBanner({
-    artwork: "rules",
-    filename: PANEL_IMAGE_NAME,
-    title: "Rules",
-    subtitle: "COMMUNITY GUIDELINES",
-    detail: "RESPECT • PLAY FAIR • ENJOY ARRAKIS",
-  });
-
-  await channel.send({
-    components: [buildRulesPanel()],
-    files: [banner],
-    flags: MessageFlags.IsComponentsV2,
+  await publishPersistentPanel(client, channel, "rules", {
+    matches: (message) => containsText(message.components, PANEL_MARKER),
+    payload: { components: [buildRulesPanel()], files: [createDuneBanner({ artwork: "rules", filename: PANEL_IMAGE_NAME, title: "Rules", subtitle: "COMMUNITY GUIDELINES", detail: "RESPECT • PLAY FAIR • ENJOY ARRAKIS" })], flags: MessageFlags.IsComponentsV2 },
   });
 }
 

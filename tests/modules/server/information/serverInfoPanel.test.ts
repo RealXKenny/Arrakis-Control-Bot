@@ -1,3 +1,4 @@
+import { createPanelStorage } from "../../../helpers/panelStorage";
 import { Collection, type Client, type MessageCreateOptions } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 
@@ -5,13 +6,13 @@ import { ensureServerInfoPanel } from "../../../../src/modules/server/informatio
 import { DISCORD_LIMITS, countComponents, countDisplayableText } from "../../../../src/shared/discord/discordLimits";
 
 function setup(existingMessages = new Collection()) {
-  const send = vi.fn().mockResolvedValue({});
-  const channel = {
+  const send = vi.fn().mockResolvedValue({ id: "panel" });
+  const channel = { id: "server-info",
     isSendable: () => true,
     messages: { fetch: vi.fn().mockResolvedValue(existingMessages) },
     send,
   };
-  const client = {
+  const client = { panelStorage: createPanelStorage(),
     user: { id: "bot" },
     channels: { fetch: vi.fn().mockResolvedValue(channel) },
   } as unknown as Client;

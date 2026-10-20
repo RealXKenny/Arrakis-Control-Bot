@@ -1,5 +1,6 @@
+import { createPanelStorage } from "../../../helpers/panelStorage";
 import { describe, expect, it, vi } from "vitest";
-import { MessageFlags, PermissionFlagsBits, PermissionsBitField, ShardClientUtil, type Client } from "discord.js";
+import { Collection, MessageFlags, PermissionFlagsBits, PermissionsBitField, ShardClientUtil, type Client } from "discord.js";
 import { buildHoneypotPanel, ensureHoneypotPanel } from "../../../../src/modules/moderation/honeypot/honeypotPanel";
 import { persistentPanelTasks } from "../../../../src/modules/administration/control/panelRefresh";
 import { countComponents, countDisplayableText, DISCORD_LIMITS } from "../../../../src/shared/discord/discordLimits";
@@ -11,12 +12,14 @@ const config: HoneypotConfig = { guildId: "123456789012345678", channelId: "2234
 
 function fixture(existing = false) {
   const edit = vi.fn().mockResolvedValue(undefined);
-  const message = { author: { id: "bot" }, components: [{ components: [{ content: "## Honeypot — Do Not Post" }] }], edit };
+  const message = { id: "panel", author: { id: "bot" }, components: [{ components: [{ content: "## Honeypot — Do Not Post" }] }], edit };
   const messages = existing ? [message] : [];
-  const send = vi.fn().mockResolvedValue(undefined);
-  const channel = { guildId: config.guildId, isSendable: () => true, messages: { fetch: vi.fn().mockImplementation(() => Promise.resolve({ find: (predicate: (message: unknown) => boolean) => messages.find(predicate) })) }, send };
+  const send = vi.fn().mockResolvedValue(message);
+  const channel = { id: config.channelId, guildId: config.guildId, isSendable: () => true, messages: { fetch: vi.fn().mockImplementation((options: { message?: string }) => options.message
+    ? messages.length ? Promise.resolve(message) : Promise.reject({ code: 10008 })
+    : Promise.resolve(new Collection(messages.map((item) => [item.id, item])))) }, send };
   const fetch = vi.fn().mockResolvedValue(channel);
-  const client = { user: { id: "bot" }, honeypot: { config: { ...config } }, guilds: { cache: new Map([[config.guildId, {}]]) }, channels: { fetch } };
+  const client = { panelStorage: createPanelStorage(), user: { id: "bot" }, honeypot: { config: { ...config } }, guilds: { cache: new Map([[config.guildId, {}]]) }, channels: { fetch } };
   const ensure = () => ensureHoneypotPanel(client as unknown as Client);
   return { client, channel, messages, message, send, edit, fetch, ensure };
 }

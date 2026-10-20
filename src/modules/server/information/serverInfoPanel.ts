@@ -1,8 +1,9 @@
-import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
+import { publishPersistentPanel } from "../../panels/persistentPanel";
+import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions } from "discord.js";
 
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 
 const PANEL_MARKER = "# 🩸 CRIMSON SKIES";
 const PANEL_CONTINUATION_MARKER = "-# CRIMSON SKIES SERVER INFO PART 2";
@@ -100,40 +101,12 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
     flags: MessageFlags.IsComponentsV2,
   };
 
-  const [existingPrimary, existingContinuation] = await Promise.all([findPanelMessage(channel, client.user.id, PANEL_MARKER), findPanelMessage(channel, client.user.id, PANEL_CONTINUATION_MARKER)]);
-
-  const editPanel = async (message: NonNullable<typeof existingPrimary>, response: typeof primaryResponse): Promise<void> => {
-    const editPayload: MessageEditOptions = {
-      content: null,
-      embeds: [],
-      attachments: [],
-      components: response.components,
-      files: response.files,
-    };
-
-    await message.edit(editPayload);
-  };
-
-  if (existingPrimary) {
-    await editPanel(existingPrimary, primaryResponse);
-
-    if (existingContinuation) {
-      await editPanel(existingContinuation, continuationResponse);
-    } else {
-      await channel.send(continuationPayload);
-    }
-
-    return;
-  }
-
-  if (existingContinuation) {
-    await editPanel(existingContinuation, primaryResponse);
-    await channel.send(continuationPayload);
-    return;
-  }
-
-  await channel.send(primaryPayload);
-  await channel.send(continuationPayload);
+  await publishPersistentPanel(client, channel, "server-info", {
+    matches: (message) => containsText(message.components, PANEL_MARKER), payload: primaryPayload,
+  });
+  await publishPersistentPanel(client, channel, "server-info-continuation", {
+    matches: (message) => containsText(message.components, PANEL_CONTINUATION_MARKER), payload: continuationPayload,
+  });
 }
 
 export { ensureServerInfoPanel };

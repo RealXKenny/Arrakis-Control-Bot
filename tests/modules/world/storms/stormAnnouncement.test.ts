@@ -1,3 +1,4 @@
+import { createPanelStorage } from "../../../helpers/panelStorage";
 import { Collection, type Client, type MessageCreateOptions } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildStormPanel, createStormAnnouncer, parseCoriolisEnd, readStormChannelId, stormWindowFromEnd } from "../../../../src/modules/world/storms/stormAnnouncement";
@@ -11,15 +12,15 @@ function setup(apiEnd = end) {
   vi.stubEnv("DISCORD_SHARD_ID", "0");
   const history = new Collection<string, { id: string; createdTimestamp: number; author: { id: string }; components: MessageCreateOptions["components"]; edit: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> }>();
   const edit = vi.fn().mockResolvedValue(undefined);
-  const fetchHistory = vi.fn().mockImplementation((options: unknown) => typeof options === "string" ?
-    history.has(options) ? Promise.resolve(history.get(options)) : Promise.reject({ code: 10008 }) : Promise.resolve(history));
+  const fetchHistory = vi.fn().mockImplementation((options: unknown) => typeof options === "object" && options !== null && "message" in options ?
+    history.has(String(options.message)) ? Promise.resolve(history.get(String(options.message))) : Promise.reject({ code: 10008 }) : Promise.resolve(history));
   const send = vi.fn().mockImplementation((payload: MessageCreateOptions) => {
     const id = String(history.size + 1);
     history.set(id, { id, createdTimestamp: Date.now(), author: { id: "bot" }, components: payload.components, edit, delete: vi.fn() });
     return Promise.resolve(history.get(id));
   });
   const call = vi.fn().mockResolvedValue({ coriolisNextCycleAt: new Date(apiEnd).toISOString() });
-  const client = { user: { id: "bot" }, duneApi: { call }, channels: { fetch: vi.fn().mockResolvedValue({ isSendable: () => true, messages: { fetch: fetchHistory }, send }) } } as unknown as Client;
+  const client = { panelStorage: createPanelStorage(), user: { id: "bot" }, duneApi: { call }, channels: { fetch: vi.fn().mockResolvedValue({ id: channelId, isSendable: () => true, messages: { fetch: fetchHistory }, send }) } } as unknown as Client;
   return { client, call, fetchHistory, history, send, edit };
 }
 

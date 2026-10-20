@@ -1,3 +1,5 @@
+import type { PanelStorage } from "../infrastructure/database/panels/PanelRepository";
+import type { ReleaseAnnouncementStorage } from "../infrastructure/database/releases/ReleaseAnnouncementRepository";
 import type { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
 import type { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
 import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
@@ -14,6 +16,8 @@ import type { MessageArchiveService } from "../modules/audit/MessageArchiveServi
 
 declare module "discord.js" {
   interface Client {
+    panelStorage?: PanelStorage;
+    releaseAnnouncements?: ReleaseAnnouncementStorage;
     honeypot?: HoneypotService;
     music?: MusicService;
     leveling?: LevelingService;

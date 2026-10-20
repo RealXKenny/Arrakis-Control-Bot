@@ -1,9 +1,8 @@
-import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
-import { createLogger } from "../../../client/logger";
+import { publishPersistentPanel } from "../../panels/persistentPanel";
+import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client } from "discord.js";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 
-const logger = createLogger("STAFF APPLICATIONS");
 const PANEL_MARKER = "## Join the Crimson Skies staff";
 const PANEL_IMAGE_NAME = "arrakis-staff-applications.png";
 
@@ -23,18 +22,12 @@ async function ensureStaffApplicationPanel(client: Client): Promise<void> {
   if (!service || !client.user) return;
   const channel = await client.channels.fetch(service.config.panelChannelId);
   if (!channel || !channel.isSendable()) throw new Error(`Staff application panel channel ${service.config.panelChannelId} is not sendable.`);
-  const existing = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
   const components = [buildStaffApplicationPanel()];
   const files = [createDuneBanner({ artwork: "staff-application", filename: PANEL_IMAGE_NAME, title: "Answer the call", subtitle: "Crimson Skies staff", detail: "Serve the sietch. Guide the community." })];
-  if (existing) {
-    const payload: MessageEditOptions = { content: null, embeds: [], attachments: [], components, files };
-    await existing.edit(payload);
-    logger.info(`Updated the staff application panel in channel ${service.config.panelChannelId}.`);
-    return;
-  }
-  const payload: MessageCreateOptions = { components, files, flags: MessageFlags.IsComponentsV2 };
-  await channel.send(payload);
-  logger.info(`Posted the staff application panel in channel ${service.config.panelChannelId}.`);
+  await publishPersistentPanel(client, channel, "staff-applications", {
+    matches: (message) => containsText(message.components, PANEL_MARKER),
+    payload: { components, files, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } },
+  });
 }
 
 export { PANEL_MARKER, buildStaffApplicationPanel, ensureStaffApplicationPanel };

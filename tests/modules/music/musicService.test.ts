@@ -1,4 +1,5 @@
-import { Collection, ChannelType, type Client, type Guild, type Message, type VoiceState } from "discord.js";
+import { createPanelStorage } from "../../helpers/panelStorage";
+import { Collection, ChannelType, type Client, type Guild, type Message, type MessageCreateOptions, type VoiceState } from "discord.js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { LoadType, type Track } from "shoukaku";
 import type { MusicConfig } from "../../../src/infrastructure/config/music";
@@ -32,9 +33,15 @@ function setup(saved?: MusicState, configOverrides: Partial<MusicConfig> = {}) {
   const guild = { id: "guild", available: true, shardId: 0, members: { fetch: vi.fn().mockResolvedValue(user), fetchMe: vi.fn().mockResolvedValue(me) },
     channels: { fetch: vi.fn().mockResolvedValue({ id: "voice", type: ChannelType.GuildVoice, permissionsFor: () => ({ has: () => true }) }) } };
   const edit = vi.fn().mockResolvedValue(undefined);
-  const send = vi.fn().mockResolvedValue({ edit });
+  const messages = new Collection<string, { id: string; author: { id: string }; embeds: unknown; components: unknown; edit: typeof edit }>();
+  const send = vi.fn().mockImplementation((payload: MessageCreateOptions) => {
+    const id = String(messages.size + 1);
+    const message = { id, author: { id: "bot" }, embeds: JSON.parse(JSON.stringify(payload.embeds ?? [])) as unknown, components: payload.components ?? [], edit };
+    messages.set(id, message);
+    return Promise.resolve(message);
+  });
   const dm = vi.fn().mockResolvedValue(undefined);
-  const client = { users: { fetch: vi.fn().mockResolvedValue({ send: dm }) }, channels: { fetch: vi.fn().mockResolvedValue({ isSendable: () => true, isDMBased: () => false, guildId: "guild", messages: { fetch: vi.fn().mockResolvedValue(new Collection()) }, send }) },
+  const client = { panelStorage: createPanelStorage(), user: { id: "bot" }, users: { fetch: vi.fn().mockResolvedValue({ send: dm }) }, channels: { fetch: vi.fn().mockResolvedValue({ id: "requests", isSendable: () => true, isDMBased: () => false, guildId: "guild", messages: { fetch: vi.fn().mockImplementation((options: { message?: string }) => options.message ? Promise.resolve(messages.get(options.message)) : Promise.resolve(messages)) }, send }) },
     guilds: { cache: new Collection([["guild", guild]]) }, logger: { warn: vi.fn() }, interactionRateLimiter: { allow: () => true } };
   const storage = { initialize: vi.fn().mockResolvedValue(undefined), load: vi.fn().mockResolvedValue(saved), save: vi.fn().mockResolvedValue(undefined) };
   const service = new MusicService(client as unknown as Client, { ...config, ...configOverrides }, storage);

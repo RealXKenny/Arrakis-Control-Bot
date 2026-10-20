@@ -1,8 +1,9 @@
-import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, StringSelectMenuBuilder, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
+import { publishPersistentPanel } from "../panels/persistentPanel";
+import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, StringSelectMenuBuilder, type Client } from "discord.js";
 
 import { createLogger } from "../../client/logger";
 import { createTicketSupportBanner } from "../../shared/discord/imageFactory";
-import { findPanelMessage } from "../../shared/discord/findPanelMessage";
+import { containsText } from "../../shared/discord/containsText";
 import { TICKET_CATEGORIES } from "./ticketCategories";
 
 const logger = createLogger("TICKET PANEL");
@@ -54,30 +55,11 @@ async function ensureTicketPanel(client: Client, channelId?: string | null): Pro
     throw new Error(`Ticket panel channel ${channelId} is not a sendable channel.`);
   }
 
-  const existing = (await findPanelMessage(channel, client.user.id, PANEL_MARKER)) ?? (await findPanelMessage(channel, client.user.id, LEGACY_PANEL_MARKER));
-
-  if (existing) {
-    const payload: MessageEditOptions = {
-      content: null,
-      embeds: [],
-      attachments: [],
-      components: [buildTicketPanel()],
-      files: [createTicketBanner()],
-    };
-
-    await existing.edit(payload);
-    logger.info(`Updated the ticket panel in channel ${channelId}.`);
-    return;
-  }
-
-  const payload: MessageCreateOptions = {
-    components: [buildTicketPanel()],
-    files: [createTicketBanner()],
-    flags: MessageFlags.IsComponentsV2,
-  };
-
-  await channel.send(payload);
-  logger.info(`Posted the ticket panel in channel ${channelId}.`);
+  await publishPersistentPanel(client, channel, "tickets", {
+    matches: (message) => containsText(message.components, PANEL_MARKER) || containsText(message.components, LEGACY_PANEL_MARKER),
+    payload: { components: [buildTicketPanel()], files: [createTicketBanner()], flags: MessageFlags.IsComponentsV2 },
+  });
+  logger.info(`Synchronized the ticket panel in channel ${channelId}.`);
 }
 
 function createTicketBanner() {

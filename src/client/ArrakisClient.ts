@@ -1,3 +1,5 @@
+import type { PanelStorage } from "../infrastructure/database/panels/PanelRepository";
+import type { ReleaseAnnouncementStorage } from "../infrastructure/database/releases/ReleaseAnnouncementRepository";
 import { isPrimaryShard } from "../shared/process/shardIdentity";
 import "@sapphire/plugin-subcommands/register";
 
@@ -24,6 +26,8 @@ const PIECES_DIRECTORY = path.join(__dirname, "..");
 type ArrakisClientOptions = ClientOptions & { baseUserDirectory?: string };
 
 class ArrakisClient extends SapphireClient {
+  public panelStorage?: PanelStorage;
+  public releaseAnnouncements?: ReleaseAnnouncementStorage;
   public honeypot?: HoneypotService;
   public music?: MusicService;
   public leveling?: LevelingService;

@@ -1,7 +1,8 @@
+import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, PermissionFlagsBits, ShardClientUtil, type Client } from "discord.js";
 import type { HoneypotConfig } from "../../../infrastructure/config/honeypot";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 import { createLogger } from "../../../client/logger";
 
 const PANEL_MARKER = "## Honeypot — Do Not Post";
@@ -53,19 +54,16 @@ async function publishHoneypotPanel(client: Client, config: Readonly<HoneypotCon
     const names = missing.filter(([, flag]) => !permissions?.has(flag)).map(([name]) => name);
     if (names.length) throw new Error(`Cannot publish honeypot panel: grant the bot ${names.join(", ")} in channel ${config.channelId}.`);
   }
-  const existing = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
   const files: ReturnType<typeof createDuneBanner>[] = [];
   if (permissions === undefined || permissions?.has(PermissionFlagsBits.AttachFiles)) {
     try { files.push(createDuneBanner({ artwork: "rules", filename: PANEL_IMAGE_NAME, title: "Do Not Post", subtitle: "HONEYPOT • SPAM PROTECTION", detail: "READ THE WARNING • USE COMMUNITY CHANNELS" })); }
     catch (error: unknown) { logger.error("Unable to create honeypot artwork; publishing the warning without an image.", error); }
   }
   const payload = { components: [buildHoneypotPanel(config, files.length > 0)], files, flags: MessageFlags.IsComponentsV2 as const, allowedMentions: { parse: [] as const } };
-  if (existing) {
-    await existing.edit({ ...payload, content: null, embeds: [], attachments: [] });
-  } else {
-    await channel.send(payload);
-  }
-  logger.info(`Honeypot warning panel ${existing ? "updated" : "published"} in channel ${config.channelId}.`);
+  await publishPersistentPanel(client, channel, "honeypot", {
+    matches: (message) => containsText(message.components, PANEL_MARKER), payload,
+  });
+  logger.info(`Honeypot warning panel synchronized in channel ${config.channelId}.`);
 }
 
 export { buildHoneypotPanel, ensureHoneypotPanel };

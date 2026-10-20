@@ -1,3 +1,4 @@
+import { createPanelStorage } from "../../helpers/panelStorage";
 import { Collection, ComponentType, type Client, type ButtonInteraction, type ModalSubmitInteraction, type Interaction } from "discord.js";
 import { expect, it, vi } from "vitest";
 import { MusicPanelPublisher, musicPanel } from "../../../src/modules/music/musicPanel";
@@ -16,11 +17,11 @@ it("reuses a panel buried below a full page of requests and coalesces publicatio
   const edit = vi.fn();
   const history = new Collection(Array.from({ length: 100 }, (_, i) => [String(i), { id: String(i), author: { id: "listener" }, components: [] }]));
   const fetch = vi.fn().mockResolvedValueOnce(history).mockResolvedValueOnce(new Collection([["panel", {
-    author: { id: "bot" }, components: musicPanel("voice").components, edit,
+    id: "panel", author: { id: "bot" }, components: musicPanel("voice").components, edit,
   }]]));
   const send = vi.fn();
-  const client = { user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue({
-    isTextBased: () => true, isSendable: () => true, isDMBased: () => false, messages: { fetch }, send,
+  const client = { panelStorage: createPanelStorage(), user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue({
+    id: "requests", isTextBased: () => true, isSendable: () => true, isDMBased: () => false, messages: { fetch }, send,
   }) } };
   const publisher = new MusicPanelPublisher(client as unknown as Client, "requests", "voice");
   await Promise.all([publisher.publish(), publisher.publish()]);
@@ -31,7 +32,7 @@ it("reuses a panel buried below a full page of requests and coalesces publicatio
 
 it("does not create a duplicate when history cannot be read", async () => {
   const send = vi.fn();
-  const client = { channels: { fetch: vi.fn().mockResolvedValue({ isTextBased: () => true, isSendable: () => true,
+  const client = { panelStorage: createPanelStorage(), user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue({ id: "requests", isTextBased: () => true, isSendable: () => true,
     isDMBased: () => false, messages: { fetch: vi.fn().mockRejectedValue(new Error("Forbidden")) }, send }) } };
   const publisher = new MusicPanelPublisher(client as unknown as Client, "requests", "voice");
   await expect(publisher.publish()).rejects.toThrow("Forbidden");

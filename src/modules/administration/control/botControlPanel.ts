@@ -1,3 +1,4 @@
+import { publishPersistentPanel } from "../../panels/persistentPanel";
 import {
   ButtonBuilder,
   ButtonStyle,
@@ -8,10 +9,9 @@ import {
   SeparatorSpacingSize,
   type Client,
   type MessageCreateOptions,
-  type MessageEditOptions,
 } from "discord.js";
 
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 
 const PANEL_MARKER = "# Arrakis Control Center";
@@ -76,21 +76,9 @@ async function ensureBotControlPanel(client: Client, channelId?: string | null):
   }
 
   const payload = botControlPayload(client);
-  const existing = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
-  if (existing) {
-    const editPayload: MessageEditOptions = {
-      content: null,
-      embeds: [],
-      attachments: [],
-      components: payload.components,
-      files: payload.files,
-      allowedMentions: payload.allowedMentions,
-    };
-    await existing.edit(editPayload);
-    return;
-  }
-
-  await channel.send(payload);
+  await publishPersistentPanel(client, channel, "bot-control", {
+    matches: (message) => containsText(message.components, PANEL_MARKER), payload,
+  });
 }
 
 export { PANEL_MARKER, buildBotControlPanel, ensureBotControlPanel };

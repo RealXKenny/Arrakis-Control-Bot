@@ -1,7 +1,8 @@
-import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type MessageCreateOptions, type MessageEditOptions } from "discord.js";
+import { publishPersistentPanel } from "../../panels/persistentPanel";
+import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client } from "discord.js";
 
 import { createLogger } from "../../../client/logger";
-import { findPanelMessage } from "../../../shared/discord/findPanelMessage";
+import { containsText } from "../../../shared/discord/containsText";
 import { createDuneBanner } from "../../../shared/discord/imageFactory";
 
 const logger = createLogger("BLUEPRINT PANEL");
@@ -44,33 +45,10 @@ async function ensureBlueprintUploadPanel(client: Client, channelId?: string | n
     throw new Error(`Blueprint panel channel ${channelId} is not a sendable channel.`);
   }
 
-  const existingPanel = await findPanelMessage(channel, client.user.id, PANEL_MARKER);
-
-  if (existingPanel) {
-    const editPayload: MessageEditOptions = {
-      content: null,
-      embeds: [],
-      attachments: [],
-      components: [buildBlueprintUploadPanel()],
-      files: [createBlueprintBanner()],
-    };
-
-    await existingPanel.edit(editPayload);
-
-    logger.info(`Updated the blueprint upload panel in channel ${channelId}.`);
-
-    return;
-  }
-
-  const payload: MessageCreateOptions = {
-    components: [buildBlueprintUploadPanel()],
-    files: [createBlueprintBanner()],
-    flags: MessageFlags.IsComponentsV2,
-  };
-
-  await channel.send(payload);
-
-  logger.info(`Posted blueprint upload panel in channel ${channelId}.`);
+  await publishPersistentPanel(client, channel, "blueprint-upload", {
+    matches: (message) => containsText(message.components, PANEL_MARKER),
+    payload: { components: [buildBlueprintUploadPanel()], files: [createBlueprintBanner()], flags: MessageFlags.IsComponentsV2 },
+  });
 }
 
 function createBlueprintBanner() {
