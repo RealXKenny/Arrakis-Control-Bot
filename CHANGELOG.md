@@ -4,6 +4,20 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.6] - 2026-10-26
+
+### Fixed
+
+- Resolve a high-severity Denial of Service vulnerability in `undici` (GHSA-4qv8-2p9j-2685, GHSA-xjj6-f33q-929c) by updating dependencies.
+
+### Deployment
+
+- Pull the updated container image or run `npm install` to apply the secure dependency version.
+
+### Verification
+
+- Production dependency audit and build checks pass cleanly.
+
 ## [1.11.5] - 2026-10-19
 
 ### Fixed
