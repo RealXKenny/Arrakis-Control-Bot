@@ -5,6 +5,7 @@ import { LEVEL_LEADERBOARD_FILENAME, createLevelLeaderboardCard, type LevelLeade
 import { LEVEL_CARD_FILENAME, createLevelRankCard } from "../../../modules/community/leveling/levelCard";
 import { levelForXp } from "../../../modules/community/leveling/levelProgress";
 import { registerApplicationCommand } from "../../../support/commands/registerApplicationCommand";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const data = new SlashCommandBuilder()
   .setName("level")
@@ -78,7 +79,7 @@ async function buildRank(interaction: ChatInputCommandInteraction): Promise<Leve
   const image = await createLevelRankCard({ user, displayName, profile, multiplier });
 
   const card = new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
       new MediaGalleryItemBuilder()
         .setURL(`attachment://${LEVEL_CARD_FILENAME}`)
@@ -93,7 +94,7 @@ async function buildLeaderboard(interaction: ChatInputCommandInteraction): Promi
   const entries = await Promise.all(profiles.map((profile) => resolveLeaderboardEntry(interaction, profile)));
   const image = await createLevelLeaderboardCard(entries);
   const card = new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
       new MediaGalleryItemBuilder()
         .setURL(`attachment://${LEVEL_LEADERBOARD_FILENAME}`)
@@ -121,7 +122,7 @@ async function buildEventAdmin(interaction: ChatInputCommandInteraction, action:
   }
 
   return new ContainerBuilder()
-    .setAccentColor(0xe7ad55)
+    .setAccentColor(PANEL_COLORS.accent)
     .addTextDisplayComponents((text) => text.setContent("## ✨ Community XP Event"))
     .addTextDisplayComponents((text) => text.setContent(summary))
     .addTextDisplayComponents((text) => text.setContent("-# Event XP stacks with the permanent booster bonus: 2× event + 2× booster = 4× total XP."));
@@ -134,7 +135,7 @@ function buildRoleAdmin(interaction: ChatInputCommandInteraction): ContainerBuil
   );
 
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addTextDisplayComponents((text) => text.setContent("## 🎖️ Community Level Roles"))
     .addTextDisplayComponents((text) => text.setContent(rows.join("\n")))
     .addTextDisplayComponents((text) => text.setContent("-# Configure every role ID in .env, restart the bot, and keep the roles below the bot's highest role. ✅ ready · ⚠️ too high · 🔎 ID not found · ❌ not configured"));
@@ -158,22 +159,22 @@ async function resolveLeaderboardEntry(interaction: ChatInputCommandInteraction,
   return {
     profile,
     user,
-    displayName: member?.displayName ?? user?.globalName ?? user?.username ?? "Unknown Traveler",
+    displayName: member?.displayName ?? user?.globalName ?? user?.username ?? "Unknown Member",
   };
 }
 
 function leaderboardDescription(entries: readonly LevelLeaderboardEntry[]): string {
-  if (!entries.length) return "Arrakis community leaderboard with no ranked travelers yet.";
+  if (!entries.length) return "community leaderboard with no ranked members yet.";
   const rows = entries.map((entry) => {
-    const name = entry.displayName.replace(/[\r\n]/g, " ").trim().slice(0, 40) || "Unknown Traveler";
+    const name = entry.displayName.replace(/[\r\n]/g, " ").trim().slice(0, 40) || "Unknown Member";
     return `rank ${entry.profile.rank ?? "unranked"}: ${name}, level ${levelForXp(entry.profile.xp)}, ${entry.profile.xp.toLocaleString()} XP`;
   });
-  return `Arrakis community leaderboard. ${rows.join("; ")}.`.slice(0, 1_000);
+  return `community leaderboard. ${rows.join("; ")}.`.slice(0, 1_000);
 }
 
 function levelCardDescription(displayName: string, profile: LevelProfile, multiplier: number): string {
   const rank = profile.rank ? `server rank ${profile.rank}` : "unranked";
-  return `${displayName}'s Arrakis community card: level ${levelForXp(profile.xp)}, ${rank}, ${profile.xp.toLocaleString()} total XP, ${profile.messageCount.toLocaleString()} XP-earning messages, ${profile.voiceMinutes.toLocaleString()} rewarded voice minutes, and a ${multiplier} times XP multiplier.`;
+  return `${displayName}'s community card: level ${levelForXp(profile.xp)}, ${rank}, ${profile.xp.toLocaleString()} total XP, ${profile.messageCount.toLocaleString()} XP-earning messages, ${profile.voiceMinutes.toLocaleString()} rewarded voice minutes, and a ${multiplier} times XP multiplier.`;
 }
 
 class LevelCommand extends Command {

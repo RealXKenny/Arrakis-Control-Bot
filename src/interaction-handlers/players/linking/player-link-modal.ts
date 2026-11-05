@@ -7,6 +7,7 @@ import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { matchesCustomId } from "../../../support/interactions/componentCustomIds";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 interface LinkPlayerResult {
   ok?: boolean;
@@ -57,7 +58,7 @@ const handler = {
     const verifyButton = new ButtonBuilder().setCustomId("player-verify").setLabel("Verify Code").setStyle(ButtonStyle.Success);
 
     const verificationCard = new ContainerBuilder()
-      .setAccentColor(0x57f287)
+      .setAccentColor(PANEL_COLORS.success)
       .addTextDisplayComponents((text) => text.setContent("## Verification code sent"))
       .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(result.message ?? "A private verification code was sent to your character in-game.", 3_500)))
       .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))

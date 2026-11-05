@@ -5,6 +5,7 @@ import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { parseServices } from "../monitoring/status";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 interface ServiceRow {
   name: string;
@@ -47,7 +48,7 @@ function createServicesCard(rows: ServiceRow[]): ContainerBuilder {
   const body = rows.length ? rows.map((row) => `${serviceIndicator(row.status)} \`${row.name}\` — ${row.status}`).join("\n") : "No service status data was reported.";
 
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addTextDisplayComponents((text) => text.setContent("## ⚙️ Dune Server Services"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${rows.length} service${rows.length === 1 ? "" : "s"} reported`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
@@ -69,7 +70,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     await interaction.editReply({
       ...createV2Response([
         new ContainerBuilder()
-          .setAccentColor(0x8f3025)
+          .setAccentColor(PANEL_COLORS.danger)
           .addTextDisplayComponents((text) => text.setContent("## ❌ Services unavailable"))
           .addTextDisplayComponents((text) => text.setContent("The Dune server service list could not be retrieved.")),
       ]),

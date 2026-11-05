@@ -5,6 +5,7 @@ import { createLogger } from "../../client/logger";
 import { createTicketSupportBanner } from "../../shared/discord/imageFactory";
 import { containsText } from "../../shared/discord/containsText";
 import { TICKET_CATEGORIES } from "./ticketCategories";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const logger = createLogger("TICKET PANEL");
 const PANEL_MARKER = "## Open a private support ticket";
@@ -13,7 +14,7 @@ const PANEL_IMAGE_NAME = "arrakis-support-tickets.png";
 
 function buildTicketPanel(): ContainerBuilder {
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Arrakis support ticket banner")))
     .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
     .addTextDisplayComponents((text) =>

@@ -3,6 +3,7 @@ import { GuildMember, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags
 
 import { createContainer, createV2Response } from "../../shared/discord/componentFactory";
 import { createMemberBanner } from "../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 class GuildMemberAdd extends Listener<typeof Events.GuildMemberAdd> {
   public constructor(context: Listener.LoaderContext) {
@@ -40,9 +41,9 @@ class GuildMemberAdd extends Listener<typeof Events.GuildMemberAdd> {
       .setDescription(`Welcome card for ${member.user.tag}`));
 
     const container = createContainer({
-      title: "## Welcome to Arrakis!",
-      body: `Welcome ${member} to **${member.guild.name}**.\n\n` + "Prepare yourself for the spice and watch the sands carefully.",
-      color: 0xc58b45,
+      title: "## Welcome aboard!",
+      body: `Welcome ${member} to **${member.guild.name}**.\n\n` + "Say hello, read the rules, and pick your roles to get started.",
+      color: PANEL_COLORS.accent,
     }).addMediaGalleryComponents(mediaGallery);
 
     const response = createV2Response([container], [banner]);

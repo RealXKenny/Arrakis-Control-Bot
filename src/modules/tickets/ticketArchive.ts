@@ -4,6 +4,7 @@ import type { TicketRecord } from "../../infrastructure/database/tickets/TicketR
 import { createLogger } from "../../client/logger";
 import { truncateDiscordText } from "../../shared/discord/discordLimits";
 import { createV2Response } from "../../shared/discord/componentFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const logger = createLogger("TICKET ARCHIVE");
 
@@ -20,7 +21,7 @@ function buildTicketArchiveContainer(ticket: TicketRecord): ContainerBuilder {
       ].join("\n");
 
   return new ContainerBuilder()
-    .setAccentColor(ticket.reviewRating === null ? 0xc58b45 : ticket.reviewRating >= 4 ? 0x57f287 : ticket.reviewRating >= 3 ? 0xd2a85a : 0xed4245)
+    .setAccentColor(ticket.reviewRating === null ? PANEL_COLORS.accent : ticket.reviewRating >= 4 ? PANEL_COLORS.success : ticket.reviewRating >= 3 ? PANEL_COLORS.accent : PANEL_COLORS.danger)
     .addTextDisplayComponents((text) => text.setContent(`## Ticket #${ticket.id} archive`))
     .addTextDisplayComponents((text) =>
       text.setContent(truncateDiscordText(

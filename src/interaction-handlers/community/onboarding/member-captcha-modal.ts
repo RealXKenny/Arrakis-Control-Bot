@@ -32,7 +32,7 @@ const handler = {
       await member.roles.add(roleId, "Completed membership captcha");
     }
 
-    await interaction.editReply({ content: "Verification complete. Welcome to Arrakis!" });
+    await interaction.editReply({ content: "Verification complete. Welcome aboard!" });
   },
 };
 

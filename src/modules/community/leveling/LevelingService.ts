@@ -17,6 +17,7 @@ import { achievementProgressLabel, achievementsByIds, eligibleAchievements, high
 import { ACHIEVEMENT_CARD_FILENAMES, LEVEL_UP_CARD_FILENAME, createAchievementCard, createLevelUpCard } from "./announcementCards";
 import { LEVEL_ROLE_TIERS, roleTierForLevel } from "./levelRoles";
 import { MESSAGE_REPEAT_WINDOW_MS, MESSAGE_XP_COOLDOWN_MS, VOICE_XP_COOLDOWN_MS, XP_PER_VOICE_MINUTE, levelForXp, messageXp } from "./levelProgress";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const EVENT_CACHE_MS = 15_000;
 const VOICE_TICK_MS = 60_000;
@@ -197,12 +198,12 @@ class LevelingService {
     const displayName = member.displayName;
     const image = await createLevelUpCard({ user: member.user, displayName, profile, level });
     const card = new ContainerBuilder()
-      .setAccentColor(0xe7ad55)
-      .addTextDisplayComponents((text) => text.setContent(`## 🌟 The sands recognize you, ${escapeMarkdown(displayName)}. You have advanced to level ${level}.`))
+      .setAccentColor(PANEL_COLORS.accent)
+      .addTextDisplayComponents((text) => text.setContent(`## 🌟 Level up, ${escapeMarkdown(displayName)}. You have advanced to level ${level}.`))
       .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
         new MediaGalleryItemBuilder()
           .setURL(`attachment://${LEVEL_UP_CARD_FILENAME}`)
-          .setDescription(`${displayName} advanced to Arrakis community level ${level}`),
+          .setDescription(`${displayName} advanced to community level ${level}`),
       ));
     await destination.send(announcementPayload(card, image));
   }
@@ -213,7 +214,7 @@ class LevelingService {
     const card = new ContainerBuilder()
       .setAccentColor(achievementColor(achievement))
       .addTextDisplayComponents((text) => text.setContent(
-        `## 🏆 The sands honor ${escapeMarkdown(displayName)} — achievement unlocked: ${escapeMarkdown(achievement.name)} (${achievement.tier})!\n-# ${achievementProgressLabel(achievement)}`,
+        `## 🏆 Congratulations to ${escapeMarkdown(displayName)} — achievement unlocked: ${escapeMarkdown(achievement.name)} (${achievement.tier})!\n-# ${achievementProgressLabel(achievement)}`,
       ))
       .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
         new MediaGalleryItemBuilder()
@@ -269,9 +270,9 @@ function announcementPayload(card: ContainerBuilder, image: Awaited<ReturnType<t
 }
 
 function achievementColor(achievement: LevelAchievement): number {
-  if (achievement.kind === "message") return 0xd9823b;
-  if (achievement.kind === "voice") return 0x66c7d5;
-  return 0xb48cff;
+  if (achievement.kind === "message") return PANEL_COLORS.warning;
+  if (achievement.kind === "voice") return PANEL_COLORS.info;
+  return PANEL_COLORS.violet;
 }
 
 function activityMultiplier(member: GuildMember, event: LevelEvent | null, now: number): number {

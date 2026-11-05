@@ -4,13 +4,14 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 
 import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { createActorContext } from "../../../shared/actors/createActorContext";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const IMAGE_NAME = "dune-profile.png";
 const UNAVAILABLE = "Unavailable";
-const ACCENT_COLOR = 0xc58b45;
+const ACCENT_COLOR = PANEL_COLORS.accent;
 
 const SHOW_SMUGGLER_FACTION = false;
 
@@ -354,12 +355,12 @@ const command = {
         .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
         .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(formatProfile(player, data, guild), 3_300)));
 
-      const banner = createDuneBanner({
+      const banner = createPanelBanner({
         artwork: "profile",
         filename: IMAGE_NAME,
         title: "Dune Profile",
         subtitle: player.characterName ?? "Unknown",
-        detail: "CHARACTER DATA • ARRAKIS",
+        detail: "Character data",
       });
 
       await interaction.editReply(createV2Response([card], [banner]));

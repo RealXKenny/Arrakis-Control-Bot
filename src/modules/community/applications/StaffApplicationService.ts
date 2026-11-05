@@ -5,6 +5,7 @@ import { StaffApplicationRepository, type StaffApplicationAnswers, type StaffApp
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { getConfiguredStaffRoleIds } from "../../../support/access/staffAccess";
 import { createV2Response } from "../../../shared/discord/componentFactory";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 class StaffApplicationService {
   public constructor(public readonly client: Client, public readonly repository: StaffApplicationRepository, public readonly config: StaffApplicationConfig) {}
@@ -93,7 +94,7 @@ function applicationBlockReason(latest: StaffApplicationRecord | null, cooldownD
 
 function buildReviewCard(record: StaffApplicationRecord, applicantTag?: string, reviewerTag?: string): ContainerBuilder {
   const card = new ContainerBuilder()
-    .setAccentColor(record.status === "accepted" ? 0x5d9b62 : record.status === "denied" ? 0xa6493f : 0xc58b45)
+    .setAccentColor(record.status === "accepted" ? PANEL_COLORS.success : record.status === "denied" ? PANEL_COLORS.danger : PANEL_COLORS.accent)
     .addTextDisplayComponents((text) => text.setContent(`## Staff application · ${record.status.toUpperCase()}`))
     .addTextDisplayComponents((text) => text.setContent(`**Applicant:** ${applicantTag ? safe(applicantTag) : `<@${record.userId}>`} (${record.userId})\n**Submitted:** <t:${Math.floor(record.createdAt.getTime() / 1000)}:F>\n**Application ID:** \`${record.id}\``))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small));

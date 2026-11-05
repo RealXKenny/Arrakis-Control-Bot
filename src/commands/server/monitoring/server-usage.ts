@@ -5,6 +5,7 @@ import { ConvoyApiError, type ConvoyClient } from "../../../infrastructure/http/
 import { METRIC_PERIODS, METRIC_AGGREGATIONS, parseServerMetrics } from "../../../modules/server/usage/serverMetrics";
 import { serverUsageImage } from "../../../modules/server/usage/serverUsageImage";
 import { scopedLogger } from "../../../client/logger";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 export const data = new SlashCommandBuilder().setName("server-usage").setDescription("View CPU, memory, network and disk resource graphs.")
   .addStringOption((option) => option.setName("server").setDescription("Convoy server UUID (choose a server or paste its UUID)").setRequired(true).setAutocomplete(true))
@@ -25,7 +26,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const cached = serverCache.get(api)?.rows.find((row) => row.uuid === id);
     const name = typeof cached?.name === "string" ? cached.name : id;
     const image = serverUsageImage(metrics, name);
-    await interaction.editReply({ embeds: [new EmbedBuilder().setColor(0xc58b45).setTitle("Server Resource Watch")
+    await interaction.editReply({ embeds: [new EmbedBuilder().setColor(PANEL_COLORS.accent).setTitle("Server Resource Watch")
       .setDescription(`${period} history • ${aggregation} per bucket • Times in UTC${metrics.unavailable ? "\nMetrics are temporarily unavailable." : ""}`)
       .setImage("attachment://server-usage.png")], files: [new AttachmentBuilder(image, { name: "server-usage.png" })], allowedMentions: { parse: [] } });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { AttachmentBuilder, ComponentType, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type AttachmentPayload, type APIMessageTopLevelComponent } from "discord.js";
 import { truncateDiscordText } from "./discordLimits";
-import { createDuneBanner } from "./imageFactory";
+import { createPanelBanner } from "./imageFactory";
+import { PANEL_COLORS } from "./panelStyle";
 
 const TEMPORARY_IMAGE_NAME = "arrakis-temporary-response.png";
 
@@ -13,7 +14,7 @@ interface CreateContainerOptions {
   children?: ContainerChild[];
 }
 
-function createContainer({ title, body, color = 0xc58b45, children = [] }: CreateContainerOptions): ContainerBuilder {
+function createContainer({ title, body, color = PANEL_COLORS.accent, children = [] }: CreateContainerOptions): ContainerBuilder {
   const container = new ContainerBuilder().setAccentColor(color);
 
   if (title) {
@@ -48,11 +49,11 @@ interface V2Response {
 function createV2Response(components: V2Component[], files: V2File[] = []): V2Response {
   // Dev note: Every container needs its V2 passport stamped at Discord's border.
   if (!components.some(hasMediaGallery)) {
-    const visual = new ContainerBuilder().setAccentColor(0xc58b45)
+    const visual = new ContainerBuilder().setAccentColor(PANEL_COLORS.accent)
       .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder()
         .setURL(`attachment://${TEMPORARY_IMAGE_NAME}`).setDescription("Arrakis Control temporary response banner")));
     components = [visual, ...components];
-    files = [createDuneBanner({ artwork: "temporary", filename: TEMPORARY_IMAGE_NAME, title: "Arrakis Control", subtitle: "FIELD RESPONSE", detail: "SIGNAL RECEIVED • ACTION RECORDED" }), ...files];
+    files = [createPanelBanner({ artwork: "temporary", filename: TEMPORARY_IMAGE_NAME, title: "Arrakis Control", subtitle: "Response", detail: "Request received • Action recorded" }), ...files];
   }
   return {
     components,

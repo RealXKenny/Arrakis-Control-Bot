@@ -12,7 +12,8 @@ import { MusicNowPlayingPanel, NOW_PLAYING_MARKER } from "./MusicNowPlayingPanel
 import { MusicLyrics } from "./musicLyrics";
 import { playbackProgress } from "./musicProgress";
 import { scopedLogger, type Logger } from "../../client/logger";
-import { createDuneBanner } from "../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 export type MusicAction = "skip" | "pause" | "resume" | "stop" | "clear" | "volume";
 
@@ -403,7 +404,7 @@ export class MusicService {
   }
 
   public nowPlayingMessage() {
-    const embed = new EmbedBuilder().setColor(0xc58b45).setDescription(this.describeQueue(true));
+    const embed = new EmbedBuilder().setColor(PANEL_COLORS.accent).setDescription(this.describeQueue(true));
     const files = [];
     const info = (this.current ?? this.idleCurrent)?.track.info;
     let artwork: string | undefined;
@@ -419,7 +420,7 @@ export class MusicService {
     if (!artwork) {
       const filename = "music-now-playing.png";
       artwork = `attachment://${filename}`;
-      files.push(createDuneBanner({ artwork: "music", filename, title: "Music Lounge", subtitle: "NOW PLAYING", detail: "THE SPICE MUST FLOW • SO MUST THE MUSIC" }));
+      files.push(createPanelBanner({ artwork: "music", filename, title: "Music Lounge", subtitle: "Now playing", detail: "Queue • Controls • Lyrics" }));
     }
     if (artwork) embed.setImage(artwork);
     return { content: "", embeds: [embed], files, allowedMentions: { parse: [] as never[] } };

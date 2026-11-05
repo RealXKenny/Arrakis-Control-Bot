@@ -2,8 +2,9 @@ import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions } from "discord.js";
 
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { containsText } from "../../../shared/discord/containsText";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const PANEL_MARKER = "## Verify Your Membership";
 const PANEL_IMAGE_NAME = "membership-verification.png";
@@ -24,18 +25,18 @@ async function ensureVerificationPanel(client: Client, channelId?: string | null
   }
 
   const container = new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Arrakis membership verification banner")))
     .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
-    .addTextDisplayComponents((text) => text.setContent("Complete the captcha to access the Arrakis community."))
+    .addTextDisplayComponents((text) => text.setContent("Complete the captcha to access the community."))
     .addActionRowComponents((row) => row.addComponents(new ButtonBuilder().setCustomId("member-captcha").setLabel("Verify").setStyle(ButtonStyle.Primary)));
 
-  const banner = createDuneBanner({
+  const banner = createPanelBanner({
     artwork: "verification",
     filename: PANEL_IMAGE_NAME,
     title: "Verify",
-    subtitle: "MEMBERSHIP CHECK",
-    detail: "WELCOME TO ARRAKIS",
+    subtitle: "Membership check",
+    detail: "Welcome aboard",
   });
 
   // Dev note: Normalize the banner name because null is a terrible attachment label.

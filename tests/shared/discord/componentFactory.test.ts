@@ -1,3 +1,4 @@
+import { PANEL_COLORS } from "../../../src/shared/discord/panelStyle";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags } from "discord.js";
 import { describe, expect, it } from "vitest";
 import { createContainer, createV2Response } from "../../../src/shared/discord/componentFactory";
@@ -5,7 +6,7 @@ import { createContainer, createV2Response } from "../../../src/shared/discord/c
 describe("componentFactory", () => {
   it("truncates text, applies the default accent, and separates children", () => {
     const container = createContainer({ title: "T".repeat(600), body: "B".repeat(3_300), children: [(builder) => builder.addTextDisplayComponents((text) => text.setContent("child"))] }).toJSON();
-    expect(container.accent_color).toBe(0xc58b45);
+    expect(container.accent_color).toBe(PANEL_COLORS.accent);
     expect(container.components).toHaveLength(4);
     expect((container.components[0] as { content: string }).content).toHaveLength(500);
     expect((container.components[1] as { content: string }).content).toHaveLength(3_200);

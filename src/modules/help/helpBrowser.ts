@@ -5,6 +5,7 @@ import { truncateDiscordText } from "../../shared/discord/discordLimits";
 import { createV2Response } from "../../shared/discord/componentFactory";
 import { HELP_CATEGORIES, getHelpCategory, type HelpAccess } from "./helpCatalog";
 import type { HelpSession } from "./helpSessions";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const PAGE_SIZE = 6;
 const ACCESS_ICONS: Record<HelpAccess, string> = { Everyone: "🌐", Staff: "🛡️", Owner: "🔒" };
@@ -27,8 +28,8 @@ function createHelpCard(session: HelpSession): ContainerBuilder {
   const previous = new ButtonBuilder().setCustomId(`help-page:${session.id}:previous`).setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(session.page <= 1);
   const next = new ButtonBuilder().setCustomId(`help-page:${session.id}:next`).setLabel("Next").setStyle(ButtonStyle.Primary).setDisabled(session.page >= totalPages);
 
-  return new ContainerBuilder().setAccentColor(0xc58b45)
-    .addTextDisplayComponents((text) => text.setContent("## 📚 Arrakis Command Center"))
+  return new ContainerBuilder().setAccentColor(PANEL_COLORS.accent)
+    .addTextDisplayComponents((text) => text.setContent("## Command Center"))
     .addTextDisplayComponents((text) => text.setContent("Browse commands by category. Access badges show who can run each command."))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(`### ${category.emoji} ${category.label}\n-# ${category.description} · Page ${session.page} of ${totalPages}`))

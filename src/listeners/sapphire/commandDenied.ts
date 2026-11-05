@@ -2,11 +2,12 @@ import { Events, Listener, type ChatInputCommandDeniedPayload, type UserError } 
 import { ContainerBuilder, MessageFlags, SeparatorSpacingSize, type ChatInputCommandInteraction } from "discord.js";
 
 import { createV2Response } from "../../shared/discord/componentFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 async function respondToCommandDenial(error: UserError, interaction: ChatInputCommandInteraction): Promise<void> {
   if (error.identifier === "StaffOnly") {
     const card = new ContainerBuilder()
-      .setAccentColor(0x8f3025)
+      .setAccentColor(PANEL_COLORS.danger)
       .addTextDisplayComponents((text) => text.setContent("## 🔒 Permission Denied"))
       .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
       .addTextDisplayComponents((text) => text.setContent(error.message));

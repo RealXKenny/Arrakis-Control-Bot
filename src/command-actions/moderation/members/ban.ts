@@ -2,8 +2,9 @@ import { ChatInputCommandInteraction, ContainerBuilder, MessageFlags, SeparatorS
 
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { canModerateMember } from "../../../support/access/staffAccess";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
-const ERROR_COLOR = 0x8f3025;
+const ERROR_COLOR = PANEL_COLORS.danger;
 
 const createCard = (title: string, content: string | string[], footer?: string): ContainerBuilder => {
   const card = new ContainerBuilder()

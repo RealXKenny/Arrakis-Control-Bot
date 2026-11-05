@@ -79,7 +79,7 @@ describe("ticket transcripts", () => {
 
     const transcript = buildTicketTranscript(ticket, closer, [message]);
 
-    expect(transcript).toContain("ARRAKIS SUPPORT TICKET #1");
+    expect(transcript).toContain("SUPPORT TICKET #1");
     expect(transcript).toContain("Character: Chani");
     expect(transcript).toContain("The server returns error 500.");
     expect(transcript).toContain("error.png: https://cdn.discordapp.com/error.png");

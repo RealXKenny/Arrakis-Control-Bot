@@ -1,9 +1,10 @@
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, PermissionFlagsBits, ShardClientUtil, type Client } from "discord.js";
 import type { HoneypotConfig } from "../../../infrastructure/config/honeypot";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { containsText } from "../../../shared/discord/containsText";
 import { createLogger } from "../../../client/logger";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const PANEL_MARKER = "## Honeypot — Do Not Post";
 const PANEL_IMAGE_NAME = "honeypot-warning.png";
@@ -16,7 +17,7 @@ function buildHoneypotPanel(config: Readonly<HoneypotConfig>, includeBanner = tr
     : config.action === "timeout"
       ? `**Posting here results in an automatic timeout for ${config.timeoutMinutes} minutes.**`
       : "**Messages posted here are removed and logged for staff review. No automatic ban or timeout is applied in the current mode.**";
-  const panel = new ContainerBuilder().setAccentColor(0x8f3025);
+  const panel = new ContainerBuilder().setAccentColor(PANEL_COLORS.danger);
   if (includeBanner) panel.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Honeypot channel warning")));
   return panel
     .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
@@ -54,9 +55,9 @@ async function publishHoneypotPanel(client: Client, config: Readonly<HoneypotCon
     const names = missing.filter(([, flag]) => !permissions?.has(flag)).map(([name]) => name);
     if (names.length) throw new Error(`Cannot publish honeypot panel: grant the bot ${names.join(", ")} in channel ${config.channelId}.`);
   }
-  const files: ReturnType<typeof createDuneBanner>[] = [];
+  const files: ReturnType<typeof createPanelBanner>[] = [];
   if (permissions === undefined || permissions?.has(PermissionFlagsBits.AttachFiles)) {
-    try { files.push(createDuneBanner({ artwork: "rules", filename: PANEL_IMAGE_NAME, title: "Do Not Post", subtitle: "HONEYPOT • SPAM PROTECTION", detail: "READ THE WARNING • USE COMMUNITY CHANNELS" })); }
+    try { files.push(createPanelBanner({ artwork: "rules", filename: PANEL_IMAGE_NAME, title: "Do Not Post", subtitle: "Honeypot • Spam protection", detail: "Read the warning • Use community channels" })); }
     catch (error: unknown) { logger.error("Unable to create honeypot artwork; publishing the warning without an image.", error); }
   }
   const payload = { components: [buildHoneypotPanel(config, files.length > 0)], files, flags: MessageFlags.IsComponentsV2 as const, allowedMentions: { parse: [] as const } };

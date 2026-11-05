@@ -66,6 +66,7 @@ interface BotConfig {
   discordTicketTranscriptChannelId?: string | null;
   databaseUrl?: string | null;
   databaseSsl: boolean;
+  databaseSslVerify?: boolean;
   versionAnnouncementIntervalMinutes?: number;
   githubToken?: string;
   interactionCooldownMs: number;
@@ -213,7 +214,7 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordTicketCategoryId = config.discordTicketCategoryId ?? undefined;
   client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
   // Dev note: One PostgreSQL pool waters tickets, rooms, levels, and music—water discipline applies to sockets too.
-  client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl) : null;
+  client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl, config.databaseSslVerify ?? true) : null;
   client.githubToken = config.githubToken;
   client.panelStorage = client.tickets ? new PanelRepository(client.tickets.pool) : undefined;
   client.releaseAnnouncements = client.tickets ? new ReleaseAnnouncementRepository(client.tickets.pool) : undefined;

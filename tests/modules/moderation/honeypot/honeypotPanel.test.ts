@@ -5,9 +5,9 @@ import { buildHoneypotPanel, ensureHoneypotPanel } from "../../../../src/modules
 import { persistentPanelTasks } from "../../../../src/modules/administration/control/panelRefresh";
 import { countComponents, countDisplayableText, DISCORD_LIMITS } from "../../../../src/shared/discord/discordLimits";
 import type { HoneypotConfig } from "../../../../src/infrastructure/config/honeypot";
-import { createDuneBanner } from "../../../../src/shared/discord/imageFactory";
+import { createPanelBanner } from "../../../../src/shared/discord/imageFactory";
 
-vi.mock("../../../../src/shared/discord/imageFactory", () => ({ createDuneBanner: vi.fn(() => ({ attachment: Buffer.from("banner"), name: "honeypot-warning.png" })) }));
+vi.mock("../../../../src/shared/discord/imageFactory", () => ({ createPanelBanner: vi.fn(() => ({ attachment: Buffer.from("banner"), name: "honeypot-warning.png" })) }));
 const config: HoneypotConfig = { guildId: "123456789012345678", channelId: "223456789012345678", logChannelId: "323456789012345678", action: "ban", timeoutMinutes: 1440 };
 
 function fixture(existing = false) {
@@ -74,7 +74,7 @@ describe("honeypot warning panel", () => {
     expect(JSON.stringify(f.send.mock.calls[0])).toContain("honeypot:status");
   });
   it("still sends the warning and Status button if banner generation fails", async () => {
-    const f = fixture(); vi.mocked(createDuneBanner).mockImplementationOnce(() => { throw new Error("Artwork unavailable"); });
+    const f = fixture(); vi.mocked(createPanelBanner).mockImplementationOnce(() => { throw new Error("Artwork unavailable"); });
     await f.ensure();
     expect(f.send).toHaveBeenCalledWith(expect.objectContaining({ files: [] }));
     expect(JSON.stringify(f.send.mock.calls[0])).toContain("honeypot:status");
