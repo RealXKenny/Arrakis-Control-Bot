@@ -11,7 +11,8 @@ describe('versioned image release', () => {
     expect(release).toContain('if git rev-parse --verify --quiet "refs/tags/$tag"');
     expect(release).toMatch(/- name: Build versioned image\r?\n\s+if: steps\.release\.outputs\.create == 'true'/);
     expect(release).toMatch(/- name: Publish versioned image\r?\n\s+if: steps\.release\.outputs\.create == 'true'/);
-    expect(release).toContain('--tag "$IMAGE:$RELEASE_TAG"');
+    expect(release).toContain('${{ steps.image.outputs.name }}:${{ steps.release.outputs.tag }}');
+    expect(release).toContain('git merge-base --is-ancestor "$HEAD_SHA" refs/remotes/origin/main');
     expect(release.indexOf('- name: Publish versioned image')).toBeLessThan(
       release.indexOf('- name: Create GitHub release'),
     );
