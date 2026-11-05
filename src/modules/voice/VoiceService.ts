@@ -8,7 +8,7 @@ import { scopedLogger, type Logger } from "../../client/logger";
 export class VoiceUserError extends Error {}
 export type VoiceAction = "rename" | "limit" | "lock" | "unlock" | "hide" | "show" | "permit" | "reject" | "kick" | "delete" | "reset";
 
-export function defaultVoiceRoomName(displayName: string): string {
+function defaultVoiceRoomName(displayName: string): string {
   return `🔊・${displayName.slice(0, 90)}'s Room`;
 }
 

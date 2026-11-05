@@ -33,7 +33,12 @@ describe("TicketRepository", () => {
 
   it("configures a bounded PostgreSQL pool with optional TLS", () => {
     new TicketRepository("postgres://db", true);
-    expect(mocks.Pool).toHaveBeenCalledWith(expect.objectContaining({ connectionString: "postgres://db", max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000, ssl: { rejectUnauthorized: false } }));
+    expect(mocks.Pool).toHaveBeenCalledWith(expect.objectContaining({ connectionString: "postgres://db", max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000, ssl: { rejectUnauthorized: true } }));
+  });
+
+  it("only skips certificate verification when explicitly requested", () => {
+    new TicketRepository("postgres://db", true, false);
+    expect(mocks.Pool).toHaveBeenCalledWith(expect.objectContaining({ ssl: { rejectUnauthorized: false } }));
   });
 
   it("initializes the schema, indexes, and stale reservation cleanup", async () => {

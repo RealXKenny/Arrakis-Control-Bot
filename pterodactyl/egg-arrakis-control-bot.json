@@ -289,6 +289,16 @@
       "field_type": "text"
     },
     {
+      "name": "Database Ssl Verify",
+      "description": "Optional bot setting (DATABASE_SSL_VERIFY). See .env.example in the repository.",
+      "env_variable": "DATABASE_SSL_VERIFY",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
       "name": "Leveling Enabled",
       "description": "Optional bot setting (LEVELING_ENABLED). See .env.example in the repository.",
       "env_variable": "LEVELING_ENABLED",
