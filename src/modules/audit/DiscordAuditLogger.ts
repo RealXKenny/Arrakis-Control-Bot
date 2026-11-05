@@ -3,6 +3,7 @@ import type { MusicAuditSnapshot } from "../music/MusicService";
 
 import { createLogger } from "../../client/logger";
 import { DISCORD_LIMITS, sanitizeAttachmentName, truncateDiscordText } from "../../shared/discord/discordLimits";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const logger = createLogger("DISCORD AUDIT");
 
@@ -130,7 +131,7 @@ class DiscordAuditLogger {
 
       const safeFiles = files.slice(0, 3).map((file) => ({ ...file, name: sanitizeAttachmentName(file.name) }));
       const card = new ContainerBuilder()
-        .setAccentColor(0xc58b45)
+        .setAccentColor(PANEL_COLORS.accent)
         .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`## ${title}`, 250)))
         .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
         .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(lines.join("\n"), 3_300)));

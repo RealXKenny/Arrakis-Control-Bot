@@ -1,8 +1,9 @@
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { isPrimaryShard } from "../../../shared/process/shardIdentity";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions } from "discord.js";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { createLogger } from "../../../client/logger";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const STORM_DURATION_MS = 24 * 60 * 60 * 1000;
 const logger = createLogger("CORIOLIS STORM");
@@ -35,9 +36,9 @@ export function buildStormPanel(start: number, end: number, now = Date.now()): M
   const active = now >= start && now < end;
   const ended = now >= end;
   const filename = "coriolis-storm.png";
-  const banner = createDuneBanner({ artwork: "storm", filename, title: "Coriolis Storm", subtitle: "DEEP DESERT WATCH", detail: "PLAN YOUR JOURNEY. KNOW THE STORM." });
+  const banner = createPanelBanner({ artwork: "storm", filename, title: "Coriolis Storm", subtitle: "Deep Desert watch", detail: "Plan ahead. Know the storm." });
   const card = new ContainerBuilder()
-    .setAccentColor(active ? 0xd05c3c : 0xc58b45)
+    .setAccentColor(active ? PANEL_COLORS.danger : PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${filename}`).setDescription("Coriolis Storm — Dune: Awakening storm announcement")))
     .addTextDisplayComponents((text) => text.setContent(`## Coriolis Storm Schedule\n${ended ? "◌ **Awaiting the next cycle**" : active ? "🔴 **Storm underway**" : "🟡 **Next storm approaching**"}`))
     .addSeparatorComponents((separator) => separator)

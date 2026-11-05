@@ -6,7 +6,7 @@ export function serverUsageImage(metrics: ServerMetrics, server: string): Buffer
   const canvas = createCanvas(1400, 850);
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#111820"; ctx.fillRect(0, 0, 1400, 850);
-  ctx.fillStyle = "#d6a65d"; ctx.font = "bold 28px sans-serif"; ctx.fillText("ARRAKIS CONTROL  /  RESOURCE WATCH", 32, 44);
+  ctx.fillStyle = "#8f9bff"; ctx.font = "bold 28px sans-serif"; ctx.fillText("ARRAKIS CONTROL  /  RESOURCE USAGE", 32, 44);
   ctx.fillStyle = "#ccd6df"; ctx.font = "17px sans-serif"; ctx.fillText(`${server.slice(0, 65)}  |  ${metrics.period}  |  ${metrics.aggregation}  |  UTC`, 32, 76);
   const times = metrics.graphs.flatMap((graph) => graph.points.map((point) => point.time));
   const min = times.reduce((a, b) => Math.min(a, b), Infinity);

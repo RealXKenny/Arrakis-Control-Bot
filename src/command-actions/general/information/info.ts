@@ -1,10 +1,11 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, SeparatorSpacingSize, SlashCommandBuilder, version as discordJsVersion } from "discord.js";
 
 import { getBotVersion } from "../../../infrastructure/config/version";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { createV2Response } from "../../../shared/discord/componentFactory";
+import { PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
 
-const DUNE_COLORS = [0xc58b45, 0xd2a85a, 0xa96832, 0x8f542c, 0x70452c, 0xb87333, 0x9c6b3c] as const;
+const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
 
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
 
@@ -43,14 +44,14 @@ const formatUptime = (totalSeconds: number): string => {
 
 const formatMemory = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-const getRandomDuneColor = (): number => DUNE_COLORS[Math.floor(Math.random() * DUNE_COLORS.length)];
+const getRandomAccentColor = (): number => ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)];
 
 const createBanner = (serverName: string) =>
-  createDuneBanner({
+  createPanelBanner({
     artwork: "bot-info",
     filename: "dune-server-info.png",
     title: "Arrakis Control",
-    subtitle: "BOT INFORMATION",
+    subtitle: "Bot information",
     detail: serverName,
   });
 
@@ -65,17 +66,17 @@ const createInfoCard = (interaction: ChatInputCommandInteraction, serverName: st
   const onlineSince = Math.floor((Date.now() - client.uptime) / 1000);
 
   return new ContainerBuilder()
-    .setAccentColor(getRandomDuneColor())
+    .setAccentColor(getRandomAccentColor())
 
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-info.png").setDescription("Arrakis Control bot information command center")))
 
-    .addTextDisplayComponents((text) => text.setContent(`## 🏜️ ${client.user.username}`))
+    .addTextDisplayComponents((text) => text.setContent(`## ${client.user.username}`))
 
     .addTextDisplayComponents((text) => text.setContent(`-# ${serverName}`))
 
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
 
-    .addTextDisplayComponents((text) => text.setContent(["### 🏜️ Bot", `**Version:** v${getBotVersion()}`, `**User ID:** \`${client.user.id}\``, `**Created:** <t:${createdTimestamp}:D>`].join("\n")))
+    .addTextDisplayComponents((text) => text.setContent(["### Bot", `**Version:** v${getBotVersion()}`, `**User ID:** \`${client.user.id}\``, `**Created:** <t:${createdTimestamp}:D>`].join("\n")))
 
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
 
@@ -113,7 +114,7 @@ const createInfoCard = (interaction: ChatInputCommandInteraction, serverName: st
 
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
 
-    .addTextDisplayComponents((text) => text.setContent(`-# Spice flows through Arrakis • Requested by ${interaction.user.tag}`));
+    .addTextDisplayComponents((text) => text.setContent(`-# Arrakis Control • Requested by ${interaction.user.tag}`));
 };
 
 const command = {

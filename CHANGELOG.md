@@ -4,6 +4,40 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Redesign every Discord panel with a modern look: a shared indigo palette and semantic status colors (`panelStyle.ts`), sentence-case banner text, neutral wording instead of Dune-themed copy and emoji, and newly generated gradient artwork for all 31 images in `data/images/` (reproducible with `node scripts/generate-panel-artwork.mjs`). Image filenames, panel keys, custom IDs, command names, and the in-game bridge name are unchanged, so published panels refresh in place. The roles, rules, and bot-control headings changed; their previous headings are still recognized when importing history. Level cards, the leaderboard card, and announcement cards use the same palette. `createDuneBanner` is now `createPanelBanner`.
+- Level role tier and achievement names are unchanged because they mirror existing server roles.
+
+### Added
+
+- Add `/leaderboard`, a public, paginated Solari leaderboard. It ranks players from the Dune Console player directory and per-player `solaris-coin` totals, keeps balances as decimal strings, caches the ranking for five minutes, and binds First/Previous/Next/Last controls to the requester for 15 minutes. It is listed in `/help` under Community & World.
+
+### Verification
+
+- Unit tests cover parsing, BigInt-safe sorting, formatting, pagination, caching, failure paths, limits, and store/routing discovery. Live Console behavior was not verified.
+
+## [1.11.7] - 2026-11-05
+
+### Security
+
+- Verify PostgreSQL TLS certificates when `DATABASE_SSL=true`. Previously certificate validation was disabled, allowing man-in-the-middle interception. Operators using a trusted self-signed database server can opt out explicitly with `DATABASE_SSL_VERIFY=false`.
+
+### Changed
+
+- Trigger the release workflow only for CI runs on `main`, so pull request CI no longer queues skipped release runs that show up as skipped checks on `main`.
+- Align CI and release workflows with the Dashboard: per-task CI runners (typecheck, lint, test, audit) behind a `verify` gate, PR-number concurrency, a release-commit-on-`main` guard, and a Buildx image build with GitHub Actions layer caching. Add `typecheck` and `audit:prod` npm scripts.
+- Remove unused exports (`BlueprintLimits`, `defaultVoiceRoomName`, `voiceGroupDefinition`) to tighten module surfaces.
+- Document and expose `DATABASE_SSL_VERIFY` in `.env.example`, the README, the Pterodactyl guide, and the regenerated egg.
+
+### Deployment
+
+- No action is needed for databases with publicly trusted certificates. Self-signed servers must set `DATABASE_SSL_VERIFY=false` or the bot will fail to connect.
+
+### Verification
+
+- Build, lint, full test suite, and production dependency audit pass. Live database TLS behavior was not verified.
+
 ## [1.11.6] - 2026-10-26
 
 ### Fixed

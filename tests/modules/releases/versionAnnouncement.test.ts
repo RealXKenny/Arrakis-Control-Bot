@@ -6,7 +6,7 @@ import { announceCurrentVersion, refreshReleaseAnnouncements, replayReleaseAnnou
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
 
 vi.mock("../../../src/shared/discord/imageFactory", () => ({
-  createDuneBanner: () => ({ attachment: Buffer.from("banner") }),
+  createPanelBanner: () => ({ attachment: Buffer.from("banner") }),
 }));
 
 afterEach(() => {

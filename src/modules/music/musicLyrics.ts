@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } from "discord.js";
 import type { Track } from "shoukaku";
-import { createDuneBanner } from "../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const LRCLIB_API = "https://lrclib.net/api";
 const CACHE_TTL_MS = 15 * 60_000;
@@ -65,12 +66,12 @@ export class MusicLyrics {
     return {
       content: "",
       embeds: [new EmbedBuilder()
-        .setColor(0xc58b45)
+        .setColor(PANEL_COLORS.accent)
         .setTitle(`Lyrics · ${metadata.title}`.slice(0, 256))
         .setDescription(pages[index])
         .setImage("attachment://music-lyrics.png")
         .setFooter({ text: `${source.slice(0, 1_900)} · Page ${index + 1}/${pages.length}` })],
-      files: [createDuneBanner({ artwork: "music", filename: "music-lyrics.png", title: "Lyrics Archive", subtitle: "MUSIC LOUNGE", detail: "WORDS CARRIED ACROSS THE SANDS" })],
+      files: [createPanelBanner({ artwork: "music", filename: "music-lyrics.png", title: "Lyrics Archive", subtitle: "Music lounge", detail: "Synced lyrics for the current track" })],
       components: [row],
       allowedMentions: { parse: [] as never[] },
     };

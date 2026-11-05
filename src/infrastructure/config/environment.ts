@@ -45,6 +45,7 @@ interface EnvironmentConfig {
   discordTicketTranscriptChannelId?: string;
   databaseUrl?: string;
   databaseSsl: boolean;
+  databaseSslVerify: boolean;
   versionAnnouncementIntervalMinutes: number;
   githubToken?: string;
   interactionCooldownMs: number;
@@ -169,6 +170,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   }
 
   const databaseSsl = parseBoolean(process.env.DATABASE_SSL, false, "DATABASE_SSL");
+  const databaseSslVerify = parseBoolean(process.env.DATABASE_SSL_VERIFY, true, "DATABASE_SSL_VERIFY");
   const levelingEnabled = parseBoolean(process.env.LEVELING_ENABLED, Boolean(process.env.DATABASE_URL), "LEVELING_ENABLED");
 
   if (levelingEnabled && !process.env.DATABASE_URL) {
@@ -217,6 +219,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     discordTicketTranscriptChannelId: process.env.TICKET_TRANSCRIPT_CHANNEL_ID,
     databaseUrl: process.env.DATABASE_URL,
     databaseSsl,
+    databaseSslVerify,
     versionAnnouncementIntervalMinutes,
     githubToken,
     interactionCooldownMs,

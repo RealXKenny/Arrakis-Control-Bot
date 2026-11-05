@@ -1,10 +1,12 @@
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client } from "discord.js";
 
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { containsText } from "../../../shared/discord/containsText";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
-const PANEL_MARKER = "## Arrakis Community Rules";
+const PANEL_MARKER = "## Community rules";
+const LEGACY_PANEL_MARKER = "## Arrakis Community Rules";
 const PANEL_IMAGE_NAME = "community-rules.png";
 
 const RULES_TEXT = [
@@ -31,8 +33,8 @@ const RULES_TEXT = [
 
 function buildRulesPanel(): ContainerBuilder {
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
-    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Arrakis community rules banner")))
+    .setAccentColor(PANEL_COLORS.accent)
+    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("community rules banner")))
     .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
     .addTextDisplayComponents((text) => text.setContent(RULES_TEXT));
 }
@@ -53,8 +55,8 @@ async function ensureRulesPanel(client: Client, channelId?: string | null): Prom
   }
 
   await publishPersistentPanel(client, channel, "rules", {
-    matches: (message) => containsText(message.components, PANEL_MARKER),
-    payload: { components: [buildRulesPanel()], files: [createDuneBanner({ artwork: "rules", filename: PANEL_IMAGE_NAME, title: "Rules", subtitle: "COMMUNITY GUIDELINES", detail: "RESPECT • PLAY FAIR • ENJOY ARRAKIS" })], flags: MessageFlags.IsComponentsV2 },
+    matches: (message) => containsText(message.components, PANEL_MARKER) || containsText(message.components, LEGACY_PANEL_MARKER),
+    payload: { components: [buildRulesPanel()], files: [createPanelBanner({ artwork: "rules", filename: PANEL_IMAGE_NAME, title: "Rules", subtitle: "Community guidelines", detail: "Respect • Play fair • Have fun" })], flags: MessageFlags.IsComponentsV2 },
   });
 }
 

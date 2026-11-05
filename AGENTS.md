@@ -19,8 +19,9 @@ npm run dev:watch                 # Run one source shard with automatic restarts
 npm run build                     # Clear dist and compile strict TypeScript
 npm test                          # Build and run the complete Vitest suite
 npm test -- --run <test-file>     # Build and run a focused test file
+npm run typecheck                 # Type-check without emitting output
 npm run lint                      # Run ESLint with type-aware rules
-npm audit --omit=dev              # Check production dependencies
+npm run audit:prod               # Check production dependencies (npm audit --omit=dev)
 git diff --check                  # Check whitespace and patch integrity
 ```
 
@@ -40,7 +41,7 @@ src/
 │   ├── groups/                           Top-level grouped command adapters
 │   ├── administration/operations/
 │   ├── community/{music,voice}/
-│   ├── economy/market/
+│   ├── economy/{leaderboard,market}/
 │   ├── general/{help,information}/
 │   ├── moderation/{members,messages}/
 │   ├── players/{actions,bulk,directory,equipment,inventory,items,progression,reset}/
@@ -57,6 +58,7 @@ src/
 ├── interaction-handlers/                 Sapphire InteractionHandler store
 │   ├── community/{onboarding,roles}/
 │   ├── help/navigation/
+│   ├── leaderboard/navigation/
 │   ├── market/navigation/
 │   ├── music/
 │   ├── players/{blueprints,linking}/
@@ -72,7 +74,7 @@ src/
 │   ├── help/
 │   ├── market/
 │   ├── music/
-│   ├── players/{administration,blueprints,directory,linking}/
+│   ├── players/{administration,blueprints,directory,leaderboard,linking}/
 │   ├── releases/
 │   ├── server/{backups,information,operations,status,usage}/
 │   ├── tickets/
@@ -178,6 +180,12 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Never edit `dist/`; it is recreated by `npm run build`.
 - Do not hand-edit `package-lock.json`. Change dependencies with npm so the manifest and lockfile remain synchronized.
 
+## Panel Visual Language
+
+- Use `PANEL_COLORS` and helpers from `shared/discord/panelStyle.ts`; never hard-code hex accent colors in panels. Keep headings sentence-case, prefer neutral wording, and avoid themed emoji.
+- Banners come from `createPanelBanner`/`createTicketSupportBanner` in `shared/discord/imageFactory.ts` over the backgrounds in `data/images/`. Regenerate those with `node scripts/generate-panel-artwork.mjs`, keeping filenames stable (the release workflow smoke-checks `panel-welcome.png`).
+- When renaming a persistent panel heading, keep the old heading as a legacy marker in the panel's `matches` callback.
+
 ## Discord Interaction Rules
 
 - Acknowledge every interaction exactly once with `reply`, `deferReply`, `deferUpdate`, or `showModal` before slow I/O.
@@ -224,6 +232,7 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Honeypot moderation lives in `modules/moderation/honeypot/`, configuration in `infrastructure/config/honeypot.ts`, and the thin gateway adapter in `listeners/discord/honeypotMessages.ts`. It is opt-in for one exact guild/channel, defaults to ban, fetches current member roles, exempts owners/staff/moderators, and logs deletion and sanction outcomes separately. Keep its message-ID cache bounded, never shorten existing timeouts, and exclude trap messages from XP and music replies. See `guides/honeypot.md`.
 
 - `/market` is read-only. Preserve decimal-string prices, convert its public one-based page to the API's zero-based page, and show lowest asking price plus configured Buyback guidance.
+- `/leaderboard` is a public, read-only Solari ranking in `modules/players/leaderboard/`. It pages `/api/players` (zero-based API pages), reads `/api/players/{playerId}/solaris-coin` with bounded concurrency, keeps balances as decimal strings compared with `BigInt`, and caches one shared snapshot for five minutes. Unreadable balances are counted, never ranked. Controls use the `leaderboard-page:` prefix and are requester-bound for 15 minutes.
 - `/help` catalogs every command once, uses public Components V2 output, binds controls to its requester, and expires sessions after 15 minutes.
 - Persistent panels must update recognized bot messages idempotently, avoid duplicate publication, and recover safely from deleted or partially published messages. Route history-based publishers through `modules/panels/persistentPanel.ts` and the shared-pool `PanelRepository`. Require PostgreSQL, use stable per-channel panel keys (one per message for multipart panels), import existing bot-authored history once with the 10,000-message bound, and fetch saved IDs with `force: true`. Recreate only on Discord error 10008; database/permission/network failures must never trigger a fresh post. Music/storm legacy duplicate cleanup runs only during import. Retain the existing voice, ticket archive, and application-review database IDs.
 - Server-information changes must preserve the complete supplied INI content and keep every message below the aggregate Components V2 display-text limit.
@@ -257,7 +266,7 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Do not use destructive Git commands (`reset --hard`, forced checkout, clean) unless the user explicitly requests them.
 - Never commit, tag, push, publish a release, or open a pull request unless the user asks.
 - Before a release, re-read the current version and changelog; do not reuse old test counts, commit IDs, tags, or release metadata.
-- `.github/workflows/ci.yml` verifies pushes and pull requests targeting `main`. A successful push to `main` triggers `.github/workflows/release.yml`; a new stable `package.json` version and matching non-empty `CHANGELOG.md` section create the GitHub release automatically.
+- `.github/workflows/ci.yml` verifies every pull request and pushes to `main`, running typecheck, lint, test, and audit on separate runners behind a single `verify` gate job. A successful push to `main` triggers `.github/workflows/release.yml`; a new stable `package.json` version and matching non-empty `CHANGELOG.md` section create the GitHub release automatically.
 - Only a new stable version release builds and smoke-checks the Docker image, then publishes `latest`, `v<version>`, and `sha-<full commit SHA>` to `ghcr.io/realxkenny/arrakis-control-bot` after successful `main` CI. The image runs from `/opt/arrakis`; a Pterodactyl egg must start it with `cd /opt/arrakis && exec node dist/src/index.js`.
 - Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The image must retain the `container` user, `/home/container` working directory, and entrypoint that executes Pterodactyl's `STARTUP` command.
 - Do not create a tag manually for an automatic release: an existing `v<version>` tag intentionally causes the release workflow to skip that version.

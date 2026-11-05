@@ -8,5 +8,3 @@ const BLUEPRINT_LIMITS = Object.freeze({
 } as const);
 
 export { BLUEPRINT_LIMITS };
-
-export type BlueprintLimits = typeof BLUEPRINT_LIMITS;

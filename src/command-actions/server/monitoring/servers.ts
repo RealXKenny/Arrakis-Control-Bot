@@ -4,11 +4,12 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const IMAGE_NAME = "dune-vps-servers.png";
-const ACCENT_COLOR = 0xc58b45;
-const ERROR_COLOR = 0x8f3025;
+const ACCENT_COLOR = PANEL_COLORS.accent;
+const ERROR_COLOR = PANEL_COLORS.danger;
 const MAX_SERVERS_DISPLAYED = 25;
 
 interface ServerRecord {
@@ -157,7 +158,7 @@ function createServersCard(servers: ServerRecord[]): ContainerBuilder {
   const card = new ContainerBuilder()
     .setAccentColor(ACCENT_COLOR)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`).setDescription("Advin VPS servers")))
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Advin VPS Servers"))
+    .addTextDisplayComponents((text) => text.setContent("## Advin VPS Servers"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${servers.length} server${servers.length === 1 ? "" : "s"} found`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(lines.join("\n\n"), 3_200)));
@@ -166,13 +167,13 @@ function createServersCard(servers: ServerRecord[]): ContainerBuilder {
     card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(`-# Showing ${MAX_SERVERS_DISPLAYED} of ${servers.length} servers.`));
   }
 
-  return card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent("-# Spice flows through Arrakis • Convoy Control"));
+  return card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent("-# Arrakis Control • Convoy"));
 }
 
 function createErrorCard(error: ErrorDetails): ContainerBuilder {
   return new ContainerBuilder()
     .setAccentColor(ERROR_COLOR)
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Advin VPS Servers"))
+    .addTextDisplayComponents((text) => text.setContent("## Advin VPS Servers"))
     .addTextDisplayComponents((text) => text.setContent("-# Convoy Control Panel"))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
@@ -182,7 +183,7 @@ function createErrorCard(error: ErrorDetails): ContainerBuilder {
           .join("\n"), 1_000)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent("-# Spice flows through Arrakis • Convoy Control"));
+    .addTextDisplayComponents((text) => text.setContent("-# Arrakis Control • Convoy"));
 }
 
 const command = {
@@ -203,12 +204,12 @@ const command = {
 
       const card = createServersCard(servers);
 
-      const banner = createDuneBanner({
+      const banner = createPanelBanner({
         artwork: "vps",
         filename: IMAGE_NAME,
         title: "Advin VPS",
         subtitle: `${servers.length} SERVER${servers.length === 1 ? "" : "S"}`,
-        detail: "CONVOY CONTROL PANEL",
+        detail: "Convoy control panel",
       });
 
       await interaction.editReply({

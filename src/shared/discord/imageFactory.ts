@@ -35,7 +35,7 @@ const PANEL_ARTWORK: Readonly<Record<PanelArtworkKey, string>> = Object.freeze({
 const artworkCache = new Map<PanelArtworkKey, Image>();
 const PANEL_ARTWORK_KEYS = Object.freeze(Object.keys(PANEL_ARTWORK) as PanelArtworkKey[]);
 
-interface DuneBannerOptions {
+interface PanelBannerOptions {
   artwork: PanelArtworkKey;
   filename: string;
   title: string;
@@ -55,36 +55,38 @@ interface TicketSupportBannerOptions {
   categories: readonly string[];
 }
 
-function drawDuneBanner(context: CanvasRenderingContext2D, width: number, height: number, { artwork, title, subtitle, detail }: Omit<DuneBannerOptions, "filename">): void {
+function drawPanelBanner(context: CanvasRenderingContext2D, width: number, height: number, { artwork, title, subtitle, detail }: Omit<PanelBannerOptions, "filename">): void {
   drawImageCover(context, panelArtwork(artwork), width, height);
   const shade = context.createLinearGradient(0, 0, width, 0);
-  shade.addColorStop(0, "rgba(5, 4, 3, 0.92)");
-  shade.addColorStop(0.52, "rgba(8, 5, 3, 0.72)");
-  shade.addColorStop(0.76, "rgba(8, 5, 3, 0.18)");
-  shade.addColorStop(1, "rgba(8, 5, 3, 0.04)");
+  shade.addColorStop(0, "rgba(8, 10, 20, 0.78)");
+  shade.addColorStop(0.5, "rgba(8, 10, 20, 0.5)");
+  shade.addColorStop(1, "rgba(8, 10, 20, 0)");
   context.fillStyle = shade;
   context.fillRect(0, 0, width, height);
 
-  context.fillStyle = "#f3d39b";
-  setFittedFont(context, title.toUpperCase(), 52, 30, 650, "bold");
-  context.fillText(title.toUpperCase(), 64, 110);
+  context.fillStyle = "#8f9bff";
+  context.fillRect(64, 92, 56, 5);
 
-  context.fillStyle = "#e6bd79";
-  const subtitleText = (subtitle ?? "ARRAKIS").toUpperCase();
+  context.fillStyle = "#ffffff";
+  setFittedFont(context, title, 54, 30, 650, "bold");
+  context.fillText(title, 64, 166);
+
+  context.fillStyle = "#c7cdff";
+  const subtitleText = subtitle ?? "Arrakis Control";
   setFittedFont(context, subtitleText, 26, 18, 650, "normal");
-  context.fillText(subtitleText, 67, 160);
+  context.fillText(subtitleText, 66, 214);
 
-  context.fillStyle = "#ead5ad";
-  const detailText = detail ?? "DUNE: AWAKENING";
+  context.fillStyle = "#98a2c8";
+  const detailText = detail ?? "Community toolkit";
   setFittedFont(context, detailText, 22, 16, 650, "normal");
-  context.fillText(detailText, 67, 235);
+  context.fillText(detailText, 66, 262);
 }
 
-function createDuneBanner({ artwork, filename, title, subtitle, detail }: DuneBannerOptions): AttachmentBuilder {
+function createPanelBanner({ artwork, filename, title, subtitle, detail }: PanelBannerOptions): AttachmentBuilder {
   const canvas = createCanvas(1200, 400);
   const context = canvas.getContext("2d");
 
-  drawDuneBanner(context, 1200, 400, {
+  drawPanelBanner(context, 1200, 400, {
     artwork,
     title,
     subtitle,
@@ -92,7 +94,7 @@ function createDuneBanner({ artwork, filename, title, subtitle, detail }: DuneBa
   });
 
   return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
-    .setDescription(`${title} — ${subtitle ?? "Arrakis Control"}. ${detail ?? "Dune: Awakening"}.`);
+    .setDescription(`${title} — ${subtitle ?? "Arrakis Control"}. ${detail ?? "Community toolkit"}.`);
 }
 
 function createTicketSupportBanner({ filename, categories }: TicketSupportBannerOptions): AttachmentBuilder {
@@ -102,52 +104,43 @@ function createTicketSupportBanner({ filename, categories }: TicketSupportBanner
   const context = canvas.getContext("2d");
   drawImageCover(context, panelArtwork("tickets"), width, height);
 
-  const glow = context.createRadialGradient(1130, 90, 5, 1130, 90, 330);
-  glow.addColorStop(0, "rgba(255, 211, 132, 0.44)");
-  glow.addColorStop(0.45, "rgba(197, 139, 69, 0.13)");
-  glow.addColorStop(1, "rgba(197, 139, 69, 0)");
-  context.fillStyle = glow;
-  context.fillRect(760, 0, 640, 420);
-
-  drawSupportDunes(context, width, height);
-
-  context.fillStyle = "rgba(8, 5, 3, 0.72)";
+  context.fillStyle = "rgba(8, 10, 20, 0.6)";
   context.fillRect(0, 0, 760, height);
-  context.fillStyle = "#d2a85a";
+  context.fillStyle = "#8f9bff";
   context.fillRect(70, 66, 72, 5);
 
-  context.fillStyle = "#d8b06b";
+  context.fillStyle = "#8f9bff";
   context.font = "bold 20px sans-serif";
   context.fillText("ARRAKIS CONTROL", 70, 112);
 
-  context.fillStyle = "#f7dfa9";
+  context.fillStyle = "#ffffff";
   context.font = "bold 64px sans-serif";
-  context.fillText("SUPPORT DESK", 66, 190);
+  context.fillText("Support Desk", 66, 190);
 
-  context.fillStyle = "#e6bd79";
+  context.fillStyle = "#c7cdff";
   context.font = "26px sans-serif";
-  context.fillText("PRIVATE HELP ACROSS THE IMPERIUM", 70, 238);
+  context.fillText("Private help from the staff team", 70, 238);
 
-  context.strokeStyle = "rgba(210, 168, 90, 0.65)";
+  context.strokeStyle = "rgba(143, 155, 255, 0.5)";
   context.lineWidth = 2;
   context.beginPath();
   context.moveTo(70, 274);
   context.lineTo(660, 274);
   context.stroke();
 
-  context.fillStyle = "#ead5ad";
+  context.fillStyle = "#e4e7ff";
   context.font = "24px sans-serif";
-  context.fillText("Choose a route. Share the details.", 70, 328);
-  context.fillText("Your staff team will meet you there.", 70, 366);
+  context.fillText("Choose a category and share the details.", 70, 328);
+  context.fillText("Staff will follow up in your private channel.", 70, 366);
 
-  context.fillStyle = "rgba(216, 176, 107, 0.86)";
+  context.fillStyle = "#98a2c8";
   context.font = "bold 18px sans-serif";
-  context.fillText("PRIVATE  •  TRACKED  •  TRANSCRIPT SAVED", 70, 448);
+  context.fillText("Private  •  Tracked  •  Transcript saved", 70, 448);
 
   drawCategoryCard(context, categories);
 
   return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
-    .setDescription("Arrakis Control support desk and available ticket routes.");
+    .setDescription("Arrakis Control support desk and available ticket categories.");
 }
 
 function drawCategoryCard(context: CanvasRenderingContext2D, categories: readonly string[]): void {
@@ -157,21 +150,21 @@ function drawCategoryCard(context: CanvasRenderingContext2D, categories: readonl
   const height = 430;
 
   roundedRect(context, x, y, width, height, 24);
-  context.fillStyle = "rgba(14, 9, 6, 0.78)";
+  context.fillStyle = "rgba(10, 13, 28, 0.78)";
   context.fill();
-  context.strokeStyle = "rgba(243, 211, 155, 0.28)";
+  context.strokeStyle = "rgba(143, 155, 255, 0.3)";
   context.lineWidth = 2;
   context.stroke();
 
-  context.fillStyle = "#f3d39b";
+  context.fillStyle = "#ffffff";
   context.font = "bold 25px sans-serif";
-  context.fillText("SUPPORT ROUTES", x + 34, y + 52);
+  context.fillText("Categories", x + 34, y + 52);
 
-  context.fillStyle = "#bd9761";
+  context.fillStyle = "#98a2c8";
   context.font = "19px sans-serif";
   context.fillText("Select the closest match in Discord", x + 34, y + 82);
 
-  // Dev note: Six routes fit the sign; route seven would need its own ornithopter.
+  // Dev note: Six categories fit the card; a seventh would need a scrollbar and a strongly worded RFC.
   categories.slice(0, 6).forEach((label, index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
@@ -179,44 +172,21 @@ function drawCategoryCard(context: CanvasRenderingContext2D, categories: readonl
     const itemY = y + 112 + row * 88;
 
     roundedRect(context, itemX, itemY, 214, 60, 12);
-    context.fillStyle = "rgba(197, 139, 69, 0.14)";
+    context.fillStyle = "rgba(91, 108, 255, 0.16)";
     context.fill();
-    context.strokeStyle = "rgba(210, 168, 90, 0.35)";
+    context.strokeStyle = "rgba(143, 155, 255, 0.35)";
     context.lineWidth = 1;
     context.stroke();
 
-    context.fillStyle = "#d2a85a";
+    context.fillStyle = "#8f9bff";
     context.beginPath();
     context.arc(itemX + 22, itemY + 30, 5, 0, Math.PI * 2);
     context.fill();
 
-    context.fillStyle = "#ead5ad";
+    context.fillStyle = "#e4e7ff";
     context.font = "bold 19px sans-serif";
     context.fillText(label, itemX + 38, itemY + 36, 162);
   });
-}
-
-function drawSupportDunes(context: CanvasRenderingContext2D, width: number, height: number): void {
-  const layers = [
-    { y: 420, amplitude: 34, color: "rgba(91, 47, 24, 0.82)", offset: 0 },
-    { y: 468, amplitude: 28, color: "rgba(145, 79, 38, 0.88)", offset: 180 },
-    { y: 514, amplitude: 20, color: "rgba(197, 139, 69, 0.76)", offset: 390 },
-  ];
-
-  for (const layer of layers) {
-    context.beginPath();
-    context.moveTo(0, height);
-    context.lineTo(0, layer.y);
-
-    for (let x = 0; x <= width; x += 24) {
-      context.lineTo(x, layer.y + Math.sin((x + layer.offset) / 150) * layer.amplitude);
-    }
-
-    context.lineTo(width, height);
-    context.closePath();
-    context.fillStyle = layer.color;
-    context.fill();
-  }
 }
 
 function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
@@ -239,11 +209,11 @@ async function createMemberBanner({ artwork, filename, title, member }: MemberBa
   const canvas = createCanvas(1200, 400);
   const context = canvas.getContext("2d");
 
-  drawDuneBanner(context, 1200, 400, {
+  drawPanelBanner(context, 1200, 400, {
     artwork,
     title,
     subtitle: member.user.tag,
-    detail: "DUNE: AWAKENING COMMUNITY",
+    detail: "Dune: Awakening community",
   });
 
   const avatar = await loadImage(
@@ -291,6 +261,6 @@ function setFittedFont(context: CanvasRenderingContext2D, text: string, start: n
   } while (size >= minimum && context.measureText(text).width > width);
 }
 
-export { PANEL_ARTWORK_KEYS, createDuneBanner, createMemberBanner, createTicketSupportBanner };
+export { PANEL_ARTWORK_KEYS, createPanelBanner, createMemberBanner, createTicketSupportBanner };
 
-export type { DuneBannerOptions, MemberBannerOptions, PanelArtworkKey, TicketSupportBannerOptions };
+export type { PanelBannerOptions, MemberBannerOptions, PanelArtworkKey, TicketSupportBannerOptions };

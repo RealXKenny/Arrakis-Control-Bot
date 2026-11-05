@@ -1,11 +1,13 @@
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, StringSelectMenuBuilder, type Client } from "discord.js";
 
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { CLEAR_ROLES_VALUE, getConfiguredRoleOptions } from "./selfAssignableRoles";
 import { containsText } from "../../../shared/discord/containsText";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
-const PANEL_MARKER = "## Choose Your Arrakis Roles";
+const PANEL_MARKER = "## Choose your roles";
+const LEGACY_PANEL_MARKER = "## Choose Your Arrakis Roles";
 const PANEL_IMAGE_NAME = "role-selection.png";
 
 async function ensureRolePanel(client: Client, channelId?: string | null): Promise<void> {
@@ -25,16 +27,16 @@ async function ensureRolePanel(client: Client, channelId?: string | null): Promi
 
   const roleContainer = buildRolePanel();
 
-  const banner = createDuneBanner({
+  const banner = createPanelBanner({
     artwork: "roles",
     filename: PANEL_IMAGE_NAME,
     title: "Choose Roles",
-    subtitle: "COMMUNITY ROLES",
-    detail: "PLAYSTYLE • FACTIONS • NOTIFICATIONS",
+    subtitle: "Community roles",
+    detail: "Playstyle • Factions • Notifications",
   });
 
   await publishPersistentPanel(client, channel, "roles", {
-    matches: (message) => containsText(message.components, PANEL_MARKER),
+    matches: (message) => containsText(message.components, PANEL_MARKER) || containsText(message.components, LEGACY_PANEL_MARKER),
     payload: { components: [roleContainer], files: [banner], flags: MessageFlags.IsComponentsV2 },
   });
 }
@@ -47,7 +49,7 @@ function buildRolePanel(): ContainerBuilder {
   }
 
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Arrakis role selection banner")))
     .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
     .addTextDisplayComponents((text) => text.setContent("Select your playstyle, faction, and notification roles below. Your selections are updated automatically."))

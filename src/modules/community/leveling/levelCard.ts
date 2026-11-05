@@ -37,7 +37,7 @@ async function createLevelRankCard({ user, displayName, profile, multiplier = 1 
 
   return new AttachmentBuilder(canvas.toBuffer("image/png"), {
     name: LEVEL_CARD_FILENAME,
-    description: `${safeDisplayName}'s Arrakis community level card`,
+    description: `${safeDisplayName}'s community level card`,
   });
 }
 
@@ -49,16 +49,16 @@ function loadLevelBackground(): Promise<Image> {
 
 function drawAtmosphere(context: CanvasRenderingContext2D): void {
   const shade = context.createLinearGradient(0, 0, CARD_WIDTH, 0);
-  shade.addColorStop(0, "rgba(8, 5, 3, 0.18)");
-  shade.addColorStop(0.3, "rgba(8, 5, 3, 0.38)");
-  shade.addColorStop(1, "rgba(8, 5, 3, 0.74)");
+  shade.addColorStop(0, "rgba(8, 10, 20, 0.18)");
+  shade.addColorStop(0.3, "rgba(8, 10, 20, 0.38)");
+  shade.addColorStop(1, "rgba(8, 10, 20, 0.74)");
   context.fillStyle = shade;
   context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 
   roundedRect(context, 318, 32, 840, 336, 24);
-  context.fillStyle = "rgba(13, 8, 5, 0.68)";
+  context.fillStyle = "rgba(10, 13, 28, 0.68)";
   context.fill();
-  context.strokeStyle = "rgba(243, 211, 155, 0.28)";
+  context.strokeStyle = "rgba(199, 205, 255, 0.28)";
   context.lineWidth = 2;
   context.stroke();
 }
@@ -79,20 +79,20 @@ async function drawAvatar(context: CanvasRenderingContext2D, user: User, display
   // Dev note: This circle follows the background's solar halo; even profile pictures need proper orbital alignment.
   context.beginPath();
   context.arc(AVATAR_CENTER_X, AVATAR_CENTER_Y, AVATAR_RING_RADIUS, 0, Math.PI * 2);
-  context.strokeStyle = "#f3d39b";
+  context.strokeStyle = "#e4e7ff";
   context.lineWidth = 4;
   context.stroke();
 }
 
 function drawAvatarFallback(context: CanvasRenderingContext2D, displayName: string, x: number, y: number, radius: number): void {
   const gradient = context.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
-  gradient.addColorStop(0, "#8f542c");
-  gradient.addColorStop(1, "#24130b");
+  gradient.addColorStop(0, "#3a44a0");
+  gradient.addColorStop(1, "#0b0e1c");
   context.beginPath();
   context.arc(x, y, radius, 0, Math.PI * 2);
   context.fillStyle = gradient;
   context.fill();
-  context.fillStyle = "#f7dfa9";
+  context.fillStyle = "#e4e7ff";
   context.font = "bold 58px sans-serif";
   context.textAlign = "center";
   context.textBaseline = "middle";
@@ -111,11 +111,11 @@ function drawProfile(context: CanvasRenderingContext2D, displayName: string, pro
   const required = Math.max(1, ceiling - floor);
   const progress = Math.min(1, earned / required);
 
-  context.fillStyle = "#d8b06b";
+  context.fillStyle = "#8f9bff";
   context.font = "bold 18px sans-serif";
   context.fillText("ARRAKIS CONTROL  •  COMMUNITY LEVEL", 356, 72);
 
-  context.fillStyle = "#fff1cc";
+  context.fillStyle = "#ffffff";
   setFittedFont(context, displayName, 48, 28, 760, "bold");
   context.fillText(displayName, 352, 126);
 
@@ -123,11 +123,11 @@ function drawProfile(context: CanvasRenderingContext2D, displayName: string, pro
   drawStat(context, 578, 150, 210, "SERVER RANK", profile.rank ? `#${profile.rank}` : "UNRANKED");
   drawStat(context, 804, 150, 310, "TOTAL XP", profile.xp.toLocaleString());
 
-  context.fillStyle = "#ead5ad";
+  context.fillStyle = "#c7cdff";
   context.font = "bold 18px sans-serif";
   context.fillText("PROGRESS TO NEXT LEVEL", 352, 282);
   context.textAlign = "right";
-  context.fillStyle = "#d8b06b";
+  context.fillStyle = "#8f9bff";
   context.fillText(`${earned.toLocaleString()} / ${required.toLocaleString()} XP`, 1_114, 282);
   context.textAlign = "start";
 
@@ -137,34 +137,34 @@ function drawProfile(context: CanvasRenderingContext2D, displayName: string, pro
   if (progress > 0) {
     roundedRect(context, 352, 298, Math.max(22, 762 * progress), 22, 11);
     const progressGradient = context.createLinearGradient(352, 0, 1_114, 0);
-    progressGradient.addColorStop(0, "#b96832");
-    progressGradient.addColorStop(0.55, "#e7ad55");
-    progressGradient.addColorStop(1, "#ffe3a0");
+    progressGradient.addColorStop(0, "#5b6cff");
+    progressGradient.addColorStop(0.55, "#8f9bff");
+    progressGradient.addColorStop(1, "#c7cdff");
     context.fillStyle = progressGradient;
     context.fill();
   }
 
-  context.fillStyle = "rgba(243, 211, 155, 0.82)";
+  context.fillStyle = "rgba(199, 205, 255, 0.82)";
   context.font = "16px sans-serif";
   const activity = `${formatCount(profile.messageCount, "message")}  •  ${formatCount(profile.voiceMinutes, "voice minute")}  •  ${multiplier}× XP`;
   context.fillText(activity, 352, 348);
   context.textAlign = "right";
   context.font = "italic 16px sans-serif";
-  context.fillText(tier?.name.toUpperCase() ?? (nextTier ? `NEXT ROLE: ${nextTier.name.toUpperCase()}` : "THE SPICE MUST FLOW"), 1_114, 348);
+  context.fillText(tier?.name.toUpperCase() ?? (nextTier ? `NEXT ROLE: ${nextTier.name.toUpperCase()}` : "KEEP CLIMBING"), 1_114, 348);
   context.textAlign = "start";
 }
 
 function drawStat(context: CanvasRenderingContext2D, x: number, y: number, width: number, label: string, value: string): void {
   roundedRect(context, x, y, width, 92, 14);
-  context.fillStyle = "rgba(197, 139, 69, 0.12)";
+  context.fillStyle = "rgba(91, 108, 255, 0.12)";
   context.fill();
-  context.strokeStyle = "rgba(216, 176, 107, 0.28)";
+  context.strokeStyle = "rgba(143, 155, 255, 0.28)";
   context.lineWidth = 1;
   context.stroke();
-  context.fillStyle = "#bd9761";
+  context.fillStyle = "#98a2c8";
   context.font = "bold 14px sans-serif";
   context.fillText(label, x + 18, y + 28);
-  context.fillStyle = "#f7dfa9";
+  context.fillStyle = "#e4e7ff";
   setFittedFont(context, value, 32, 20, width - 36, "bold");
   context.fillText(value, x + 18, y + 68);
 }
