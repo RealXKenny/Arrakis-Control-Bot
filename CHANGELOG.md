@@ -4,6 +4,14 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Add `/leaderboard`, a public, paginated Solari leaderboard. It ranks players from the Dune Console player directory and per-player `solaris-coin` totals, keeps balances as decimal strings, caches the ranking for five minutes, and binds First/Previous/Next/Last controls to the requester for 15 minutes. It is listed in `/help` under Community & World.
+
+### Verification
+
+- Unit tests cover parsing, BigInt-safe sorting, formatting, pagination, caching, failure paths, limits, and store/routing discovery. Live Console behavior was not verified.
+
 ## [1.11.7] - 2026-11-05
 
 ### Security

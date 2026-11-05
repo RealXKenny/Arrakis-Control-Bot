@@ -12,6 +12,7 @@ describe("Sapphire interaction routing", () => {
     expect(matchesCustomId("ticket-claiming:42", "ticket-claim", "ticket-claim:")).toBe(false);
     expect(isKnownComponentInteraction(fakeButton("ticket-review:42"))).toBe(true);
     expect(isKnownComponentInteraction(fakeButton("market-page:session:next"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeButton("leaderboard-page:session:next"))).toBe(true);
     expect(isKnownComponentInteraction(fakeButton("help-page:session:next"))).toBe(true);
     expect(isKnownComponentInteraction(fakeSelect("market-category:session"))).toBe(true);
     expect(isKnownComponentInteraction(fakeSelect("help-category:session"))).toBe(true);
