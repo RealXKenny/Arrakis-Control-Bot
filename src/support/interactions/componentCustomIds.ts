@@ -21,7 +21,7 @@ const BUTTON_IDS = [
   "bot-control:restart", "bot-control:restart-confirm", "bot-control:cancel",
   "staff-application:open",
 ] as const;
-const BUTTON_PREFIXES = ["voice-kick-page:", "voice-reset:", "voice-close:", "voice-cancel:", "help-page:", "market-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:", "staff-application:accept:", "staff-application:deny:"] as const;
+const BUTTON_PREFIXES = ["voice-kick-page:", "voice-reset:", "voice-close:", "voice-cancel:", "help-page:", "market-page:", "leaderboard-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:", "staff-application:accept:", "staff-application:deny:"] as const;
 const MENU_IDS = ["self-assignable-roles", "ticket-category"] as const;
 const MENU_PREFIXES = ["voice-member:", "help-category:", "market-category:"] as const;
 const MODAL_IDS = [

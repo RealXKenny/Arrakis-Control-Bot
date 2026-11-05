@@ -146,6 +146,10 @@ Users can also run `/storm` at any time to retrieve the current API-backed storm
 
 Configure `DATABASE_URL` and grant View Channel, Read Message History, Send Messages, Attach Files, and Embed Links in the destination. The first publication imports the oldest recognized bot storm panel and removes duplicate bot storm announcements; subsequent checks fetch its saved PostgreSQL message ID directly. Other messages are preserved. Initial discovery is limited to 10,000 messages and pauses publication if that limit is exceeded. Failed database access, reads, edits, or sends retry on the next minute. Only shard 0 publishes, and a database lock prevents concurrent panel publication across deployments sharing the same database. No role or everyone mentions are sent. Restart after changing configuration. Leaving `STORM_CHANNEL_ID` unset disables the feature.
 
+## Solari leaderboard command
+
+Users can run `/leaderboard` to see the wealthiest Dune players ranked by Solari (Solaris Coin). The bot pages the Dune Console player directory (`GET /api/players`, up to 2,000 players) and reads each balance from `GET /api/players/{playerId}/solaris-coin` with bounded concurrency, since the Console has no bulk balance endpoint. Balances are kept as decimal strings, sorted without precision loss, and shown ten per page with First, Previous, Next, and Last buttons. The optional one-based `page` argument sets the initial page. The ranking is cached process-locally for five minutes (simultaneous requests share one crawl), players whose balance cannot be read are counted as unavailable rather than ranked, and controls are bound to the requesting member and expire after 15 minutes. The output is public, and live Console behavior should be confirmed on a real server.
+
 ## CHOAM market command
 
 Users can run `/market` to browse active CHOAM Exchange sell orders grouped by item and grade. Results show each item's lowest asking price, total stock, listing count, and a recommended listing price calculated from the Market Bot's saved buyback percentage. The interactive panel provides an All Categories/category menu and First, Previous, Next, and Last page buttons. Optional `search`, `category`, `seller`, and `page` arguments set the initial view; `seller` defaults to all sellers. Controls are bound to the requesting member and expire after 15 minutes.
@@ -154,7 +158,7 @@ The command reads `GET /api/exchange/items` through the configured Dune Console 
 
 ## Interactive command help
 
-Run `/help` to open the public Arrakis Command Center. It catalogs all 87 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
+Run `/help` to open the public Arrakis Command Center. It catalogs all 89 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
 
 ## Owner server controls
 

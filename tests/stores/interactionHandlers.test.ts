@@ -99,6 +99,7 @@ describe("Sapphire interaction-handler store", () => {
         "help-page-button",
         "member-captcha-button",
         "market-page-button",
+        "leaderboard-page-button",
         "player-link-button",
         "player-unlink-button",
         "player-verify-button",
@@ -124,6 +125,6 @@ describe("Sapphire interaction-handler store", () => {
         "staff-application-modal",
       ]),
     );
-    expect(handlers).toHaveLength(34);
+    expect(handlers).toHaveLength(35);
   });
 });
