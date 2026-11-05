@@ -19,8 +19,9 @@ npm run dev:watch                 # Run one source shard with automatic restarts
 npm run build                     # Clear dist and compile strict TypeScript
 npm test                          # Build and run the complete Vitest suite
 npm test -- --run <test-file>     # Build and run a focused test file
+npm run typecheck                 # Type-check without emitting output
 npm run lint                      # Run ESLint with type-aware rules
-npm audit --omit=dev              # Check production dependencies
+npm run audit:prod               # Check production dependencies (npm audit --omit=dev)
 git diff --check                  # Check whitespace and patch integrity
 ```
 
@@ -257,7 +258,7 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Do not use destructive Git commands (`reset --hard`, forced checkout, clean) unless the user explicitly requests them.
 - Never commit, tag, push, publish a release, or open a pull request unless the user asks.
 - Before a release, re-read the current version and changelog; do not reuse old test counts, commit IDs, tags, or release metadata.
-- `.github/workflows/ci.yml` verifies pushes and pull requests targeting `main`. A successful push to `main` triggers `.github/workflows/release.yml`; a new stable `package.json` version and matching non-empty `CHANGELOG.md` section create the GitHub release automatically.
+- `.github/workflows/ci.yml` verifies every pull request and pushes to `main`, running typecheck, lint, test, and audit on separate runners behind a single `verify` gate job. A successful push to `main` triggers `.github/workflows/release.yml`; a new stable `package.json` version and matching non-empty `CHANGELOG.md` section create the GitHub release automatically.
 - Only a new stable version release builds and smoke-checks the Docker image, then publishes `latest`, `v<version>`, and `sha-<full commit SHA>` to `ghcr.io/realxkenny/arrakis-control-bot` after successful `main` CI. The image runs from `/opt/arrakis`; a Pterodactyl egg must start it with `cd /opt/arrakis && exec node dist/src/index.js`.
 - Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The image must retain the `container` user, `/home/container` working directory, and entrypoint that executes Pterodactyl's `STARTUP` command.
 - Do not create a tag manually for an automatic release: an existing `v<version>` tag intentionally causes the release workflow to skip that version.
