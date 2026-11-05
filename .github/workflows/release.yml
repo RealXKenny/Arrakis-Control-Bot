@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
+    # Only CI runs for main start this workflow, so pull request CI never queues a skipped release run.
+    branches: [main]
 
 permissions:
   contents: read
