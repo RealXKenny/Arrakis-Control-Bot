@@ -36,19 +36,19 @@ interface AchievementCardOptions extends AnnouncementBase {
 }
 
 async function createLevelUpCard(options: LevelUpCardOptions): Promise<AttachmentBuilder> {
-  const canvas = await createBaseCanvas("#e7ad55", LEVEL_UP_BACKGROUND);
+  const canvas = await createBaseCanvas("#8f9bff", LEVEL_UP_BACKGROUND);
   const context = canvas.getContext("2d");
   const name = cleanName(options.displayName, options.user.username);
-  await drawAvatar(context, options.user, name, 220, 200, 126, "#ffe4a8");
-  drawEyebrow(context, "THE SANDS RECOGNIZE YOU", "#d8b06b");
+  await drawAvatar(context, options.user, name, 220, 200, 126, "#c7cdff");
+  drawEyebrow(context, "LEVEL UP", "#8f9bff");
   drawName(context, name);
-  context.fillStyle = "#fff1cc";
+  context.fillStyle = "#ffffff";
   context.font = "bold 76px sans-serif";
   context.fillText(`LEVEL ${options.level}`, 410, 240);
-  context.fillStyle = "rgba(243, 211, 155, 0.88)";
+  context.fillStyle = "rgba(199, 205, 255, 0.88)";
   context.font = "22px sans-serif";
   context.fillText(`${options.profile.xp.toLocaleString()} TOTAL XP  •  THE JOURNEY CONTINUES`, 414, 292);
-  drawSeal(context, "▲", "ASCENDED", "#e7ad55");
+  drawSeal(context, "▲", "ASCENDED", "#8f9bff");
   return attachment(canvas.toBuffer("image/png"), LEVEL_UP_CARD_FILENAME, `${name} reached community level ${options.level}`);
 }
 
@@ -60,13 +60,13 @@ async function createAchievementCard(options: AchievementCardOptions): Promise<A
   await drawAvatar(context, options.user, name, 220, 200, 126, theme.accent);
   drawEyebrow(context, `${theme.icon}  ACHIEVEMENT UNLOCKED  •  ${options.achievement.tier.toUpperCase()}`, theme.accent);
   drawName(context, name);
-  context.fillStyle = "#fff4d7";
+  context.fillStyle = "#ffffff";
   fitFont(context, options.achievement.name, 58, 32, 610, "bold");
   context.fillText(options.achievement.name, 410, 234);
   context.fillStyle = theme.accent;
   context.font = "bold 20px sans-serif";
   context.fillText(achievementProgressLabel(options.achievement), 414, 278);
-  context.fillStyle = "rgba(255, 239, 207, 0.78)";
+  context.fillStyle = "rgba(228, 231, 255, 0.78)";
   context.font = "18px sans-serif";
   context.fillText(options.achievement.description, 414, 318);
   drawSeal(context, theme.icon, options.achievement.tier.toUpperCase(), theme.accent);
@@ -84,9 +84,9 @@ async function createBaseCanvas(accent: string, backgroundPath: string): Promise
   }
   drawImageCover(context, await backgroundPromise);
   const shade = context.createLinearGradient(0, 0, WIDTH, 0);
-  shade.addColorStop(0, "rgba(8, 5, 3, 0.30)");
-  shade.addColorStop(0.36, "rgba(8, 5, 3, 0.72)");
-  shade.addColorStop(1, "rgba(8, 5, 3, 0.92)");
+  shade.addColorStop(0, "rgba(8, 10, 20, 0.30)");
+  shade.addColorStop(0.36, "rgba(8, 10, 20, 0.72)");
+  shade.addColorStop(1, "rgba(8, 10, 20, 0.92)");
   context.fillStyle = shade;
   context.fillRect(0, 0, WIDTH, HEIGHT);
   context.strokeStyle = accent;
@@ -116,10 +116,10 @@ async function drawAvatar(context: CanvasRenderingContext2D, user: User, name: s
   } catch {
     const gradient = context.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
     gradient.addColorStop(0, accent);
-    gradient.addColorStop(1, "#211108");
+    gradient.addColorStop(1, "#0b0e1c");
     context.fillStyle = gradient;
     context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
-    context.fillStyle = "#fff1cc";
+    context.fillStyle = "#ffffff";
     context.font = "bold 64px sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
@@ -142,7 +142,7 @@ function drawEyebrow(context: CanvasRenderingContext2D, text: string, accent: st
 }
 
 function drawName(context: CanvasRenderingContext2D, name: string): void {
-  context.fillStyle = "rgba(255, 241, 204, 0.82)";
+  context.fillStyle = "rgba(228, 231, 255, 0.82)";
   fitFont(context, name, 34, 24, 610, "bold");
   context.fillText(name, 412, 142);
 }
@@ -150,7 +150,7 @@ function drawName(context: CanvasRenderingContext2D, name: string): void {
 function drawSeal(context: CanvasRenderingContext2D, icon: string, label: string, accent: string): void {
   context.beginPath();
   context.arc(1_070, 200, 76, 0, Math.PI * 2);
-  context.fillStyle = "rgba(12, 7, 4, 0.78)";
+  context.fillStyle = "rgba(10, 13, 28, 0.78)";
   context.fill();
   context.strokeStyle = accent;
   context.lineWidth = 4;
@@ -165,7 +165,7 @@ function drawSeal(context: CanvasRenderingContext2D, icon: string, label: string
 }
 
 function achievementTheme(kind: AchievementKind): { accent: string; icon: string } {
-  if (kind === "message") return { accent: "#d9823b", icon: "✦" };
+  if (kind === "message") return { accent: "#f5a524", icon: "✦" };
   if (kind === "voice") return { accent: "#66c7d5", icon: "◖" };
   return { accent: "#b48cff", icon: "▲" };
 }

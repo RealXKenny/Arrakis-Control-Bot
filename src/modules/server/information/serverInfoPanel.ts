@@ -1,9 +1,10 @@
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client, type MessageCreateOptions } from "discord.js";
 
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { containsText } from "../../../shared/discord/containsText";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const PANEL_MARKER = "# 🩸 CRIMSON SKIES";
 const PANEL_CONTINUATION_MARKER = "-# CRIMSON SKIES SERVER INFO PART 2";
@@ -26,7 +27,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
 
   const containers: ContainerBuilder[] = [
     new ContainerBuilder()
-      .setAccentColor(0xc58b45)
+      .setAccentColor(PANEL_COLORS.accent)
       .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Crimson Skies server information banner")))
       .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
       .addTextDisplayComponents((text) =>
@@ -36,7 +37,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
       ),
 
     new ContainerBuilder()
-      .setAccentColor(0xc58b45)
+      .setAccentColor(PANEL_COLORS.accent)
       .addTextDisplayComponents((text) => text.setContent("### ⚙️ CONFIGURATION 01 • GAME SETTINGS"))
       .addTextDisplayComponents((text) => text.setContent("**Path:** `%LOCALAPPDATA%\\DuneSandbox\\Saved\\Config\\Windows\\Game.ini`\n\nPress **Windows Key + R**, paste the path, open `Game.ini`, and add:"))
       .addTextDisplayComponents((text) =>
@@ -46,7 +47,7 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
       ),
 
     new ContainerBuilder()
-      .setAccentColor(0xc58b45)
+      .setAccentColor(PANEL_COLORS.accent)
       .addTextDisplayComponents((text) => text.setContent(PANEL_CONTINUATION_MARKER))
       .addTextDisplayComponents((text) => text.setContent("### ⚙️ CONFIGURATION 01 • GAME SETTINGS CONTINUED"))
       .addTextDisplayComponents((text) =>
@@ -56,13 +57,13 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
       ),
 
     new ContainerBuilder()
-      .setAccentColor(0xc58b45)
-      .addTextDisplayComponents((text) => text.setContent("### 🏜️ CONFIGURATION 02 • ENGINE SETTINGS"))
+      .setAccentColor(PANEL_COLORS.accent)
+      .addTextDisplayComponents((text) => text.setContent("### CONFIGURATION 02 • ENGINE SETTINGS"))
       .addTextDisplayComponents((text) => text.setContent("**Path:** `%LOCALAPPDATA%\\DuneSandbox\\Saved\\Config\\Windows\\Engine.ini`\n\nOpen `Engine.ini` and add:"))
       .addTextDisplayComponents((text) => text.setContent("```ini\n[ConsoleVariables]\nVehicle.MaxVehiclesPerPlayer=50\n```")),
 
     new ContainerBuilder()
-      .setAccentColor(0xc58b45)
+      .setAccentColor(PANEL_COLORS.accent)
       .addTextDisplayComponents((text) =>
         text.setContent(
           "### ✅ FINAL CHECK\n\n☑️ The game was closed while editing.\n☑️ Both files contain the correct configuration.\n☑️ Settings were added to the bottom of each file.\n☑️ Both files were saved before launching.\n\n🏜️ **Crimson Skies** • PvE • Guilds & Alliances • Trading & Economy • Guides & Builds\n\n*Walk without rhythm.*",
@@ -70,12 +71,12 @@ async function ensureServerInfoPanel(client: Client, channelId?: string | null):
       ),
   ];
 
-  const banner = createDuneBanner({
+  const banner = createPanelBanner({
     artwork: "server-info",
     filename: PANEL_IMAGE_NAME,
     title: "Crimson Skies",
-    subtitle: "SERVER INFORMATION",
-    detail: "DUNE: AWAKENING COMMUNITY",
+    subtitle: "Server information",
+    detail: "Dune: Awakening community",
   });
 
   const bannerName = banner.name ?? PANEL_IMAGE_NAME;

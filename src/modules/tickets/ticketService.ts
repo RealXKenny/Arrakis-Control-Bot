@@ -20,6 +20,7 @@ import { createActorContext } from "../../shared/actors/createActorContext";
 import { getConfiguredStaffRoleIds, hasStaffRole } from "../../support/access/staffAccess";
 import { truncateDiscordText } from "../../shared/discord/discordLimits";
 import { publishTicketArchive } from "./ticketArchive";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const logger = createLogger("TICKETS");
 const MAX_TRANSCRIPT_MESSAGES = 10_000;
@@ -157,7 +158,7 @@ async function sendClosureDm(ticketChannel: TextChannel, ticket: TicketRecord, t
     const recipient = await ticketChannel.client.users.fetch(ticket.openerId);
     const closedAt = ticket.closedAt?.toISOString() ?? new Date().toISOString();
     const summary = new ContainerBuilder()
-      .setAccentColor(0xc58b45)
+      .setAccentColor(PANEL_COLORS.accent)
       .addTextDisplayComponents((text) => text.setContent(`## Ticket #${ticket.id} has been closed`))
       .addTextDisplayComponents((text) =>
         text.setContent(
@@ -216,7 +217,7 @@ async function fetchTicketMessages(channel: TextChannel): Promise<{ messages: Me
 function buildTicketTranscript(ticket: TicketRecord, closedBy: GuildMember, messages: Message[], messageLimitReached = false): string {
   const duneAccount = ticket.duneAccount;
   const header = [
-    `ARRAKIS SUPPORT TICKET #${ticket.id}`,
+    `SUPPORT TICKET #${ticket.id}`,
     `Guild ID: ${ticket.guildId}`,
     `Channel ID: ${ticket.channelId ?? "Unavailable"}`,
     `Opened by: ${ticket.openerId}`,
@@ -318,7 +319,7 @@ function buildPermissionOverwrites(guild: Guild, openerId: string, botId: string
 
 function buildTicketCard(ticket: TicketRecord): ContainerBuilder {
   const card = new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`## Ticket #${ticket.id}: ${escapeDiscordText(ticket.subject)}`, 250)))
     .addTextDisplayComponents((text) => text.setContent(`<@${ticket.openerId}> opened this ticket. Staff will respond here as soon as possible.`))
     .addTextDisplayComponents((text) =>

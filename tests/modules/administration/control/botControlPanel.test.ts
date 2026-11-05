@@ -11,7 +11,7 @@ describe("bot control panel", () => {
     for (const action of ["status", "refresh-panels", "reload", "resync", "restart"]) {
       expect(json).toContain(`bot-control:${action}`);
     }
-    expect(json).toContain("Arrakis Control Center");
+    expect(json).toContain("Bot control center");
   });
 
   it("limits controls to the guild owner or configured Owner role", () => {

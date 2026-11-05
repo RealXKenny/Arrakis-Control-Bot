@@ -14,14 +14,15 @@ import {
 import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { countPages, formatLeaderboardPage, getSolariSnapshot, type SolariSnapshot } from "./solariLeaderboard";
 import type { LeaderboardSession } from "./solariLeaderboardSessions";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const PAGE_SIZE = 10;
 const IMAGE_NAME = "solari-leaderboard.png";
-const ACCENT_COLOR = 0xc58b45;
-const ERROR_COLOR = 0x8f3025;
+const ACCENT_COLOR = PANEL_COLORS.accent;
+const ERROR_COLOR = PANEL_COLORS.danger;
 const TITLE = "## 💰 Solari Leaderboard";
 
 type LeaderboardInteraction = ChatInputCommandInteraction | ButtonInteraction;
@@ -77,12 +78,12 @@ async function renderSolariLeaderboard(interaction: LeaderboardInteraction, sess
     const card = createLeaderboardCard(formatLeaderboardPage(snapshot.entries, session.page, PAGE_SIZE), summarize(snapshot, session), session);
 
     if (includeBanner) {
-      const banner = createDuneBanner({
+      const banner = createPanelBanner({
         artwork: "market",
         filename: IMAGE_NAME,
         title: "Solari Leaderboard",
         subtitle: `${snapshot.entries.length.toLocaleString()} PLAYER${snapshot.entries.length === 1 ? "" : "S"} RANKED`,
-        detail: "WEALTH OF ARRAKIS",
+        detail: "Top Solari balances",
       });
 
       await interaction.editReply({ ...createV2Response([card], [banner]), allowedMentions: { parse: [] } });

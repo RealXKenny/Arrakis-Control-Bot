@@ -2,6 +2,7 @@ import { ContainerBuilder, escapeMarkdown } from "discord.js";
 import type { LevelProfile } from "../../../infrastructure/database/leveling/LevelRepository";
 import { ACHIEVEMENTS, type AchievementKind, type LevelAchievement } from "./achievements";
 import { levelForXp } from "./levelProgress";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const CATEGORIES: readonly { kind: AchievementKind; title: string; unit: string }[] = [
   { kind: "message", title: "King of Spam", unit: "rewarded messages" },
@@ -16,9 +17,9 @@ function achievementPanel(displayName: string, profile: LevelProfile, unlockedId
     voice: profile.voiceMinutes,
     level: levelForXp(profile.xp),
   };
-  const name = escapeMarkdown(displayName.replace(/[\r\n]/g, " ").trim().slice(0, 80) || "Traveler");
+  const name = escapeMarkdown(displayName.replace(/[\r\n]/g, " ").trim().slice(0, 80) || "Member");
   const card = new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addTextDisplayComponents((text) => text.setContent(`## 🏆 ${name}'s Achievements`))
     .addTextDisplayComponents((text) => text.setContent(`${ACHIEVEMENTS.filter((achievement) => unlocked.has(achievement.id)).length} of ${ACHIEVEMENTS.length} unlocked`));
 

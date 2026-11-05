@@ -6,6 +6,7 @@ import { scopedLogger } from "../../../client/logger";
 import type { HttpMethod } from "../../../infrastructure/http/dune-console/DuneConsoleClient";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 type OptionKind = "string" | "integer" | "number" | "boolean" | "json-array" | "json-object";
 
@@ -125,7 +126,7 @@ function formatPlayerAdminResponse(value: unknown): string {
 }
 
 function resultCard(title: string, detail: string, success: boolean): ContainerBuilder {
-  return new ContainerBuilder().setAccentColor(success ? 0x4f8f5b : 0x8f3025)
+  return new ContainerBuilder().setAccentColor(success ? PANEL_COLORS.success : PANEL_COLORS.danger)
     .addTextDisplayComponents((text) => text.setContent(`## ${title}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(detail, 3_200)));

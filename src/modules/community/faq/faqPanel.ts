@@ -1,11 +1,12 @@
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client } from "discord.js";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { containsText } from "../../../shared/discord/containsText";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const PANEL_MARKER = "# ❓・CRIMSON SKIES FAQ";
 const PANEL_IMAGE_NAME = "crimson-skies-faq.png";
-const ACCENT_COLOR = 0xc58b45;
+const ACCENT_COLOR = PANEL_COLORS.accent;
 
 function section(title: string, body: string): ContainerBuilder {
   return new ContainerBuilder()
@@ -57,7 +58,7 @@ async function ensureFaqPanel(client: Client, channelId?: string | null): Promis
   const channel = await client.channels.fetch(channelId);
   if (!channel?.isSendable()) throw new Error(`FAQ panel channel ${channelId} is not a sendable channel.`);
 
-  const banner = createDuneBanner({ artwork: "faq", filename: PANEL_IMAGE_NAME, title: "Crimson Skies", subtitle: "COMMUNITY FAQ", detail: "EXPLORE • BUILD • TRADE • SURVIVE" });
+  const banner = createPanelBanner({ artwork: "faq", filename: PANEL_IMAGE_NAME, title: "Crimson Skies", subtitle: "Community FAQ", detail: "Explore • Build • Trade • Survive" });
   const components = buildFaqPanel();
   const files = [{ attachment: banner.attachment, name: PANEL_IMAGE_NAME, description: banner.description ?? undefined }];
   await publishPersistentPanel(client, channel, "faq", {

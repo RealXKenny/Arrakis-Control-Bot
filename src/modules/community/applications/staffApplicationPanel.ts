@@ -1,17 +1,18 @@
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client } from "discord.js";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { containsText } from "../../../shared/discord/containsText";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const PANEL_MARKER = "## Join the Crimson Skies staff";
 const PANEL_IMAGE_NAME = "arrakis-staff-applications.png";
 
 function buildStaffApplicationPanel(): ContainerBuilder {
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Crimson Skies staff application banner")))
     .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
-    .addTextDisplayComponents((text) => text.setContent("Help guide the community through the storms of Arrakis. Applications are reviewed privately by the leadership team."))
+    .addTextDisplayComponents((text) => text.setContent("Help shape the community by joining the staff team. Applications are reviewed privately by the leadership team."))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent("**Before applying**\n• Answer every question honestly and with useful detail.\n• One application may be pending at a time.\n• Decisions and feedback are delivered privately."))
     .addActionRowComponents((row) => row.setComponents(new ButtonBuilder().setCustomId("staff-application:open").setLabel("Apply for Staff").setEmoji("📜").setStyle(ButtonStyle.Primary)));
@@ -23,7 +24,7 @@ async function ensureStaffApplicationPanel(client: Client): Promise<void> {
   const channel = await client.channels.fetch(service.config.panelChannelId);
   if (!channel || !channel.isSendable()) throw new Error(`Staff application panel channel ${service.config.panelChannelId} is not sendable.`);
   const components = [buildStaffApplicationPanel()];
-  const files = [createDuneBanner({ artwork: "staff-application", filename: PANEL_IMAGE_NAME, title: "Answer the call", subtitle: "Crimson Skies staff", detail: "Serve the sietch. Guide the community." })];
+  const files = [createPanelBanner({ artwork: "staff-application", filename: PANEL_IMAGE_NAME, title: "Answer the call", subtitle: "Crimson Skies staff", detail: "Help guide the community." })];
   await publishPersistentPanel(client, channel, "staff-applications", {
     matches: (message) => containsText(message.components, PANEL_MARKER),
     payload: { components, files, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } },

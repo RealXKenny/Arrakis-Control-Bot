@@ -5,6 +5,7 @@ import { createActorContext } from "../../../shared/actors/createActorContext";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { matchesCustomId } from "../../../support/interactions/componentCustomIds";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const handler = {
   customId: "player-link",
@@ -25,7 +26,7 @@ const handler = {
       const unlinkButton = new ButtonBuilder().setCustomId("player-unlink").setLabel("Unlink Account").setStyle(ButtonStyle.Danger);
 
       const card = new ContainerBuilder()
-        .setAccentColor(0xd2a85a)
+        .setAccentColor(PANEL_COLORS.accent)
         .addTextDisplayComponents((text) => text.setContent("## Account already linked"))
         .addTextDisplayComponents((text) => text.setContent(`Your Discord account is already linked to **${characterName}**. ` + "Unlink it below if you want to connect a different character."))
         .addActionRowComponents((row) => row.setComponents(unlinkButton));

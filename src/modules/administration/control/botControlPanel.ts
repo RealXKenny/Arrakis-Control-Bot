@@ -12,9 +12,11 @@ import {
 } from "discord.js";
 
 import { containsText } from "../../../shared/discord/containsText";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
-const PANEL_MARKER = "# Arrakis Control Center";
+const PANEL_MARKER = "# Bot control center";
+const LEGACY_PANEL_MARKER = "# Arrakis Control Center";
 const PANEL_IMAGE_NAME = "arrakis-bot-control.png";
 
 function buildBotControlPanel(client: Client): ContainerBuilder {
@@ -30,7 +32,7 @@ function buildBotControlPanel(client: Client): ContainerBuilder {
     new ButtonBuilder().setCustomId(`bot-control:${id}`).setLabel(label).setStyle(style);
 
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder()
       .setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Arrakis Control secure bot operations center")))
     .addTextDisplayComponents((text) => text.setContent(PANEL_MARKER))
@@ -50,12 +52,12 @@ function buildBotControlPanel(client: Client): ContainerBuilder {
 }
 
 function botControlPayload(client: Client): MessageCreateOptions {
-  const banner = createDuneBanner({
+  const banner = createPanelBanner({
     artwork: "bot-control",
     filename: PANEL_IMAGE_NAME,
     title: "Bot Control",
-    subtitle: "SECURE OPERATIONS",
-    detail: "MONITOR • REFRESH • RESYNC • RESTART",
+    subtitle: "Secure operations",
+    detail: "Monitor • Refresh • Resync • Restart",
   });
 
   return {
@@ -77,7 +79,7 @@ async function ensureBotControlPanel(client: Client, channelId?: string | null):
 
   const payload = botControlPayload(client);
   await publishPersistentPanel(client, channel, "bot-control", {
-    matches: (message) => containsText(message.components, PANEL_MARKER), payload,
+    matches: (message) => containsText(message.components, PANEL_MARKER) || containsText(message.components, LEGACY_PANEL_MARKER), payload,
   });
 }
 

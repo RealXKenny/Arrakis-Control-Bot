@@ -1,8 +1,9 @@
 import { ChatInputCommandInteraction, ContainerBuilder, SlashCommandBuilder } from "discord.js";
 import { createV2Response } from "../../../shared/discord/componentFactory";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 
-const ACCENT_COLOR = 0xc58b45;
+const ACCENT_COLOR = PANEL_COLORS.accent;
 
 const formatDiscordTimestamp = (date: Date | null | undefined, fallback = "Not available"): string => (date ? `<t:${Math.floor(date.getTime() / 1000)}:F>` : fallback);
 

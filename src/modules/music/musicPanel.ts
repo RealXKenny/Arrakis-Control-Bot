@@ -1,6 +1,7 @@
 import { publishPersistentPanel } from "../panels/persistentPanel";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, type Client } from "discord.js";
-import { createDuneBanner } from "../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 export const MUSIC_BUTTON_ACTIONS = ["request", "now", "queue", "lyrics", "pause", "resume", "skip", "volume", "clear", "stop"] as const;
 
@@ -8,7 +9,7 @@ export function musicPanel(voiceChannelId: string) {
   const button = (action: typeof MUSIC_BUTTON_ACTIONS[number], label: string, style = ButtonStyle.Secondary) =>
     new ButtonBuilder().setCustomId(`music:${action}`).setLabel(label).setStyle(style);
   const filename = "music-lounge.png";
-  const panel = new ContainerBuilder().setAccentColor(0xc58b45)
+  const panel = new ContainerBuilder().setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder()
       .setURL(`attachment://${filename}`).setDescription("Arrakis Control — Music Lounge")))
     .addTextDisplayComponents((text) => text.setContent(`## The soundtrack to your next expedition\nJoin <#${voiceChannelId}>, pick a song, and settle in. Request a track below or type a song name or supported link in this channel.`))
@@ -22,7 +23,7 @@ export function musicPanel(voiceChannelId: string) {
     .addTextDisplayComponents((text) => text.setContent("### ✦ Manage the queue\nOwner role only: clear upcoming requests or stop requested playback and return to waiting music. Both buttons ask for confirmation; the bot stays in voice."))
     .addActionRowComponents((row) => row.addComponents(button("clear", "Clear Queue"), button("stop", "Return to Waiting Music", ButtonStyle.Danger)))
     .addTextDisplayComponents((text) => text.setContent("-# Everyone can view the queue. Listeners can request songs; skip, pause, resume and volume belong to the current requester. Leaving the lounge removes only your requested songs, including one playing now. Clear Queue and Return to Waiting Music require the configured Owner role. Playback controls require voice membership. Responses are private."));
-  return { components: [panel], files: [createDuneBanner({ artwork: "music", filename, title: "Music Lounge", subtitle: "ARRAKIS CONTROL", detail: "YOUR CREW. YOUR SOUNDTRACK." })],
+  return { components: [panel], files: [createPanelBanner({ artwork: "music", filename, title: "Music Lounge", subtitle: "Arrakis Control", detail: "Your crew. Your soundtrack." })],
     flags: MessageFlags.IsComponentsV2 as const, allowedMentions: { parse: [] as never[] } };
 }
 

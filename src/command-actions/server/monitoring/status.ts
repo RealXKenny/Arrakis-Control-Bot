@@ -3,18 +3,19 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 
 import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+import { PANEL_COLORS, PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
 
 const IMAGE_NAME = "dune-server-status.png";
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
 
 const COLORS = {
-  success: 0xc58b45,
-  error: 0x8f3025,
+  success: PANEL_COLORS.accent,
+  error: PANEL_COLORS.danger,
 } as const;
 
-const DUNE_COLORS = [0xc58b45, 0xd2a85a, 0xa96832, 0x8f542c, 0x70452c, 0xb87333, 0x9c6b3c] as const;
+const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
 
 interface GameServer {
   map: string;
@@ -152,7 +153,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     const healthy = statusData.overall === "READY" && readinessData.failed === 0;
 
-    const accentColor = healthy ? getRandomDuneColor() : COLORS.error;
+    const accentColor = healthy ? getRandomAccentColor() : COLORS.error;
 
     const banner = createStatusBanner({
       serverName,
@@ -220,7 +221,7 @@ function createStatusCard({
   const card = new ContainerBuilder()
     .setAccentColor(accentColor)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`).setDescription("Arrakis server operational status")))
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Status"))
+    .addTextDisplayComponents((text) => text.setContent("## Dune Server Status"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`));
 
   addSection(card, [
@@ -287,7 +288,7 @@ function createStatusCard({
     `**Gateway DB monitoring:** ${status.funcom.gatewayDb || "UNKNOWN"}`,
   ]);
 
-  card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Spice flows through Arrakis • Requested by ${requester}`, 180, "…")));
+  card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Arrakis Control • Requested by ${requester}`, 180, "…")));
 
   return card;
 }
@@ -295,12 +296,12 @@ function createStatusCard({
 function createErrorCard(serverName: string, requester: string): ContainerBuilder {
   return new ContainerBuilder()
     .setAccentColor(COLORS.error)
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Status"))
+    .addTextDisplayComponents((text) => text.setContent("## Dune Server Status"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(["### 🔴 Server Status Unavailable", "The Arrakis server status could not be retrieved.", "Please try again later."].join("\n")))
+    .addTextDisplayComponents((text) => text.setContent(["### 🔴 Server Status Unavailable", "The server status could not be retrieved.", "Please try again later."].join("\n")))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Spice flows through Arrakis • Requested by ${requester}`, 180, "…")));
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Arrakis Control • Requested by ${requester}`, 180, "…")));
 }
 
 function addSection(card: ContainerBuilder, lines: string[]): void {
@@ -597,17 +598,17 @@ function formatBytes(bytes: number | undefined): string {
 }
 
 function createStatusBanner({ serverName, healthy, overall, population, region }: { serverName: string; healthy: boolean; overall: string; population: string; region: string }) {
-  return createDuneBanner({
+  return createPanelBanner({
     artwork: "server-status",
     filename: IMAGE_NAME,
     title: healthy ? "Server Ready" : "Server Alert",
     subtitle: `${overall || "UNKNOWN"} • ${population || "0/0"}`,
-    detail: `${serverName} • ${region || "ARRAKIS"}`,
+    detail: `${serverName} • ${region || "Online"}`,
   });
 }
 
-function getRandomDuneColor(): number {
-  return DUNE_COLORS[Math.floor(Math.random() * DUNE_COLORS.length)];
+function getRandomAccentColor(): number {
+  return ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)];
 }
 
 function getSection(stdout: string, regex: RegExp): string {

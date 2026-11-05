@@ -1,5 +1,6 @@
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize } from "discord.js";
-import { createDuneBanner } from "../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 export const VOICE_BUTTON_ACTIONS = ["rename", "limit", "lock", "unlock", "hide", "show", "permit", "reject", "kick", "delete", "info", "reset"] as const;
 type VoiceButtonAction = typeof VOICE_BUTTON_ACTIONS[number];
@@ -27,8 +28,8 @@ function button(action: VoiceButtonAction): ButtonBuilder {
 export function voicePanel(joinChannelId?: string) {
   const joinChannel = joinChannelId ? `<#${joinChannelId}>` : "the **Join to Create** channel";
   const filename = "voice-lounge.png";
-  const banner = createDuneBanner({ artwork: "voice", filename, title: "Voice Lounge", subtitle: "ARRAKIS CONTROL", detail: "YOUR ROOM. YOUR CREW." });
-  const panel = new ContainerBuilder().setAccentColor(0xc58b45)
+  const banner = createPanelBanner({ artwork: "voice", filename, title: "Voice Lounge", subtitle: "Arrakis Control", detail: "Your room. Your crew." });
+  const panel = new ContainerBuilder().setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder()
       .setURL(`attachment://${filename}`).setDescription("Arrakis Control — Voice Lounge")))
     .addTextDisplayComponents((text) => text.setContent("## Make room for your crew\nA place to plan your next expedition or just hang out."))

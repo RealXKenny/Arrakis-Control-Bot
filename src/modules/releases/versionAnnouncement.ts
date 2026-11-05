@@ -3,9 +3,10 @@ import type { ReleaseAnnouncementChannel } from "../../infrastructure/database/r
 import { isPrimaryShard } from "../../shared/process/shardIdentity";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type SendableChannels } from "discord.js";
 
-import { createDuneBanner } from "../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../shared/discord/imageFactory";
 import { DISCORD_LIMITS, sanitizeAttachmentName, truncateDiscordText } from "../../shared/discord/discordLimits";
 import { createLogger } from "../../client/logger";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const RELEASE_PROJECTS = [
   { name: "Bot", repo: "RealXKenny/Arrakis-Control-Bot" },
@@ -14,7 +15,7 @@ const RELEASE_PROJECTS = [
 type ReleaseProject = (typeof RELEASE_PROJECTS)[number];
 
 const RELEASE_MARKER_REGEX = /^## Arrakis Control(?: Bot| Dashboard)? v\S+/m;
-const ANNOUNCEMENT_COLOR = 0xc58b45;
+const ANNOUNCEMENT_COLOR = PANEL_COLORS.accent;
 const HISTORY_PAGE_SIZE = 100;
 const DISPLAYABLE_TEXT_SAFETY_MARGIN = 200;
 const MAX_RELEASE_SUMMARY_TEXT = 500;
@@ -152,12 +153,12 @@ async function importExistingAnnouncements(client: Client, channel: SendableChan
 
 function releasePayload(release: Release, marker: string) {
   const filename = sanitizeAttachmentName(`arrakis-control-${release.version}.png`, "arrakis-control-release.png");
-  const banner = createDuneBanner({
+  const banner = createPanelBanner({
     artwork: "release",
     filename,
     title: `${release.project.name} v${release.version}`,
-    subtitle: "RELEASE ANNOUNCEMENT",
-    detail: "ARRAKIS CONTROL",
+    subtitle: "Release announcement",
+    detail: "Release notes",
   });
   return {
     components: [buildReleaseCard(release, marker)],
