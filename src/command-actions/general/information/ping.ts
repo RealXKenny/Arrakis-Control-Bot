@@ -1,13 +1,14 @@
 import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, SlashCommandBuilder } from "discord.js";
 
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { createV2Response } from "../../../shared/discord/componentFactory";
+import { PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
 
-const DUNE_COLORS = [0xc58b45, 0xd2a85a, 0xa96832, 0x8f542c, 0x70452c, 0xb87333, 0x9c6b3c] as const;
+const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
 
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
 
-const getRandomDuneColor = (): number => DUNE_COLORS[Math.floor(Math.random() * DUNE_COLORS.length)];
+const getRandomAccentColor = (): number => ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)];
 
 const formatPing = (ping: number): string => (ping >= 0 ? `${ping}ms` : "Measuring...");
 
@@ -19,7 +20,7 @@ const command = {
 
     const serverName = process.env.SERVER_NAME ?? DEFAULT_SERVER_NAME;
 
-    const accentColor = getRandomDuneColor();
+    const accentColor = getRandomAccentColor();
 
     const sent = await interaction.reply({
       components: [
@@ -39,11 +40,11 @@ const command = {
 
     const websocketPing = formatPing(client.ws.ping);
 
-    const banner = createDuneBanner({
+    const banner = createPanelBanner({
       artwork: "ping",
       filename: "dune-server-ping.png",
       title: "Pong",
-      subtitle: "LATENCY CHECK",
+      subtitle: "Latency check",
       detail: serverName,
     });
 
@@ -62,7 +63,7 @@ const command = {
 
       .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
 
-      .addTextDisplayComponents((text) => text.setContent(`-# Spice flows through Arrakis • Requested by ${interaction.user.tag}`));
+      .addTextDisplayComponents((text) => text.setContent(`-# Arrakis Control • Requested by ${interaction.user.tag}`));
 
     await interaction.editReply({
       ...createV2Response([pingCard], [banner]),

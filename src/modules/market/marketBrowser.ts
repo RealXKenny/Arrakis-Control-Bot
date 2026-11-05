@@ -16,17 +16,18 @@ import {
 } from "discord.js";
 
 import { createV2Response } from "../../shared/discord/componentFactory";
-import { createDuneBanner } from "../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../shared/discord/discordLimits";
 import { formatMarketRows, parseBuybackPercent, parseMarketPage } from "./marketFormatter";
 import type { MarketSession } from "./marketSessions";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const PAGE_SIZE = 10;
 const IMAGE_NAME = "choam-market.png";
 const ALL_CATEGORIES = "__all__";
 const MAX_CATEGORY_OPTIONS = 24;
-const ACCENT_COLOR = 0xc58b45;
-const ERROR_COLOR = 0x8f3025;
+const ACCENT_COLOR = PANEL_COLORS.accent;
+const ERROR_COLOR = PANEL_COLORS.danger;
 
 type MarketInteraction = ChatInputCommandInteraction | ButtonInteraction | StringSelectMenuInteraction;
 
@@ -119,12 +120,12 @@ async function renderMarketBrowser(interaction: MarketInteraction, session: Mark
     const card = createMarketCard(formatMarketRows(market.rows, session.buybackPercent), summary, session);
 
     if (includeBanner) {
-      const banner = createDuneBanner({
+      const banner = createPanelBanner({
         artwork: "market",
         filename: IMAGE_NAME,
         title: "CHOAM Market",
         subtitle: `${market.totalCount.toLocaleString()} ACTIVE ITEM${market.totalCount === 1 ? "" : "S"}`,
-        detail: "LOWEST ASKING PRICES",
+        detail: "Lowest asking prices",
       });
 
       await interaction.editReply({ ...createV2Response([card], [banner]), allowedMentions: { parse: [] } });

@@ -20,7 +20,7 @@ const statuses = (
   type: ActivityType;
 }> => [
   {
-    name: "Watching the sands of Arrakis",
+    name: "Watching the community",
     type: ActivityType.Watching,
   },
   {
@@ -28,11 +28,11 @@ const statuses = (
     type: ActivityType.Playing,
   },
   {
-    name: "Watching the spice flow",
+    name: "Watching server activity",
     type: ActivityType.Watching,
   },
   {
-    name: "Watching over Arrakis",
+    name: "Watching over the server",
     type: ActivityType.Watching,
   },
   {

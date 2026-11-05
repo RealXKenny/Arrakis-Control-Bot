@@ -3,7 +3,8 @@ import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, Medi
 
 import { createLogger } from "../../../client/logger";
 import { containsText } from "../../../shared/discord/containsText";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const logger = createLogger("BLUEPRINT PANEL");
 
@@ -12,7 +13,7 @@ const PANEL_MARKER = "# Import Blueprint";
 
 function buildBlueprintUploadPanel(): ContainerBuilder {
   return new ContainerBuilder()
-    .setAccentColor(0xc58b45)
+    .setAccentColor(PANEL_COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${PANEL_IMAGE_NAME}`).setDescription("Dune blueprint import illustration")))
     .addTextDisplayComponents((text) => text.setContent("# Import Blueprint"))
     .addTextDisplayComponents((text) => text.setContent("Upload one blueprint file to your linked character's backpack.\n\nYour linked character must be offline for at least **one minute** before importing."))
@@ -52,12 +53,12 @@ async function ensureBlueprintUploadPanel(client: Client, channelId?: string | n
 }
 
 function createBlueprintBanner() {
-  return createDuneBanner({
+  return createPanelBanner({
     artwork: "blueprint",
     filename: PANEL_IMAGE_NAME,
     title: "Blueprint Import",
-    subtitle: "BUILD YOUR LEGEND ON ARRAKIS",
-    detail: "IMPORT ONE BLUEPRINT TO YOUR CHARACTER",
+    subtitle: "Share your builds",
+    detail: "Import one blueprint to your character",
   });
 }
 

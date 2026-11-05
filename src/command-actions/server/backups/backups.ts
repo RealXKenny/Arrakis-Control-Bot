@@ -4,19 +4,20 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 
 import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+import { PANEL_COLORS, PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
 
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
 const IMAGE_NAME = "dune-server-backups.png";
 const UNAVAILABLE = "Unknown";
 
 const COLORS = {
-  accent: 0xc58b45,
-  error: 0x8f3025,
+  accent: PANEL_COLORS.accent,
+  error: PANEL_COLORS.danger,
 } as const;
 
-const DUNE_COLORS = [0xc58b45, 0xd2a85a, 0xa96832, 0x8f542c, 0x70452c, 0xb87333, 0x9c6b3c] as const;
+const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
 
 type ApiObject = Record<string, unknown>;
 type TimestampValue = string | number | Date | null | undefined;
@@ -62,13 +63,13 @@ const getFirstDefined = (object: ApiObject, keys: string[]): unknown => {
   return undefined;
 };
 
-const getRandomAccentColor = (): number => DUNE_COLORS[Math.floor(Math.random() * DUNE_COLORS.length)]!;
+const getRandomAccentColor = (): number => ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)]!;
 
 const createBackupCard = (serverName: string, backups: BackupDisplay, autoBackup: AutoBackupDisplay, requestedBy: string): ContainerBuilder => {
   return new ContainerBuilder()
     .setAccentColor(getRandomAccentColor())
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`).setDescription("Arrakis server backup archive")))
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Backups"))
+    .addTextDisplayComponents((text) => text.setContent("## Dune Server Backups"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(["### 📦 Database Backups", backups.content].join("\n"), 1_700)))
@@ -93,7 +94,7 @@ const createBackupCard = (serverName: string, backups: BackupDisplay, autoBackup
       text.setContent(truncateDiscordText(["### ⚙️ Systemd Timer", `**Status:** \`${autoBackup.timerStatus || UNAVAILABLE}\``, `**Unit:** \`${autoBackup.timerUnit || UNAVAILABLE}\``, `**Activates:** \`${autoBackup.serviceUnit || UNAVAILABLE}\``].join("\n"), 450)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# ${backups.count} backup${backups.count === 1 ? "" : "s"} available • Spice flows through Arrakis • Requested by ${requestedBy}`, 200, "…")));
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# ${backups.count} backup${backups.count === 1 ? "" : "s"} available • Arrakis Control • Requested by ${requestedBy}`, 200, "…")));
 };
 
 const createErrorCard = (
@@ -106,14 +107,14 @@ const createErrorCard = (
 ): ContainerBuilder => {
   return new ContainerBuilder()
     .setAccentColor(COLORS.error)
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Server Backups"))
+    .addTextDisplayComponents((text) => text.setContent("## Dune Server Backups"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) =>
       text.setContent(truncateDiscordText(["### 🔴 Backups Unavailable", "The server backup information could not be retrieved.", "", `**Error:** \`${error.message}\``, error.status !== null ? `**HTTP Status:** \`${error.status}\`` : null].filter(Boolean).join("\n"), 1_000)),
     )
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Spice flows through Arrakis • Requested by ${requestedBy}`, 180, "…")));
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(`-# Arrakis Control • Requested by ${requestedBy}`, 180, "…")));
 };
 
 const command = {
@@ -692,7 +693,7 @@ function getErrorDetails(error: unknown): {
 }
 
 function createBackupBanner({ serverName, count }: { serverName: string; count: number }) {
-  return createDuneBanner({
+  return createPanelBanner({
     artwork: "backups",
     filename: IMAGE_NAME,
     title: "Backups",

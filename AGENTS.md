@@ -180,6 +180,12 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Never edit `dist/`; it is recreated by `npm run build`.
 - Do not hand-edit `package-lock.json`. Change dependencies with npm so the manifest and lockfile remain synchronized.
 
+## Panel Visual Language
+
+- Use `PANEL_COLORS` and helpers from `shared/discord/panelStyle.ts`; never hard-code hex accent colors in panels. Keep headings sentence-case, prefer neutral wording, and avoid themed emoji.
+- Banners come from `createPanelBanner`/`createTicketSupportBanner` in `shared/discord/imageFactory.ts` over the backgrounds in `data/images/`. Regenerate those with `node scripts/generate-panel-artwork.mjs`, keeping filenames stable (the release workflow smoke-checks `panel-welcome.png`).
+- When renaming a persistent panel heading, keep the old heading as a legacy marker in the panel's `matches` callback.
+
 ## Discord Interaction Rules
 
 - Acknowledge every interaction exactly once with `reply`, `deferReply`, `deferUpdate`, or `showModal` before slow I/O.

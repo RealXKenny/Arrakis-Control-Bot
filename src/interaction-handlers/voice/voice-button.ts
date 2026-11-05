@@ -4,7 +4,8 @@ import { RateLimitedInteractionHandler } from "../../support/interactions/RateLi
 import { VOICE_BUTTON_ACTIONS } from "../../modules/voice/voicePanel";
 import { runVoiceInteraction } from "../../modules/voice/voiceInteractions";
 import { voiceKickPicker } from "../../modules/voice/voiceKickPicker";
-import { createDuneBanner } from "../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 export class VoiceButton extends RateLimitedInteractionHandler<ButtonInteraction> {
   public constructor(context: InteractionHandler.LoaderContext, options: InteractionHandler.Options) {
@@ -36,14 +37,14 @@ export class VoiceButton extends RateLimitedInteractionHandler<ButtonInteraction
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const { channel } = await service.authorize(interaction.guild!, interaction.user.id, interaction.channelId, undefined, interaction.message.id);
         const defaults = channel.permissionsFor(interaction.guild!.roles.everyone);
-        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(0xc58b45).setTitle("Your Voice Room").addFields(
+        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(PANEL_COLORS.accent).setTitle("Your Voice Room").addFields(
           { name: "Name", value: escapeMarkdown(channel.name) },
           { name: "Members", value: String(channel.members.size), inline: true },
           { name: "User limit", value: channel.userLimit ? String(channel.userLimit) : "Unlimited", inline: true },
           { name: "Default access", value: defaults?.has(PermissionFlagsBits.Connect) ? "Open" : "Restricted", inline: true },
           { name: "Default visibility", value: defaults?.has(PermissionFlagsBits.ViewChannel) ? "Visible" : "Hidden", inline: true },
         ).setImage("attachment://voice-room-info.png").setFooter({ text: "Explicit member permissions and administrator access may differ." })],
-          files: [createDuneBanner({ artwork: "voice", filename: "voice-room-info.png", title: "Voice Room", subtitle: "PRIVATE CONTROLS", detail: "YOUR ROOM • YOUR CREW" })] });
+          files: [createPanelBanner({ artwork: "voice", filename: "voice-room-info.png", title: "Voice Room", subtitle: "Private controls", detail: "Your room • Your crew" })] });
       } else if (action === "permit" || action === "reject" || action === "kick" || action === "delete" || action === "reset") {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const { channel } = await service.authorize(interaction.guild!, interaction.user.id, interaction.channelId, undefined, interaction.message.id);

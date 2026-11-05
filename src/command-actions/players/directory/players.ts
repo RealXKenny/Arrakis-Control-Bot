@@ -5,15 +5,16 @@ import { scopedLogger } from "../../../client/logger";
 import { formatPlayers } from "../../../modules/players/directory/playerFormatter";
 import type { PlayerResponse } from "../../../modules/players/directory/playerFormatter";
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { createDuneBanner } from "../../../shared/discord/imageFactory";
+import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const PAGE_SIZE = 20;
 const SERVER_NAME = "Dune: Awakening Community Server";
 
 const COLORS = {
-  error: 0x8f3025,
-  accent: 0xc58b45,
+  error: PANEL_COLORS.danger,
+  accent: PANEL_COLORS.accent,
 } as const;
 
 const getServerName = (): string => process.env.SERVER_NAME?.trim() || SERVER_NAME;
@@ -62,7 +63,7 @@ const createCard = (serverName: string, online: ReturnType<typeof formatPlayers>
   const card = new ContainerBuilder()
     .setAccentColor(COLORS.accent)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-players.png").setDescription("Arrakis server player activity")))
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Players"))
+    .addTextDisplayComponents((text) => text.setContent("## Dune Players"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small));
 
@@ -72,7 +73,7 @@ const createCard = (serverName: string, online: ReturnType<typeof formatPlayers>
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(truncateDiscordText([`### 🔴 ${offline.heading}`, offline.content, offline.truncated ? `_${offline.truncated}_` : null].filter(Boolean).join("\n"), 1_550)))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(`-# Spice flows through Arrakis • Requested by ${requestedBy}`));
+    .addTextDisplayComponents((text) => text.setContent(`-# Arrakis Control • Requested by ${requestedBy}`));
 
   return card;
 };
@@ -80,7 +81,7 @@ const createCard = (serverName: string, online: ReturnType<typeof formatPlayers>
 const createErrorCard = (serverName: string): ContainerBuilder => {
   return new ContainerBuilder()
     .setAccentColor(COLORS.error)
-    .addTextDisplayComponents((text) => text.setContent("## 🏜️ Dune Players"))
+    .addTextDisplayComponents((text) => text.setContent("## Dune Players"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${serverName}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(["### ⚠️ Unable to retrieve players", "The Dune server player list could not be retrieved. Please try again later."].join("\n")));
@@ -122,7 +123,7 @@ const command = {
       const onlineCount = getPlayerCount(onlineData, online);
       const offlineCount = getPlayerCount(offlineData, offline);
 
-      const banner = createDuneBanner({
+      const banner = createPanelBanner({
         artwork: "players",
         filename: "dune-server-players.png",
         title: "Dune Players",

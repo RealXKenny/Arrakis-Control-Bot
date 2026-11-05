@@ -4,6 +4,7 @@ import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { buildStormPanel, parseCoriolisEnd, stormWindowFromEnd } from "../../../modules/world/storms/stormAnnouncement";
 import { registerApplicationCommand } from "../../../support/commands/registerApplicationCommand";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 export const data = new SlashCommandBuilder().setName("storm").setDescription("Show the current Coriolis storm schedule.");
 
@@ -23,7 +24,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   } catch (error: unknown) {
     scopedLogger(container.logger, "CORIOLIS STORM").error("Unable to retrieve the Coriolis storm schedule.", error);
     const card = new ContainerBuilder()
-      .setAccentColor(0x8f3025)
+      .setAccentColor(PANEL_COLORS.danger)
       .addTextDisplayComponents((text) => text.setContent("## Coriolis Storm Schedule"))
       .addTextDisplayComponents((text) => text.setContent("The live storm schedule is unavailable. Please try again shortly."));
     await interaction.editReply({ content: null, ...createV2Response([card]), allowedMentions: { parse: [] } });

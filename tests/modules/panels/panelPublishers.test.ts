@@ -13,7 +13,7 @@ import { ensureTicketPanel } from "../../../src/modules/tickets/ticketPanel";
 import { createPanelStorage } from "../../helpers/panelStorage";
 
 vi.mock("../../../src/shared/discord/imageFactory", () => ({
-  createDuneBanner: () => ({ attachment: Buffer.from("banner"), name: "banner.png" }),
+  createPanelBanner: () => ({ attachment: Buffer.from("banner"), name: "banner.png" }),
   createTicketSupportBanner: () => ({ attachment: Buffer.from("banner"), name: "banner.png" }),
 }));
 afterEach(() => vi.unstubAllEnvs());

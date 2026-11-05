@@ -4,6 +4,11 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Redesign every Discord panel with a modern look: a shared indigo palette and semantic status colors (`panelStyle.ts`), sentence-case banner text, neutral wording instead of Dune-themed copy and emoji, and newly generated gradient artwork for all 31 images in `data/images/` (reproducible with `node scripts/generate-panel-artwork.mjs`). Image filenames, panel keys, custom IDs, command names, and the in-game bridge name are unchanged, so published panels refresh in place. The roles, rules, and bot-control headings changed; their previous headings are still recognized when importing history. Level cards, the leaderboard card, and announcement cards use the same palette. `createDuneBanner` is now `createPanelBanner`.
+- Level role tier and achievement names are unchanged because they mirror existing server roles.
+
 ### Added
 
 - Add `/leaderboard`, a public, paginated Solari leaderboard. It ranks players from the Dune Console player directory and per-player `solaris-coin` totals, keeps balances as decimal strings, caches the ranking for five minutes, and binds First/Previous/Next/Last controls to the requester for 15 minutes. It is listed in `/help` under Community & World.

@@ -29,7 +29,7 @@ const TICKET_CATEGORIES = [
     value: "gameplay-server",
     label: "Gameplay & Server",
     description: "Dune gameplay, server access, characters, or recovery",
-    emoji: "🏜️",
+    emoji: "🌍",
   },
   {
     value: "general-other",

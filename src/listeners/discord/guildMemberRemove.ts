@@ -3,6 +3,7 @@ import { GuildMember, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags
 
 import { createContainer, createV2Response } from "../../shared/discord/componentFactory";
 import { createMemberBanner } from "../../shared/discord/imageFactory";
+import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 class GuildMemberRemove extends Listener<typeof Events.GuildMemberRemove> {
   public constructor(context: Listener.LoaderContext) {
@@ -38,9 +39,9 @@ class GuildMemberRemove extends Listener<typeof Events.GuildMemberRemove> {
       .setDescription(`Departure card for ${member.user.tag}`));
 
     const container = createContainer({
-      title: "## A Traveler Has Departed",
-      body: `**${member.user.tag}** has left **${member.guild.name}**.\n\n` + "May the winds of Arrakis guide their journey.",
-      color: 0xc58b45,
+      title: "## A Member Has Left",
+      body: `**${member.user.tag}** has left **${member.guild.name}**.\n\n` + "We wish them well.",
+      color: PANEL_COLORS.accent,
     }).addMediaGalleryComponents(mediaGallery);
 
     const response = createV2Response([container], [banner]);

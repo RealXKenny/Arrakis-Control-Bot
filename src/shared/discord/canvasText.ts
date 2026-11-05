@@ -5,7 +5,7 @@ function canvasDisplayName(value: string | null | undefined, fallback: string | 
     .replace(/\s+/g, " ")
     .trim();
   const safeFallback = (fallback ?? "").normalize("NFKC").replace(/[\r\n\t]/g, " ").replace(/\s+/g, " ").trim();
-  return Array.from(normalized || safeFallback || "Traveler").slice(0, maximumLength).join("");
+  return Array.from(normalized || safeFallback || "Member").slice(0, maximumLength).join("");
 }
 
 export { canvasDisplayName };

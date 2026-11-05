@@ -4,6 +4,7 @@ import { ContainerBuilder, MessageFlags, SeparatorSpacingSize, type ChatInputCom
 import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
 const SERVER_ACTIONS = {
   "start-server": {
@@ -80,7 +81,7 @@ function getResponseMessage(value: unknown): string | null {
 
 function createResultCard(title: string, message: string, success: boolean): ContainerBuilder {
   return new ContainerBuilder()
-    .setAccentColor(success ? 0x4f8f5b : 0x8f3025)
+    .setAccentColor(success ? PANEL_COLORS.success : PANEL_COLORS.danger)
     .addTextDisplayComponents((text) => text.setContent(`## ${title}`))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent(truncateDiscordText(message, 1_000)));
