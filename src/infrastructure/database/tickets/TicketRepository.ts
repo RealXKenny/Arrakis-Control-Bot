@@ -126,7 +126,7 @@ const TICKET_COLUMNS = `
 class TicketRepository {
   readonly pool: Pool;
 
-  constructor(connectionString: string, ssl = false) {
+  constructor(connectionString: string, ssl = false, sslVerify = true) {
     const config: PoolConfig = {
       connectionString,
       max: 10,
@@ -135,7 +135,7 @@ class TicketRepository {
     };
 
     if (ssl) {
-      config.ssl = { rejectUnauthorized: false };
+      config.ssl = { rejectUnauthorized: sslVerify };
     }
 
     this.pool = new Pool(config);

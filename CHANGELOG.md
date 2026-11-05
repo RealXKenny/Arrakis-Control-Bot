@@ -4,6 +4,25 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+## [1.11.7] - 2026-11-05
+
+### Security
+
+- Verify PostgreSQL TLS certificates when `DATABASE_SSL=true`. Previously certificate validation was disabled, allowing man-in-the-middle interception. Operators using a trusted self-signed database server can opt out explicitly with `DATABASE_SSL_VERIFY=false`.
+
+### Changed
+
+- Remove unused exports (`BlueprintLimits`, `defaultVoiceRoomName`, `voiceGroupDefinition`) to tighten module surfaces.
+- Document and expose `DATABASE_SSL_VERIFY` in `.env.example`, the README, the Pterodactyl guide, and the regenerated egg.
+
+### Deployment
+
+- No action is needed for databases with publicly trusted certificates. Self-signed servers must set `DATABASE_SSL_VERIFY=false` or the bot will fail to connect.
+
+### Verification
+
+- Build, lint, full test suite, and production dependency audit pass. Live database TLS behavior was not verified.
+
 ## [1.11.6] - 2026-10-26
 
 ### Fixed

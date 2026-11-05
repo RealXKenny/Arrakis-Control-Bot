@@ -16,7 +16,7 @@ export function voiceCommandDefinition(action: VoiceCommandAction) {
   if (["permit", "reject", "kick"].includes(action)) command.addUserOption((option) => option.setName("member").setDescription("Member to manage").setRequired(true));
   return command;
 }
-export function voiceGroupDefinition() {
+function voiceGroupDefinition() {
   const command = new SlashCommandBuilder().setName("voice").setDescription("Create and manage temporary voice rooms.");
   for (const action of Object.keys(VOICE_COMMANDS) as VoiceCommandAction[]) command.addSubcommand(voiceCommandDefinition(action));
   return command;
