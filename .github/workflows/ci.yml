@@ -1,23 +1,27 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  push:
     branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  verify:
+  checks:
+    name: checks (${{ matrix.task }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
+    strategy:
+      fail-fast: false
+      matrix:
+        # One runner per check so a slow task cannot starve the others.
+        task: [typecheck, lint, test, audit]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -31,11 +35,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Run ${{ matrix.task }}
+        run: npm run ${{ matrix.task == 'audit' && 'audit:prod' || matrix.task }}
 
-      - name: Build and test
-        run: npm test
-
-      - name: Audit production dependencies
-        run: npm audit --omit=dev
+  verify:
+    if: always()
+    needs: [checks]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI job to pass
+        env:
+          CHECKS_RESULT: ${{ needs.checks.result }}
+        run: test "$CHECKS_RESULT" = success
