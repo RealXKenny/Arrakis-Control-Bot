@@ -12,6 +12,7 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Changed
 
+- Align CI and release workflows with the Dashboard: per-task CI runners (typecheck, lint, test, audit) behind a `verify` gate, PR-number concurrency, a release-commit-on-`main` guard, and a Buildx image build with GitHub Actions layer caching. Add `typecheck` and `audit:prod` npm scripts.
 - Remove unused exports (`BlueprintLimits`, `defaultVoiceRoomName`, `voiceGroupDefinition`) to tighten module surfaces.
 - Document and expose `DATABASE_SSL_VERIFY` in `.env.example`, the README, the Pterodactyl guide, and the regenerated egg.
 
