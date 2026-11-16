@@ -1,4 +1,4 @@
-import { fetchGitHubReleases } from "../../infrastructure/http/github/GitHubReleaseClient";
+import type { DashboardChangelogClient } from "../../infrastructure/http/dashboard/DashboardChangelogClient";
 import type { ReleaseAnnouncementChannel } from "../../infrastructure/database/releases/ReleaseAnnouncementRepository";
 import { isPrimaryShard } from "../../shared/process/shardIdentity";
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, type Client, type Message, type SendableChannels } from "discord.js";
@@ -17,6 +17,7 @@ type ReleaseProject = (typeof RELEASE_PROJECTS)[number];
 const RELEASE_MARKER_REGEX = /^## Arrakis Control(?: Bot| Dashboard)? v\S+/m;
 const ANNOUNCEMENT_COLOR = PANEL_COLORS.accent;
 const HISTORY_PAGE_SIZE = 100;
+const MAX_HISTORY_MESSAGES = 10_000;
 const DISPLAYABLE_TEXT_SAFETY_MARGIN = 200;
 const MAX_RELEASE_SUMMARY_TEXT = 500;
 const RELEASE_NOTES_TRUNCATED_NOTICE = "\n\n_Release notes shortened for Discord. Use **View full release notes** below._";
@@ -49,7 +50,7 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
 
   await storage.withChannel(channelId, async (stored) => {
     await importExistingAnnouncements(client, channel, stored);
-    const { releases, failures } = await loadReleases(client.githubToken);
+    const { releases, failures } = await loadReleases(client.dashboardChangelog);
     await sendUnannouncedReleases(channel, stored, releases, failures);
   });
 }
@@ -62,8 +63,8 @@ async function replayReleaseAnnouncements(client: Client, channelId: string): Pr
   let acquired = false;
   await storage.withChannel(channelId, async (stored) => {
     acquired = true;
-    // Fetch both sources before changing durable state. A source outage must not erase the ledger.
-    const { releases, failures } = await loadReleases(client.githubToken);
+    // Refresh both projects before changing durable state. An outage must not erase the ledger.
+    const { releases, failures } = await loadReleases(client.dashboardChangelog, true);
     if (failures.length) throw new AggregateError(failures, "Cannot reset changelogs while a release source is unavailable.");
     await stored.reset(RELEASE_PROJECTS.map((project) => project.repo));
     await sendUnannouncedReleases(channel, stored, releases, []);
@@ -109,7 +110,7 @@ async function refreshReleaseAnnouncements(client: Client, channelId?: string | 
 
   await storage.withChannel(channelId, async (stored) => {
     await importExistingAnnouncements(client, channel, stored);
-    const { releases, failures } = await loadReleases(client.githubToken);
+    const { releases, failures } = await loadReleases(client.dashboardChangelog);
     const records = new Map((await stored.list()).map((row) => [releaseKey(row.repository, row.version), row]));
     for (const release of releases) {
       const record = records.get(releaseKey(release.project.repo, release.version));
@@ -169,7 +170,7 @@ function releasePayload(release: Release, marker: string) {
 
 function buildReleaseCard(release: Release, marker: string): ContainerBuilder {
   const summary = truncateDiscordText(release.summary, MAX_RELEASE_SUMMARY_TEXT, "…");
-  const releaseMetadata = `${summary}\n\n**Released:** ${formatDiscordTimestamp(release.date)}`;
+  const releaseMetadata = `${summary}\n\n**Date:** ${formatDiscordTimestamp(release.date)}`;
   const changeHeading = "### What changed";
   const fixedDisplayableText = marker.length + releaseMetadata.length + changeHeading.length;
   const releaseNotesBudget = Math.max(0, DISCORD_LIMITS.componentDisplayableText - DISPLAYABLE_TEXT_SAFETY_MARGIN - fixedDisplayableText);
@@ -234,29 +235,22 @@ function formatDiscordTimestamp(date: string | null): string {
   return `<t:${Math.floor(timestamp / 1000)}:F>`;
 }
 
-async function loadReleases(token?: string): Promise<{ releases: Release[]; failures: unknown[] }> {
-  const results = await Promise.allSettled(RELEASE_PROJECTS.map((project) => loadProjectReleases(project, token)));
-  const releases = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  const failures = results.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
-  if (results.every((result) => result.status === "rejected")) {
-    throw new AggregateError(failures, "Could not fetch releases from either GitHub repository.");
+async function loadReleases(source?: DashboardChangelogClient, force = false): Promise<{ releases: Release[]; failures: unknown[] }> {
+  if (!source) throw new Error("DASHBOARD_URL is required for release announcements.");
+  const snapshot = await source.getReleases(force);
+  if (snapshot.stale) throw new Error("Dashboard changelog is unavailable; cached release data is stale.");
+  if (RELEASE_PROJECTS.some((project) => !snapshot.releases.some((release) => release.project === project.name.toLowerCase()))) {
+    throw new Error("Dashboard changelog is missing a project; release announcements are paused.");
   }
-  return { releases: releases.sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0)), failures };
-}
-
-async function loadProjectReleases(project: ReleaseProject, token?: string): Promise<Release[]> {
-  const releases = await fetchGitHubReleases(project.repo, token);
-
-  return releases
-    .filter(({ draft, prerelease }) => !draft && !prerelease)
-    .map((release) => ({
-      project,
-      version: release.tag_name.replace(/^v/, ""),
-      summary: release.name || `A new ${project.name.toLowerCase()} version is available.`,
-      date: release.published_at || release.created_at,
-      body: release.body || "",
-      url: release.html_url,
-    }));
+  const releases = snapshot.releases.map((release) => ({
+    project: RELEASE_PROJECTS.find((project) => project.name.toLowerCase() === release.project)!,
+    version: release.version,
+    summary: release.title,
+    date: release.date,
+    body: release.sections.map((section) => `### ${section.title}\n${section.items.map((item) => `- ${item}`).join("\n")}`).join("\n\n"),
+    url: `${source.origin}/changelog?project=${release.project}&show=all#v${encodeURIComponent(release.version)}`,
+  }));
+  return { releases: releases.sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0)), failures: [] };
 }
 
 async function readChannelHistory(channel: SendableChannels): Promise<Message[]> {
@@ -273,6 +267,10 @@ async function readChannelHistory(channel: SendableChannels): Promise<Message[]>
 
     if (page.size < HISTORY_PAGE_SIZE) {
       break;
+    }
+
+    if (messages.length >= MAX_HISTORY_MESSAGES) {
+      throw new Error("Release announcement history reached the 10,000-message import limit; import cannot safely be completed.");
     }
 
     const lastMessage = page.last();

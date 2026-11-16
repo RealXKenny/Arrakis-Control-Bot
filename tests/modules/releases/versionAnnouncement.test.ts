@@ -17,19 +17,10 @@ afterEach(() => {
 function setup(markers: string[] = [], releaseBody = "Release changes") {
   vi.stubEnv("DISCORD_SHARD_ID", "0");
   vi.stubEnv("ROLE_ANNOUNCEMENTS_ID", "");
-  const fetchMock = vi.fn((url: string): Promise<Response> => Promise.resolve({
-    ok: true,
-    json: () => Promise.resolve([{
-      tag_name: "v1.0.0",
-      name: null,
-      published_at: url.includes("Dashboard") ? "2026-09-07T12:00:00Z" : "2026-09-06T12:00:00Z",
-      body: releaseBody,
-      html_url: url.replace("api.github.com/repos/", "github.com/").replace("?per_page=100", "/tag/v1.0.0"),
-      draft: false,
-      prerelease: false,
-    }]),
-  } as Response));
-  vi.stubGlobal("fetch", fetchMock);
+  const fetchMock = vi.fn().mockResolvedValue({ stale: false, releases: [
+    { project: "bot", version: "1.0.0", title: "Bot release", date: "2026-09-06", sections: [{ title: "Changes", items: [releaseBody] }] },
+    { project: "dashboard", version: "1.0.0", title: "Dashboard release", date: "2026-09-07", sections: [{ title: "Changes", items: [releaseBody] }] },
+  ] });
   const crosspost = vi.fn().mockResolvedValue(undefined);
   let sentId = 0;
   const send = vi.fn().mockImplementation(() => Promise.resolve({ id: `sent-${++sentId}`, crosspostable: true, crosspost }));
@@ -63,15 +54,16 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
     }),
   };
   const storage: ReleaseAnnouncementStorage = { withChannel: async (_channelId, task) => { await task(stored); } };
-  const client = { releaseAnnouncements: storage, user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue(channel) } } as unknown as Client;
+  const client = { dashboardChangelog: { origin: "https://dashboard.example", getReleases: fetchMock }, releaseAnnouncements: storage, user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue(channel) } } as unknown as Client;
   return { client, send, crosspost, fetchMock, existing, channel, stored, storage, records };
 }
 
 describe("version announcements", () => {
   it("resets and resends both projects without importing the old Discord posts again", async () => {
-    const { client, send, channel, stored, records } = setup(["## Arrakis Control Bot v1.0.0"]);
+    const { client, send, channel, stored, records, fetchMock } = setup(["## Arrakis Control Bot v1.0.0"]);
     records.set("other/repo:1.0.0", { repository: "other/repo", version: "1.0.0", messageId: "unrelated" });
     await replayReleaseAnnouncements(client, "announcements");
+    expect(fetchMock).toHaveBeenCalledWith(true);
     expect(stored.reset).toHaveBeenCalledWith(["RealXKenny/Arrakis-Control-Bot", "RealXKenny/Arrakis-Control-Dashboard"]);
     expect(channel.messages.fetch).not.toHaveBeenCalled();
     expect(send).toHaveBeenCalledTimes(2);
@@ -80,10 +72,19 @@ describe("version announcements", () => {
     expect(send).toHaveBeenCalledTimes(2);
   });
 
-  it("leaves existing receipts intact if either GitHub source fails before replay", async () => {
+  it("leaves existing receipts intact if the dashboard is unavailable before replay", async () => {
     const { client, stored, fetchMock, send } = setup();
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 503, statusText: "Unavailable" } as Response);
-    await expect(replayReleaseAnnouncements(client, "announcements")).rejects.toThrow("source is unavailable");
+    fetchMock.mockRejectedValueOnce(new Error("dashboard unavailable"));
+    await expect(replayReleaseAnnouncements(client, "announcements")).rejects.toThrow("dashboard unavailable");
+    expect(stored.reset).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("never resets receipts or posts from stale dashboard data", async () => {
+    const { client, stored, fetchMock, send } = setup();
+    fetchMock.mockResolvedValue({ stale: true, releases: [] });
+    await expect(replayReleaseAnnouncements(client, "announcements")).rejects.toThrow("stale");
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("stale");
     expect(stored.reset).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });
@@ -115,22 +116,16 @@ describe("version announcements", () => {
     }
   });
 
-  it("uses the configured GitHub token for both Bot and Dashboard releases", async () => {
+  it("loads both projects from the dashboard client", async () => {
     const { client, fetchMock } = setup();
-    client.githubToken = "test-github-token";
     await announceCurrentVersion(client, "announcements");
-    for (const call of fetchMock.mock.calls) {
-      expect(call).toEqual([expect.stringMatching(/^https:\/\/api\.github\.com\/repos\//), expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer test-github-token" }),
-      })]);
-    }
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it("announces the newest release first with project links", async () => {
     const { client, send, fetchMock } = setup();
     await announceCurrentVersion(client, "announcements");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledTimes(2);
     const cards = send.mock.calls.map(([payload]) => JSON.stringify(payload.components[0].toJSON()));
     expect(cards[0]).toContain("## Arrakis Control Dashboard v1.0.0");
@@ -139,18 +134,11 @@ describe("version announcements", () => {
     expect(cards[1]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot"');
   });
 
-  it("announces a bot release when the Dashboard release API fails", async () => {
+  it("does not announce when a project is missing", async () => {
     const { client, send, fetchMock } = setup();
-    fetchMock.mockImplementationOnce((url: string) => Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve([{ tag_name: "v1.0.0", name: "Bot release", published_at: "2026-09-21T12:00:00Z",
-        body: "Changes", html_url: url.replace("api.github.com/repos/", "github.com/").replace("?per_page=100", "/tag/v1.0.0"), draft: false, prerelease: false }]),
-    } as Response)).mockImplementationOnce(() => Promise.resolve({ ok: false, status: 503, statusText: "Unavailable" } as Response));
-
-    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("1 release check operation");
-
-    expect(send).toHaveBeenCalledOnce();
-    expect(JSON.stringify(send.mock.calls[0][0].components[0].toJSON())).toContain("## Arrakis Control Bot v1.0.0");
+    fetchMock.mockResolvedValueOnce({ stale: false, releases: [{ project: "bot" }] });
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("missing a project");
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("tries the next release when an announcement fails, then reports the failure", async () => {
@@ -163,10 +151,10 @@ describe("version announcements", () => {
     expect(JSON.stringify(send.mock.calls[1][0].components[0].toJSON())).toContain("## Arrakis Control Bot v1.0.0");
   });
 
-  it("reports a failed check when neither GitHub release source is available", async () => {
+  it("reports a failed check when dashboard release information is unavailable", async () => {
     const { client, send, fetchMock } = setup();
-    fetchMock.mockResolvedValue({ ok: false, status: 503, statusText: "Unavailable" } as Response);
-    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("either GitHub repository");
+    fetchMock.mockRejectedValue(new Error("dashboard unavailable"));
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("dashboard unavailable");
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -206,6 +194,16 @@ describe("version announcements", () => {
     const { client, send, channel, stored } = setup();
     channel.messages.fetch.mockRejectedValue(new Error("missing history permission"));
     await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("missing history permission");
+    expect(stored.markImported).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when announcement history reaches the import limit", async () => {
+    const { client, send, channel, stored } = setup();
+    const page = new Collection(Array.from({ length: 100 }, (_, index) => [String(index), { id: String(index) }] as const));
+    channel.messages.fetch.mockResolvedValue(page);
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("10,000-message import limit");
+    expect(channel.messages.fetch).toHaveBeenCalledTimes(100);
     expect(stored.markImported).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });

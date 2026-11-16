@@ -1,5 +1,6 @@
 import { PanelRepository } from "../infrastructure/database/panels/PanelRepository";
 import { ReleaseAnnouncementRepository } from "../infrastructure/database/releases/ReleaseAnnouncementRepository";
+import { DashboardChangelogClient } from "../infrastructure/http/dashboard/DashboardChangelogClient";
 import { cleanupResources } from "../shared/process/cleanupResources";
 import { GatewayIntentBits, Partials } from "discord.js";
 import { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
@@ -68,7 +69,7 @@ interface BotConfig {
   databaseSsl: boolean;
   databaseSslVerify?: boolean;
   versionAnnouncementIntervalMinutes?: number;
-  githubToken?: string;
+  dashboardUrl?: string;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   duneDiscordAuditChannelId?: string | null;
@@ -215,7 +216,7 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
   // Dev note: One PostgreSQL pool waters tickets, rooms, levels, and music—water discipline applies to sockets too.
   client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl, config.databaseSslVerify ?? true) : null;
-  client.githubToken = config.githubToken;
+  client.dashboardChangelog = config.dashboardUrl ? new DashboardChangelogClient(config.dashboardUrl) : undefined;
   client.panelStorage = client.tickets ? new PanelRepository(client.tickets.pool) : undefined;
   client.releaseAnnouncements = client.tickets ? new ReleaseAnnouncementRepository(client.tickets.pool) : undefined;
   client.honeypot = config.honeypot ? new HoneypotService(client, config.honeypot, client.tickets ? new HoneypotRepository(client.tickets.pool) : undefined) : undefined;

@@ -23,9 +23,9 @@ const egg = JSON.parse(fs.readFileSync(path.join(root, "pterodactyl", "egg-arrak
 const template = fs.readFileSync(path.join(root, ".env.example"), "utf8");
 
 describe("Pterodactyl egg", () => {
-  it("keeps the optional GitHub token blank and hidden from server users", () => {
-    expect(egg.variables.find((variable) => variable.env_variable === "GITHUB_TOKEN")).toMatchObject({
-      default_value: "", rules: "nullable|string", user_viewable: false, user_editable: false,
+  it("exposes an optional dashboard URL for changelog announcements", () => {
+    expect(egg.variables.find((variable) => variable.env_variable === "DASHBOARD_URL")).toMatchObject({
+      default_value: "", rules: "nullable|string", user_viewable: true, user_editable: true,
     });
   });
   it("exposes every documented bot setting once without placeholder credentials", () => {
