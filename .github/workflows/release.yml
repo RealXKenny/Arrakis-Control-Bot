@@ -59,6 +59,8 @@ jobs:
           set -euo pipefail
 
           current_version=$(node -p "require('./package.json').version")
+          lock_version=$(node -p "require('./package-lock.json').packages[''].version")
+          test "$current_version" = "$lock_version" || { echo "Package and lockfile versions differ." >&2; exit 1; }
           tag="v$current_version"
 
           if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
@@ -190,6 +192,18 @@ jobs:
           IMAGE: ${{ steps.image.outputs.name }}
         run: docker push --all-tags "$IMAGE"
 
+      - name: Build checksummed source archive
+        if: steps.release.outputs.create == 'true'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          archive="arrakis-control-bot-v${RELEASE_VERSION}.tar.gz"
+          git archive --format=tar.gz --prefix="arrakis-control-bot-v${RELEASE_VERSION}/" "$RELEASE_SHA" > "$RUNNER_TEMP/$archive"
+          (cd "$RUNNER_TEMP" && sha256sum "$archive" > "$archive.sha256")
+
       - name: Create GitHub release
         if: steps.release.outputs.create == 'true'
         shell: bash
@@ -201,6 +215,8 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: >-
           gh release create "$RELEASE_TAG"
+          "$RUNNER_TEMP/arrakis-control-bot-v${RELEASE_VERSION}.tar.gz"
+          "$RUNNER_TEMP/arrakis-control-bot-v${RELEASE_VERSION}.tar.gz.sha256"
           --target "$RELEASE_SHA"
           --title "Arrakis Control Bot $RELEASE_VERSION"
           --notes-file "$RELEASE_NOTES"

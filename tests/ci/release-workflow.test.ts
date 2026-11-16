@@ -14,6 +14,11 @@ describe('versioned image release', () => {
     expect(release).toMatch(/- name: Publish versioned image\r?\n\s+if: steps\.release\.outputs\.create == 'true'/);
     expect(release).toContain('${{ steps.image.outputs.name }}:${{ steps.release.outputs.tag }}');
     expect(release).toContain('git merge-base --is-ancestor "$HEAD_SHA" refs/remotes/origin/main');
+    expect(release).toContain('require(\'./package-lock.json\').packages[\'\'].version');
+    expect(release).toMatch(/- name: Build checksummed source archive\r?\n\s+if: steps\.release\.outputs\.create == 'true'/);
+    expect(release).toContain('git archive --format=tar.gz');
+    expect(release).toContain('sha256sum "$archive"');
+    expect(release).toContain('"$RUNNER_TEMP/arrakis-control-bot-v${RELEASE_VERSION}.tar.gz.sha256"');
     expect(release.indexOf('- name: Publish versioned image')).toBeLessThan(
       release.indexOf('- name: Create GitHub release'),
     );
