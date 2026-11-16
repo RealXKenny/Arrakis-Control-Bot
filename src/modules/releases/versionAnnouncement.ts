@@ -17,6 +17,7 @@ type ReleaseProject = (typeof RELEASE_PROJECTS)[number];
 const RELEASE_MARKER_REGEX = /^## Arrakis Control(?: Bot| Dashboard)? v\S+/m;
 const ANNOUNCEMENT_COLOR = PANEL_COLORS.accent;
 const HISTORY_PAGE_SIZE = 100;
+const MAX_HISTORY_MESSAGES = 10_000;
 const DISPLAYABLE_TEXT_SAFETY_MARGIN = 200;
 const MAX_RELEASE_SUMMARY_TEXT = 500;
 const RELEASE_NOTES_TRUNCATED_NOTICE = "\n\n_Release notes shortened for Discord. Use **View full release notes** below._";
@@ -273,6 +274,10 @@ async function readChannelHistory(channel: SendableChannels): Promise<Message[]>
 
     if (page.size < HISTORY_PAGE_SIZE) {
       break;
+    }
+
+    if (messages.length >= MAX_HISTORY_MESSAGES) {
+      throw new Error("Release announcement history reached the 10,000-message import limit; import cannot safely be completed.");
     }
 
     const lastMessage = page.last();

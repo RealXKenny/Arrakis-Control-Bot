@@ -210,6 +210,16 @@ describe("version announcements", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("fails closed when announcement history reaches the import limit", async () => {
+    const { client, send, channel, stored } = setup();
+    const page = new Collection(Array.from({ length: 100 }, (_, index) => [String(index), { id: String(index) }] as const));
+    channel.messages.fetch.mockResolvedValue(page);
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("10,000-message import limit");
+    expect(channel.messages.fetch).toHaveBeenCalledTimes(100);
+    expect(stored.markImported).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("imports only this bot's own announcements", async () => {
     const { client, send, existing } = setup(["## Arrakis Control Bot v1.0.0"]);
     existing[0][1].author.id = "someone-else";

@@ -4,6 +4,10 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Bound the one-time release-announcement history import to 10,000 messages. If the limit is reached, stop without marking the import complete or posting announcements, rather than risking duplicates from an incomplete scan.
+
 ### Changed
 
 - Redesign every Discord panel with a modern look: a shared indigo palette and semantic status colors (`panelStyle.ts`), sentence-case banner text, neutral wording instead of Dune-themed copy and emoji, and newly generated gradient artwork for all 31 images in `data/images/` (reproducible with `node scripts/generate-panel-artwork.mjs`). Image filenames, panel keys, custom IDs, command names, and the in-game bridge name are unchanged, so published panels refresh in place. The roles, rules, and bot-control headings changed; their previous headings are still recognized when importing history. Level cards, the leaderboard card, and announcement cards use the same palette. `createDuneBanner` is now `createPanelBanner`.
