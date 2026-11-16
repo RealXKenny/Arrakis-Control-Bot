@@ -4,6 +4,7 @@ import { Shard, ShardingManager } from "discord.js";
 import { loadEnvironment } from "./infrastructure/config/environment";
 import { createLogger } from "./client/logger";
 import { monitorParentProcess } from "./shared/process/parentProcessMonitor";
+import { startShardManager } from "./client/shardManagerStartup";
 
 const REQUIRED_ENVIRONMENT = ["TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY"];
 const SHARD_ENTRYPOINT = path.join(__dirname, "client", `shard${path.extname(__filename)}`);
@@ -19,7 +20,11 @@ registerShutdownHandlers();
 registerShardEvents(manager);
 registerProcessSafety();
 monitorParentProcess(() => stopAll("parent process exit", 0));
-startShardManager(manager);
+void startShardManager(
+  manager,
+  (error) => logger.error("Unable to spawn Discord shards.", error),
+  () => stopAll("startup failure", 1),
+);
 
 function createShardManager(config: typeof environment): ShardingManager {
   return new ShardingManager(SHARD_ENTRYPOINT, {
@@ -49,7 +54,7 @@ function registerShardEvents(shardManager: ShardingManager): void {
   });
 }
 
-function stopAll(signal: NodeJS.Signals | "SIGBREAK" | "parent process exit", exitCode: number): void {
+function stopAll(signal: NodeJS.Signals | "SIGBREAK" | "parent process exit" | "startup failure", exitCode: number): void {
   if (isStopping) {
     return;
   }
@@ -85,13 +90,6 @@ function stopAll(signal: NodeJS.Signals | "SIGBREAK" | "parent process exit", ex
 
   void Promise.race([Promise.all(shardDeaths), timeout]).finally(() => {
     process.exit(exitCode);
-  });
-}
-
-function startShardManager(shardManager: ShardingManager): void {
-  shardManager.spawn().catch((error: unknown) => {
-    logger.error("Unable to spawn Discord shards.", error);
-    process.exitCode = 1;
   });
 }
 

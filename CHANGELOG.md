@@ -6,6 +6,7 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Fixed
 
+- Stop already-running shard processes when a later shard fails during manager startup.
 - Bound the one-time release-announcement history import to 10,000 messages. If the limit is reached, stop without marking the import complete or posting announcements, rather than risking duplicates from an incomplete scan.
 
 ### Changed
