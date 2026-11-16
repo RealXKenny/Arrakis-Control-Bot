@@ -57,6 +57,7 @@ export class DashboardChangelogClient {
   private pending?: Promise<ChangelogSnapshot>;
   private retryAfter = 0;
   private readonly endpoint: URL;
+  public readonly origin: string;
 
   public constructor(baseUrl: string, private readonly now: () => number = Date.now) {
     const base = new URL(baseUrl);
@@ -64,10 +65,11 @@ export class DashboardChangelogClient {
       throw new Error("Dashboard URL must be an HTTPS origin without credentials");
     }
     this.endpoint = new URL("/api/v2/changelog", base);
+    this.origin = base.origin;
   }
 
-  public async getReleases(): Promise<ChangelogSnapshot> {
-    if (this.cached && this.now() - this.cached.fetchedAt < MAX_CACHE_AGE_MS) return this.cached;
+  public async getReleases(force = false): Promise<ChangelogSnapshot> {
+    if (!force && this.cached && this.now() - this.cached.fetchedAt < MAX_CACHE_AGE_MS) return this.cached;
     if (this.pending) return this.pending;
     if (this.now() < this.retryAfter) {
       if (this.cached && this.now() - this.cached.fetchedAt <= MAX_STALE_AGE_MS) return { ...this.cached, stale: true };

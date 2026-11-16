@@ -1,5 +1,6 @@
 import type { PanelStorage } from "../infrastructure/database/panels/PanelRepository";
 import type { ReleaseAnnouncementStorage } from "../infrastructure/database/releases/ReleaseAnnouncementRepository";
+import type { DashboardChangelogClient } from "../infrastructure/http/dashboard/DashboardChangelogClient";
 import { isPrimaryShard } from "../shared/process/shardIdentity";
 import "@sapphire/plugin-subcommands/register";
 
@@ -26,7 +27,7 @@ const PIECES_DIRECTORY = path.join(__dirname, "..");
 type ArrakisClientOptions = ClientOptions & { baseUserDirectory?: string };
 
 class ArrakisClient extends SapphireClient {
-  public githubToken?: string;
+  public dashboardChangelog?: DashboardChangelogClient;
   public panelStorage?: PanelStorage;
   public releaseAnnouncements?: ReleaseAnnouncementStorage;
   public honeypot?: HoneypotService;

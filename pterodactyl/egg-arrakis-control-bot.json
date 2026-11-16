@@ -739,12 +739,12 @@
       "field_type": "text"
     },
     {
-      "name": "GitHub Release API Token",
-      "description": "Optional. GitHub token for authenticated Bot/Dashboard release checks with a higher API allowance. Configure in admin startup variables; hidden from server users. Never bake into the image.",
-      "env_variable": "GITHUB_TOKEN",
+      "name": "Dashboard HTTPS Origin",
+      "description": "HTTPS dashboard origin for Bot/Dashboard release announcements.",
+      "env_variable": "DASHBOARD_URL",
       "default_value": "",
-      "user_viewable": false,
-      "user_editable": false,
+      "user_viewable": true,
+      "user_editable": true,
       "rules": "nullable|string",
       "field_type": "text"
     },

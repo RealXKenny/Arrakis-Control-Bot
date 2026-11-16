@@ -13,9 +13,9 @@ This checklist records work against the V2 request. An unchecked item is not com
 - [ ] Rebuild and verify bot services, Discord interactions, persistence, lifecycle, and integrations as needed.
 - [ ] Build and verify the authorized Discord management dashboard and its security model.
 - [ ] Design and implement deterministic bot changelog synchronization without changing dashboard release parsing.
-- [ ] Implement the dashboard read-only versioned changelog API and unified release presentation.
-- [x] Add and test a bounded dashboard changelog HTTP client; announcement integration remains outstanding.
-- [ ] Replace bot GitHub changelog retrieval with validated dashboard API access, bounded caching, and explicit stale/outage handling.
+- [x] Implement the dashboard read-only versioned changelog API and unified release presentation.
+- [x] Add and test a bounded dashboard changelog HTTP client.
+- [x] Replace bot GitHub changelog retrieval with validated dashboard API access, bounded caching, and explicit stale/outage handling.
 - [ ] Document implemented changes, migration and configuration, and independently versioned releases.
 - [ ] Run required checks in both repositories and verify available integrations.
 - [ ] Commit scoped changes on both `v2` branches, push without force, and create or update the requested pull requests.

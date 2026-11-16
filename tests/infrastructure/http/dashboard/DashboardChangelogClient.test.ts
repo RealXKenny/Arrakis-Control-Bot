@@ -14,7 +14,7 @@ describe("dashboard changelog client", () => {
   });
 
   it("validates and caches results while sharing concurrent requests", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(payload)));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(payload))));
     vi.stubGlobal("fetch", fetchMock);
     const client = new DashboardChangelogClient("https://example.test");
     const [first, second] = await Promise.all([client.getReleases(), client.getReleases()]);
@@ -22,6 +22,8 @@ describe("dashboard changelog client", () => {
     expect(second.stale).toBe(false);
     await client.getReleases();
     expect(fetchMock).toHaveBeenCalledOnce();
+    await client.getReleases(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("marks last-known-good data stale on outage, then expires it", async () => {

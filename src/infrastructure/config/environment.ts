@@ -6,6 +6,7 @@ import { loadVoiceSetup, type VoiceSetupConfig } from "./voiceRooms";
 import { loadMusicConfig, type MusicConfig } from "./music";
 import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
 import { loadStaffApplicationConfig, type StaffApplicationConfig } from "./staffApplications";
+import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogClient";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
@@ -47,7 +48,7 @@ interface EnvironmentConfig {
   databaseSsl: boolean;
   databaseSslVerify: boolean;
   versionAnnouncementIntervalMinutes: number;
-  githubToken?: string;
+  dashboardUrl?: string;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   logLevel: string;
@@ -130,9 +131,10 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   const discordToken = process.env.TOKEN;
   const duneConsoleUrl = process.env.CONSOLE_URL;
   const duneConsoleApiKey = process.env.CONSOLE_API_KEY?.trim() || undefined;
-  const rawGithubToken = process.env.GITHUB_TOKEN?.trim();
-  const githubToken = rawGithubToken && !rawGithubToken.startsWith("replace_with_") ? rawGithubToken : undefined;
-  if (githubToken && !/^[\x21-\x7e]+$/.test(githubToken)) throw new Error("GITHUB_TOKEN must contain only printable non-whitespace characters.");
+  const dashboardUrl = process.env.DASHBOARD_URL?.trim() || undefined;
+  if (dashboardUrl) {
+    try { new DashboardChangelogClient(dashboardUrl); } catch { throw new Error("DASHBOARD_URL must be an HTTPS origin without credentials."); }
+  }
 
   if (!discordToken || !duneConsoleUrl) {
     throw new Error("Required environment variables are missing.");
@@ -221,7 +223,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     databaseSsl,
     databaseSslVerify,
     versionAnnouncementIntervalMinutes,
-    githubToken,
+    dashboardUrl,
     interactionCooldownMs,
     rateLimitMaxEntries,
     logLevel,
