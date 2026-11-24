@@ -8,6 +8,7 @@ import { DiscordOAuthClient } from "../infrastructure/http/discord/DiscordOAuthC
 import { DashboardAccessService } from "../modules/dashboard/dashboardAccess";
 import { DashboardExpiryCleanup } from "../modules/dashboard/dashboardExpiryCleanup";
 import { DashboardOAuthService } from "../modules/dashboard/dashboardOAuth";
+import { FrameworkAuthorization } from "../modules/dashboard/frameworkAuthorization";
 
 interface DashboardSecurityConfig {
   publicOrigin: string;
@@ -25,11 +26,12 @@ export function createDashboardSecurity(client: Client, pool: Pool, config: Dash
   const identity = new DiscordOAuthClient(config.clientId, config.clientSecret, new URL("/api/auth/discord/callback", config.publicOrigin).toString());
   const oauth = new DashboardOAuthService(transactions, sessions, identity);
   const access = new DashboardAccessService(sessions, client);
+  const frameworkAuthorization = new FrameworkAuthorization(access);
   const routes = new DashboardAuthRoutes(config.publicOrigin, oauth, access, limits);
   const cleanup = new DashboardExpiryCleanup([
     { name: "sessions", store: sessions },
     { name: "OAuth transactions", store: transactions },
     { name: "rate limits", store: limits },
   ], onCleanupError);
-  return { routes, cleanup };
+  return { routes, cleanup, frameworkAuthorization };
 }

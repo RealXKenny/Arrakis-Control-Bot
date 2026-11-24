@@ -23,6 +23,7 @@ This checklist records work against the V2 request. An unchecked item is not com
 - [x] Exercise the OAuth, session, authorization, permission-revocation and logout components together against mocked external boundaries.
 - [x] Add framework-neutral OAuth, logout, and guild-access HTTP handlers with secure cookies and origin validation; they are not yet mounted.
 - [x] Add shared PostgreSQL request limits, expiry cleanup, and a composition factory for dashboard security services; they are not yet running in the bot.
+- [x] Add a request-scoped bridge for framework session reads, with fresh authorization and concurrent-request isolation; it is not yet mounted.
 - [ ] Integrate the authorization and session repositories with the dashboard framework and verify end-to-end OAuth.
 - [ ] Mount and verify secure HTTP cookies, CSRF/origin enforcement, request limits, scheduled expiry cleanup, and framework integration before exposing OAuth.
 - [ ] Design and implement deterministic bot changelog synchronization without changing dashboard release parsing.
