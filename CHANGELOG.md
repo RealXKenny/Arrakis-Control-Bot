@@ -11,7 +11,8 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Changed
 
-- Add internal dashboard OAuth and access services for PKCE transactions, Discord identity, durable sessions, and fresh guild authorization. These services are not yet exposed through dashboard routes.
+- Align CI and release security with the dashboard: pin actions, verify merge-queue and V2 pushes, and validate checksummed image and source artifacts before granting the separate publish job write permissions.
+- Add internal dashboard OAuth and access services for PKCE transactions, Discord identity, durable sessions, fresh guild authorization, and framework-neutral HTTP handlers. These handlers are not yet mounted or publicly accessible.
 - Read release announcements from the dashboard's public changelog API instead of GitHub. Configure `DASHBOARD_URL` and deploy a dashboard with the API; stale, incomplete, or unavailable data pauses posting and replay. Existing PostgreSQL receipts remain in use.
 - Release automation checks the package and lockfile versions and attaches a versioned source archive with a SHA-256 checksum to each new release after successful main-branch CI.
 - Redesign every Discord panel with a modern look: a shared indigo palette and semantic status colors (`panelStyle.ts`), sentence-case banner text, neutral wording instead of Dune-themed copy and emoji, and newly generated gradient artwork for all 31 images in `data/images/` (reproducible with `node scripts/generate-panel-artwork.mjs`). Image filenames, panel keys, custom IDs, command names, and the in-game bridge name are unchanged, so published panels refresh in place. The roles, rules, and bot-control headings changed; their previous headings are still recognized when importing history. Level cards, the leaderboard card, and announcement cards use the same palette. `createDuneBanner` is now `createPanelBanner`.
