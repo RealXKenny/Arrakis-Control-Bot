@@ -11,7 +11,7 @@ interface Access {
   logout(token: string | undefined): Promise<void>;
 }
 const STATE_COOKIE = "__Host-arrakis_oauth";
-const SESSION_COOKIE = "__Host-arrakis_session";
+export const SESSION_COOKIE = "__Host-arrakis_session";
 const SAFE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 
@@ -40,7 +40,7 @@ export class DashboardAuthRoutes {
       if (!await this.limits.consume("global", "dashboard", 1000, 60)) return json({ error: "Too many requests" }, 429);
       if (!await this.limits.consume(scope, remoteAddress, limit, 60)) return json({ error: "Too many requests" }, 429);
     } catch { return json({ error: "Service temporarily unavailable" }, 503); }
-    const cookies = parseCookies(request.headers.get("cookie"));
+    const cookies = parseDashboardCookies(request.headers.get("cookie"));
     if (!cookies) return json({ error: "Invalid cookies" }, 400);
     if (url.pathname === "/api/auth/discord" && request.method === "GET") {
       if (url.search) return json({ error: "Invalid request" }, 400);
@@ -99,7 +99,7 @@ function cookie(name: string, value: string, maxAge: number): string {
   return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
-function parseCookies(header: string | null): Map<string, string> | null {
+export function parseDashboardCookies(header: string | null): Map<string, string> | null {
   if (header && header.length > 4096) return null;
   const result = new Map<string, string>();
   for (const part of (header ?? "").split(";")) {
