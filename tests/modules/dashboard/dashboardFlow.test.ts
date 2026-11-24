@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { DashboardOAuthRepository } from "../../../src/infrastructure/database/dashboard/DashboardOAuthRepository";
 import { DashboardSessionRepository } from "../../../src/infrastructure/database/dashboard/DashboardSessionRepository";
 import { DiscordOAuthClient } from "../../../src/infrastructure/http/discord/DiscordOAuthClient";
+import { DashboardAuthRoutes } from "../../../src/infrastructure/http/dashboard/DashboardAuthRoutes";
 import { DashboardAccessService } from "../../../src/modules/dashboard/dashboardAccess";
 import { DashboardOAuthService } from "../../../src/modules/dashboard/dashboardOAuth";
 
@@ -38,15 +39,24 @@ it("issues a session through PKCE, rechecks guild permissions, and revokes acces
     roles: { fetch: vi.fn().mockResolvedValue(undefined) }, members: { fetch: vi.fn().mockResolvedValue({ id: userId, permissions: { has } }) } };
   const client = { guilds: { cache: new Map([[guildId, guild]]) } } as unknown as Client;
   const access = new DashboardAccessService(sessionStore, client);
+  const routes = new DashboardAuthRoutes("https://dashboard.example", oauth, access);
   vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ token_type: "Bearer", access_token: "synthetic-token" })))
     .mockResolvedValueOnce(new Response(JSON.stringify({ id: userId }))));
 
-  const { state } = await oauth.begin();
-  const token = await oauth.complete(state, state, "synthetic-code");
-  expect(await access.authorize(token, guildId)).toEqual({ status: "authorized", userId });
+  const start = await routes.handle(new Request("https://dashboard.example/api/auth/discord"));
+  const state = new URL(start!.headers.get("location")!).searchParams.get("state")!;
+  const callback = await routes.handle(new Request(`https://dashboard.example/api/auth/discord/callback?state=${state}&code=synthetic-code`, {
+    headers: { Cookie: `__Host-arrakis_oauth=${state}` },
+  }));
+  expect(callback?.status).toBe(303);
+  const sessionCookie = callback!.headers.getSetCookie().find((value) => value.startsWith("__Host-arrakis_session="))!.split(";")[0];
+  const check = () => routes.handle(new Request(`https://dashboard.example/api/guilds/${guildId}/access`, { headers: { Cookie: sessionCookie } }));
+  expect((await check())?.status).toBe(200);
   has.mockReturnValue(false);
-  expect(await access.authorize(token, guildId)).toEqual({ status: "forbidden" });
-  await access.logout(token);
-  expect(await access.authorize(token, guildId)).toEqual({ status: "unauthenticated" });
+  expect((await check())?.status).toBe(403);
+  expect((await routes.handle(new Request("https://dashboard.example/api/auth/logout", {
+    method: "POST", headers: { Cookie: sessionCookie, Origin: "https://dashboard.example" },
+  })))?.status).toBe(204);
+  expect((await check())?.status).toBe(401);
   await expect(oauth.complete(state, state, "synthetic-code")).rejects.toThrow("already used");
 });
