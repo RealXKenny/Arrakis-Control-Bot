@@ -115,10 +115,12 @@ jobs:
             exit 1
           fi
 
-          echo "create=true" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$current_version" >> "$GITHUB_OUTPUT"
-          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+          {
+            echo "create=true"
+            echo "tag=$tag"
+            echo "version=$current_version"
+            echo "notes_file=$notes_file"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Name image
         if: steps.release.outputs.create == 'true'
