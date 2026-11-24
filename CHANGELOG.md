@@ -11,7 +11,8 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Changed
 
-- Align CI and release security with the dashboard: pin actions, verify merge-queue and V2 pushes, and validate checksummed image and source artifacts before granting the separate publish job write permissions.
+- Align CI and release security with the dashboard: pin actions, verify merge-queue and V2 pushes, and validate checksummed source artifacts before granting the separate publish job write permissions.
+- Replace the bot-specific GHCR image release and egg with a checksummed source archive and Node.js 24 Pterodactyl installer. Existing image-based installations must import the new egg and reinstall or migrate their configuration.
 - Add internal dashboard OAuth and access services for PKCE transactions, Discord identity, durable sessions, fresh guild authorization, and framework-neutral HTTP handlers. These handlers are not yet mounted or publicly accessible.
 - Read release announcements from the dashboard's public changelog API instead of GitHub. Configure `DASHBOARD_URL` and deploy a dashboard with the API; stale, incomplete, or unavailable data pauses posting and replay. Existing PostgreSQL receipts remain in use.
 - Release automation checks the package and lockfile versions and attaches a versioned source archive with a SHA-256 checksum to each new release after successful main-branch CI.

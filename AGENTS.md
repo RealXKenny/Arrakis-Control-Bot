@@ -109,7 +109,6 @@ tests/                                     Mirrors the source ownership boundari
 
 guides/                                    Operator and feature setup guides
 pterodactyl/                               Importable PTDL_v2 bot egg
-docker/                                    Pterodactyl-compatible image entrypoint
 data/                                      Bundled runtime/reference data
 certificates/                              Local certificate material; never add private keys
 .github/workflows/                         CI, GHCR image publication, and automatic GitHub release automation
@@ -266,9 +265,9 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Do not use destructive Git commands (`reset --hard`, forced checkout, clean) unless the user explicitly requests them.
 - Never commit, tag, push, publish a release, or open a pull request unless the user asks.
 - Before a release, re-read the current version and changelog; do not reuse old test counts, commit IDs, tags, or release metadata.
-- `.github/workflows/ci.yml` verifies every pull request, merge-queue entry, and pushes to `main`, `v2`, and `release/*`, running typecheck, lint, test, audit, and actionlint behind the `verify` gate job. A successful push to `main` triggers `.github/workflows/release.yml`; an unprivileged validation job builds and smoke-checks release artifacts before a separate publishing job receives write permissions. A new stable `package.json` version and matching non-empty `CHANGELOG.md` section create the GitHub release automatically.
-- Only a new stable version release builds and smoke-checks the Docker image, then publishes `latest`, `v<version>`, and `sha-<full commit SHA>` to `ghcr.io/realxkenny/arrakis-control-bot` after successful `main` CI. The image runs from `/opt/arrakis`; a Pterodactyl egg must start it with `cd /opt/arrakis && exec node dist/src/index.js`.
-- Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The image must retain the `container` user, `/home/container` working directory, and entrypoint that executes Pterodactyl's `STARTUP` command.
+- `.github/workflows/ci.yml` verifies every pull request, merge-queue entry, and pushes to `main`, `v2`, and `release/*`, running typecheck, lint, test, audit, and actionlint behind the `verify` gate job. A successful push to `main` triggers `.github/workflows/release.yml`; an unprivileged validation job prepares the egg and checksummed source archive before a separate publishing job receives write permissions.
+- A new stable package version and matching non-empty changelog section create a GitHub release containing the egg, source archive, and SHA-256 checksum. The workflow does not build or publish a bot-specific Docker image.
+- Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The Node 24 egg installs a release into `/home/container` and starts `node dist/src/index.js`.
 - Do not create a tag manually for an automatic release: an existing `v<version>` tag intentionally causes the release workflow to skip that version.
 
 ## Definition of Done

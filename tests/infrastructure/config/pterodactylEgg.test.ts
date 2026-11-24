@@ -15,6 +15,7 @@ interface Egg {
   docker_images: Record<string, string>;
   startup: string;
   config: { startup: string; stop: string };
+  scripts: { installation: { script: string; container: string; entrypoint: string } };
   variables: EggVariable[];
 }
 
@@ -32,7 +33,7 @@ describe("Pterodactyl egg", () => {
     const documented = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((match) => match[1]);
     const included = egg.variables.map((variable) => variable.env_variable);
 
-    expect(included).toEqual(documented);
+    expect(included).toEqual(["RELEASE_TAG", "ALLOW_UNVERIFIED_RELEASE", ...documented]);
     expect(new Set(included).size).toBe(included.length);
     expect(egg.variables.some((variable) => variable.default_value.includes("replace_with_"))).toBe(false);
     for (const key of ["TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY"]) {
@@ -43,10 +44,18 @@ describe("Pterodactyl egg", () => {
     }
   });
 
-  it("uses the published image and waits for a shard readiness message", () => {
+  it("installs a verified source release and waits for a shard readiness message", () => {
     expect(egg.meta.version).toBe("PTDL_v2");
-    expect(Object.values(egg.docker_images)).toEqual(["ghcr.io/realxkenny/arrakis-control-bot:latest"]);
-    expect(egg.startup).toBe("cd /opt/arrakis && exec node dist/src/index.js");
+    expect(Object.values(egg.docker_images)).toEqual(["ghcr.io/ptero-eggs/yolks:nodejs_24"]);
+    expect(egg.startup).toBe("cd /home/container && exec node dist/src/index.js");
+    expect(egg.scripts.installation.container).toBe("node:24-bookworm");
+    const installer = egg.scripts.installation.script;
+    expect(installer).toContain("sha256sum --check --status");
+    expect(installer).toContain("select(.draft == false and .prerelease == false)");
+    expect(installer).toContain("duplicate archive assets");
+    expect(installer).toContain("tar -tvzf");
+    expect(installer).toContain("su -s /bin/bash node");
+    expect(installer.indexOf("sha256sum --check --status")).toBeLessThan(installer.indexOf('tar -xzf'));
     expect(JSON.parse(egg.config.startup)).toEqual({ done: "Discord shard" });
     expect(egg.config.stop).toBe("^C");
   });

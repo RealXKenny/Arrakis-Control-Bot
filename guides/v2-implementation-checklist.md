@@ -7,6 +7,8 @@ This checklist records work against the V2 request. An unchecked item is not com
 - [x] Identify the existing GitHub release client, announcement ledger, dashboard changelog parser, and release workflow.
 - [x] Bound legacy release-announcement history import and fail closed if it cannot be completed safely.
 - [x] Add release archive and SHA-256 attachment and package/lockfile version validation to the bot release workflow.
+- [x] Replace bot-specific GHCR publication with dashboard-style source releases and a Node.js 24 Pterodactyl egg.
+- [ ] Verify the release installer and native canvas against the target Pterodactyl runtime before deployment.
 - [x] Add a tested, manual bot release-history export that preserves the dashboard root changelog.
 - [ ] Complete dashboard synchronization integration and validate its publication policy.
 - [ ] Audit every bot subsystem, command, integration, security boundary, deployment path, and test suite.
