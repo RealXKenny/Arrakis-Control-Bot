@@ -22,8 +22,9 @@ This checklist records work against the V2 request. An unchecked item is not com
 - [x] Add one-time PostgreSQL OAuth transaction storage, PKCE coordination, and a bounded Discord identity transport.
 - [x] Exercise the OAuth, session, authorization, permission-revocation and logout components together against mocked external boundaries.
 - [x] Add framework-neutral OAuth, logout, and guild-access HTTP handlers with secure cookies and origin validation; they are not yet mounted.
+- [x] Add shared PostgreSQL request limits, expiry cleanup, and a composition factory for dashboard security services; they are not yet running in the bot.
 - [ ] Integrate the authorization and session repositories with the dashboard framework and verify end-to-end OAuth.
-- [ ] Add secure HTTP cookies, CSRF/origin enforcement, request limits, scheduled expiry cleanup, and framework integration tests before exposing OAuth.
+- [ ] Mount and verify secure HTTP cookies, CSRF/origin enforcement, request limits, scheduled expiry cleanup, and framework integration before exposing OAuth.
 - [ ] Design and implement deterministic bot changelog synchronization without changing dashboard release parsing.
 - [x] Implement the dashboard read-only versioned changelog API and unified release presentation.
 - [x] Add and test a bounded dashboard changelog HTTP client.

@@ -1,4 +1,6 @@
 import type { DashboardAccessResult } from "../../../modules/dashboard/dashboardAccess";
+import { isIP } from "node:net";
+import type { DashboardRateLimitRepository } from "../../database/dashboard/DashboardRateLimitRepository";
 
 interface OAuth {
   begin(): Promise<{ state: string; url: string }>;
@@ -16,7 +18,8 @@ const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosnif
 /** Framework-neutral handlers. Mount only behind HTTPS with the configured public origin. */
 export class DashboardAuthRoutes {
   private readonly origin: string;
-  public constructor(publicOrigin: string, private readonly oauth: OAuth, private readonly access: Access) {
+  public constructor(publicOrigin: string, private readonly oauth: OAuth, private readonly access: Access,
+    private readonly limits: Pick<DashboardRateLimitRepository, "consume">) {
     const url = new URL(publicOrigin);
     if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
       throw new Error("Dashboard public URL must be an HTTPS origin");
@@ -24,11 +27,19 @@ export class DashboardAuthRoutes {
     this.origin = url.origin;
   }
 
-  public async handle(request: Request): Promise<Response | null> {
+  /** remoteAddress must come from the transport socket, never a forwarded header. */
+  public async handle(request: Request, remoteAddress: string): Promise<Response | null> {
     const url = new URL(request.url);
     const isKnown = ["/api/auth/discord", "/api/auth/discord/callback", "/api/auth/logout"].includes(url.pathname) ||
       /^\/api\/guilds\/[^/]+\/access$/.test(url.pathname);
     if (!isKnown) return null;
+    if (!isIP(remoteAddress)) return json({ error: "Client address unavailable" }, 503);
+    const scope = url.pathname.startsWith("/api/auth/discord") ? "oauth" : url.pathname === "/api/auth/logout" ? "logout" : "access";
+    const limit = scope === "oauth" ? 20 : scope === "logout" ? 30 : 60;
+    try {
+      if (!await this.limits.consume("global", "dashboard", 1000, 60)) return json({ error: "Too many requests" }, 429);
+      if (!await this.limits.consume(scope, remoteAddress, limit, 60)) return json({ error: "Too many requests" }, 429);
+    } catch { return json({ error: "Service temporarily unavailable" }, 503); }
     const cookies = parseCookies(request.headers.get("cookie"));
     if (!cookies) return json({ error: "Invalid cookies" }, 400);
     if (url.pathname === "/api/auth/discord" && request.method === "GET") {
