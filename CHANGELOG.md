@@ -4,6 +4,8 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+**Target version: 2.0.0.** This release is in development; the package version remains 1.11.7 until V2 is ready for release.
+
 ### Fixed
 
 - Stop already-running shard processes when a later shard fails during manager startup.
@@ -13,19 +15,28 @@ All notable changes to Arrakis Control Bot are documented here.
 
 - Align CI and release security with the dashboard: pin actions, verify merge-queue and V2 pushes, and validate checksummed source artifacts before granting the separate publish job write permissions.
 - Replace the bot-specific GHCR image release and egg with a checksummed source archive and Node.js 24 Pterodactyl installer. Existing image-based installations must import the new egg and reinstall or migrate their configuration.
-- Add internal dashboard OAuth and access services for PKCE transactions, Discord identity, durable sessions, shared request limits, expiry cleanup, fresh guild authorization, and framework-neutral HTTP handlers. These services are not yet running or publicly accessible.
+- Add internal dashboard OAuth and access services for one-time PKCE transactions, Discord identity, PostgreSQL sessions with hashed tokens, shared request limits, expiry cleanup, and fresh guild authorization routed to the owning shard. Framework-neutral handlers use secure cookies and validate logout origins. These services are not yet mounted or publicly accessible.
+- Add a request-scoped authorization bridge and an allowlisted read-only framework gateway. The bridge isolates concurrent guild requests; the gateway excludes OAuth callback queries and browser credentials from framework dispatch. The management dashboard and its controls are not yet mounted.
 - Read release announcements from the dashboard's public changelog API instead of GitHub. Configure `DASHBOARD_URL` and deploy a dashboard with the API; stale, incomplete, or unavailable data pauses posting and replay. Existing PostgreSQL receipts remain in use.
+- Validate and bound dashboard release responses, apply HTTP timeouts and bounded caching, and label last-known-good data as stale. Preserve channel locks, durable announcement receipts, deleted-message records, and replay protections; there is no GitHub changelog fallback.
 - Release automation checks the package and lockfile versions and attaches a versioned source archive with a SHA-256 checksum to each new release after successful main-branch CI.
 - Redesign every Discord panel with a modern look: a shared indigo palette and semantic status colors (`panelStyle.ts`), sentence-case banner text, neutral wording instead of Dune-themed copy and emoji, and newly generated gradient artwork for all 31 images in `data/images/` (reproducible with `node scripts/generate-panel-artwork.mjs`). Image filenames, panel keys, custom IDs, command names, and the in-game bridge name are unchanged, so published panels refresh in place. The roles, rules, and bot-control headings changed; their previous headings are still recognized when importing history. Level cards, the leaderboard card, and announcement cards use the same palette. `createDuneBanner` is now `createPanelBanner`.
 - Level role tier and achievement names are unchanged because they mirror existing server roles.
 
 ### Added
 
+- Add a deterministic manual export of dated bot release history for the dashboard, with format validation and protection against overwriting unrelated files. Automated cross-repository synchronization is not yet complete.
 - Add `/leaderboard`, a public, paginated Solari leaderboard. It ranks players from the Dune Console player directory and per-player `solaris-coin` totals, keeps balances as decimal strings, caches the ranking for five minutes, and binds First/Previous/Next/Last controls to the requester for 15 minutes. It is listed in `/help` under Community & World.
+
+### Deployment
+
+- Configure `DASHBOARD_URL` as the HTTPS origin of a dashboard deployment that exposes the V2 changelog API. Release announcements continue to require PostgreSQL.
+- Import the new Pterodactyl egg and migrate configuration from the former bot image installation. Verify the installer and native canvas in the target runtime before deployment.
 
 ### Verification
 
 - Unit tests cover parsing, BigInt-safe sorting, formatting, pagination, caching, failure paths, limits, and store/routing discovery. Live Console behavior was not verified.
+- Dashboard security tests cover OAuth and session handling, permission revocation, request isolation, rate-limit failures, and gateway validation with mocked external boundaries. An isolated smoke test exercised the read-only gateway against the framework. Live Discord, PostgreSQL, dashboard deployment, and Pterodactyl installation have not been verified.
 
 ## [1.11.7] - 2026-11-05
 
