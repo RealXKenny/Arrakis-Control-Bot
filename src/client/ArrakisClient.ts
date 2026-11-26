@@ -13,6 +13,7 @@ import type { VoiceService } from "../modules/voice/VoiceService";
 import type { MusicService } from "../modules/music/MusicService";
 import type { LevelingService } from "../modules/community/leveling/LevelingService";
 import type { StaffApplicationService } from "../modules/community/applications/StaffApplicationService";
+import type { SuggestionService } from "../modules/community/suggestions/SuggestionService";
 import type { MessageArchiveService } from "../modules/audit/MessageArchiveService";
 
 import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
@@ -34,6 +35,7 @@ class ArrakisClient extends SapphireClient {
   public music?: MusicService;
   public leveling?: LevelingService;
   public staffApplications?: StaffApplicationService;
+  public suggestions?: SuggestionService;
   public messageArchive?: MessageArchiveService;
   public voiceRooms?: VoiceService;
   public chatBridge?: DiscordGameChatBridge;

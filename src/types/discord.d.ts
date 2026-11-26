@@ -13,6 +13,7 @@ import type { VoiceService } from "../modules/voice/VoiceService";
 import type { MusicService } from "../modules/music/MusicService";
 import type { LevelingService } from "../modules/community/leveling/LevelingService";
 import type { StaffApplicationService } from "../modules/community/applications/StaffApplicationService";
+import type { SuggestionService } from "../modules/community/suggestions/SuggestionService";
 import type { MessageArchiveService } from "../modules/audit/MessageArchiveService";
 
 declare module "discord.js" {
@@ -24,6 +25,7 @@ declare module "discord.js" {
     music?: MusicService;
     leveling?: LevelingService;
     staffApplications?: StaffApplicationService;
+    suggestions?: SuggestionService;
     messageArchive?: MessageArchiveService;
     voiceRooms?: VoiceService;
     chatBridge?: DiscordGameChatBridge;

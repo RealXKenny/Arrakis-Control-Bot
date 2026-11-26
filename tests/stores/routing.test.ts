@@ -16,6 +16,10 @@ describe("Sapphire interaction routing", () => {
     expect(isKnownComponentInteraction(fakeButton("help-page:session:next"))).toBe(true);
     expect(isKnownComponentInteraction(fakeSelect("market-category:session"))).toBe(true);
     expect(isKnownComponentInteraction(fakeSelect("help-category:session"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeButton("suggestion-status:planned"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeButton("suggestion-summary"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeButton("suggestion-similar"))).toBe(true);
+    expect(isKnownComponentInteraction(fakeSelect("suggestion-feature:12:123456789012345678"))).toBe(true);
     expect(isKnownComponentInteraction(fakeButton("expired-control"))).toBe(false);
     expect(isKnownComponentInteraction(fakeButton("honeypot:status"))).toBe(true);
     expect(isKnownComponentInteraction(fakeButton("honeypot:status-extra"))).toBe(false);

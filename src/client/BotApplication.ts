@@ -37,6 +37,9 @@ import { retryWithBackoff } from "../shared/async/retryWithBackoff";
 import { runMigrations, SchemaTooNewError } from "../infrastructure/database/migrations/MigrationRunner";
 import { MIGRATIONS } from "../infrastructure/database/migrations/migrations";
 import type { HoneypotConfig } from "../infrastructure/config/honeypot";
+import type { SuggestionConfig } from "../infrastructure/config/suggestions";
+import { SuggestionRepository } from "../infrastructure/database/suggestions/SuggestionRepository";
+import { SuggestionService } from "../modules/community/suggestions/SuggestionService";
 
 export type BotClient = ArrakisClient;
 
@@ -49,6 +52,7 @@ interface BotConfig {
   levelingEnabled: boolean;
   levelRoles: Readonly<LevelRoleConfig>;
   staffApplications?: StaffApplicationConfig;
+  suggestions?: SuggestionConfig;
   logLevel?: string;
   duneConsoleApiKey: string;
   duneConsoleUrl: string;
@@ -121,7 +125,7 @@ function createBotApplication(config: BotConfig) {
   systemLogger.info("[01] Loading commands, events and integrations.");
 
   configLogger.info(
-    `Links:${client.discordAdapter ? "on" : "off"} | Chat:${client.chatBridge ? "on" : "off"} | Voice:${client.voiceRooms ? "on" : "off"} | Music:${client.music ? "on" : "off"} | Levels:${client.leveling ? "on" : "off"} | Archive:${client.messageArchive ? "on" : "off"} | Honeypot:${client.honeypot ? client.honeypot.config.action : "off"}`,
+    `Links:${client.discordAdapter ? "on" : "off"} | Chat:${client.chatBridge ? "on" : "off"} | Voice:${client.voiceRooms ? "on" : "off"} | Music:${client.music ? "on" : "off"} | Levels:${client.leveling ? "on" : "off"} | Suggestions:${client.suggestions ? "on" : "off"} | Archive:${client.messageArchive ? "on" : "off"} | Honeypot:${client.honeypot ? client.honeypot.config.action : "off"}`,
   );
   configLogger.info(client.honeypot ? `Honeypot enabled: action=${client.honeypot.config.action}, channel=${client.honeypot.config.channelId}.` : "Honeypot disabled: configure HONEYPOT_CHANNEL_ID and HONEYPOT_LOG_CHANNEL_ID to enable the panel.");
 
@@ -141,6 +145,7 @@ function createBotApplication(config: BotConfig) {
       await client.music?.initialize();
       await client.leveling?.initialize();
       await client.staffApplications?.initialize();
+      await client.suggestions?.initialize();
       await client.messageArchive?.initialize();
     }, {
       shouldStop: () => isShuttingDown,
@@ -179,6 +184,7 @@ function createBotApplication(config: BotConfig) {
     // Dev note: Share one stop promise; asking the DJ twice does not make teardown a duet.
     const stopMusic = client.music?.stop() ?? Promise.resolve();
     client.leveling?.stop();
+    client.suggestions?.stop();
     await cleanupResources(
       [
         { name: "RabbitMQ chat bridge", run: () => client.chatBridge?.stop() },
@@ -280,6 +286,14 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
   const levelingLogger = createLogger("LEVELING", config.logLevel);
   client.leveling = config.levelingEnabled && client.tickets ? new LevelingService(client, new LevelRepository(client.tickets.backgroundPool), config.levelRoles, (message, error) => levelingLogger.error(message, error)) : undefined;
   client.staffApplications = config.staffApplications && client.tickets ? new StaffApplicationService(client, new StaffApplicationRepository(client.tickets.pool), config.staffApplications) : undefined;
+  const suggestionLogger = createLogger("SUGGESTIONS", config.logLevel);
+  client.suggestions = config.suggestions && client.tickets
+    ? new SuggestionService(client, config.suggestions, new SuggestionRepository(client.tickets.pool), {
+      info: (message) => suggestionLogger.info(message),
+      warn: (message) => suggestionLogger.warn(message),
+      error: (message, error) => suggestionLogger.error(message, error),
+    })
+    : undefined;
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music =
     config.music && client.tickets

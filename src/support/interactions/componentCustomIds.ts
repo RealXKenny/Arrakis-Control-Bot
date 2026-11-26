@@ -20,10 +20,11 @@ const BUTTON_IDS = [
   "bot-control:status", "bot-control:refresh-panels", "bot-control:reload", "bot-control:resync",
   "bot-control:restart", "bot-control:restart-confirm", "bot-control:cancel",
   "staff-application:open",
+  "suggestion-summary", "suggestion-similar",
 ] as const;
-const BUTTON_PREFIXES = ["voice-kick-page:", "voice-reset:", "voice-close:", "voice-cancel:", "help-page:", "market-page:", "leaderboard-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:", "staff-application:accept:", "staff-application:deny:"] as const;
+const BUTTON_PREFIXES = ["voice-kick-page:", "voice-reset:", "voice-close:", "voice-cancel:", "help-page:", "market-page:", "leaderboard-page:", "ticket-claim:", "ticket-review:", "ticket-unclaim:", "staff-application:accept:", "staff-application:deny:", "suggestion-status:"] as const;
 const MENU_IDS = ["self-assignable-roles", "ticket-category"] as const;
-const MENU_PREFIXES = ["voice-member:", "help-category:", "market-category:"] as const;
+const MENU_PREFIXES = ["voice-member:", "help-category:", "market-category:", "suggestion-feature:"] as const;
 const MODAL_IDS = [
   "music-edit:request", "music-edit:volume",
   "blueprint-upload-modal",

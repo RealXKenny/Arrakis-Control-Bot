@@ -6,6 +6,7 @@ import { loadVoiceSetup, type VoiceSetupConfig } from "./voiceRooms";
 import { loadMusicConfig, type MusicConfig } from "./music";
 import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
 import { loadStaffApplicationConfig, type StaffApplicationConfig } from "./staffApplications";
+import { loadSuggestionConfig, type SuggestionConfig } from "./suggestions";
 import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogClient";
 
 dotenv.config({
@@ -21,6 +22,7 @@ interface EnvironmentConfig {
   levelingEnabled: boolean;
   levelRoles: Readonly<LevelRoleConfig>;
   staffApplications?: StaffApplicationConfig;
+  suggestions?: SuggestionConfig;
   discordToken: string;
   clientId?: string;
   guildId?: string;
@@ -187,6 +189,8 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   }
   const staffApplications = loadStaffApplicationConfig(process.env);
   if (staffApplications && !process.env.DATABASE_URL) throw new Error("DATABASE_URL is required when staff applications are enabled.");
+  const suggestions = loadSuggestionConfig(process.env);
+  if (suggestions && !process.env.DATABASE_URL) throw new Error("DATABASE_URL is required when the suggestion assistant is enabled.");
 
   const logLevel = (process.env.LOG_LEVEL ?? "INFO").toUpperCase();
 
@@ -203,6 +207,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     levelingEnabled,
     levelRoles: loadLevelRoleConfig(process.env),
     staffApplications,
+    suggestions,
     discordToken,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,

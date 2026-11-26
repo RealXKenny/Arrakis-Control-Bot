@@ -217,6 +217,10 @@ See the [complete command migration table](guides/commands.md) for all command g
 
 Use `/server-usage` for Convoy CPU, memory, network and disk graphs. See the [Convoy guide](guides/convoy.md).
 
+## Suggestion forum assistant
+
+An optional, lightweight assistant manages a suggestions forum with no paid AI service: it tags new posts, replies to the suggester, lists similar posts, summarizes long discussions, and gives staff a status panel (Planned, Working on it, Back burner, Not doing, Added) in every post. `/suggestions feature start` and `/suggestions feature done` move every suggestion a piece of work covers to In Progress and then Implemented. Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required). See [the setup guide](guides/suggestions.md).
+
 ## Honeypot moderation
 
 Optional automatic spam traps are available through `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, and `HONEYPOT_ACTION` (default `ban`). Leave the channel IDs empty to disable. The trap removes non-staff messages, applies the configured action, and logs outcomes. See [the setup guide](guides/honeypot.md) for channel permissions, exemptions, and testing.

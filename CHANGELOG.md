@@ -4,6 +4,12 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Suggestion forum assistant: tags new suggestion posts, replies to the suggester with varied wording, lists similar posts, summarizes long discussions, and adds a staff-only status panel (Planned, Working on it, Back burner, Not doing, Added) to each post. Runs locally with no paid AI service.
+- `/suggestions` command: `similar`, `summary`, `status`, `panel`, and `feature start`, `link`, `done` and `list` to move every suggestion a piece of work covers to In Progress and then Implemented.
+- New optional settings `SUGGESTIONS_FORUM_CHANNEL_ID`, `SUGGESTIONS_AUTO_TAG`, `SUGGESTIONS_STATUS_PANEL`, `SUGGESTIONS_NOTIFY_AUTHOR`, `SUGGESTIONS_CREATE_TAGS`, `SUGGESTIONS_DUPLICATE_THRESHOLD`, `SUGGESTIONS_AUTO_SUMMARY_MESSAGES` and `SUGGESTIONS_BACKFILL_LIMIT`. See `guides/suggestions.md`.
+
 ### Fixed
 
 - The release workflow's publish job names the repository for `gh release create`. It has no checkout, so the 2.0.0 release failed with "not a git repository" after a successful build.
