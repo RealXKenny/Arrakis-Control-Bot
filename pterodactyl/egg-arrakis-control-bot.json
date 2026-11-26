@@ -380,7 +380,7 @@
     },
     {
       "name": "Runtime Metrics Interval Seconds",
-      "description": "Seconds between runtime health summaries in the console. 0 turns them off. Default 60.",
+      "description": "Seconds between runtime health checks. The console prints a summary every 30 minutes and warns at once on problems. 0 turns them off. Default 60.",
       "env_variable": "RUNTIME_METRICS_INTERVAL_SECONDS",
       "default_value": "60",
       "user_viewable": true,

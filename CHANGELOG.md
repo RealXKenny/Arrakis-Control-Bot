@@ -17,7 +17,7 @@ All notable changes to Arrakis Control Bot are documented here.
 ### Changed
 
 - Easier-to-read logs. Errors print as one `Name: message` line instead of a JSON block with the stack; set `LOG_LEVEL=DEBUG` to see stack traces. Discord API error messages stay visible in production.
-- The `METRICS` line prints every five minutes instead of every minute. It still prints at once when there is a warning, a Discord rate limit or a change in health (gateway, database or open circuits), and `HEALTH_FILE` still updates every interval.
+- The `METRICS` line prints every 30 minutes instead of every minute (every sample is still shown with `LOG_LEVEL=DEBUG`). It still prints at once, with a warning, when the gateway or PostgreSQL is down, queries are waiting for a connection, the event loop is slow, Discord rate-limits a request or a circuit opens, and when health changes. `HEALTH_FILE` still updates every interval.
 - RabbitMQ chat warns once per distinct connection problem instead of on every retry, repeats a short summary every tenth attempt, and says how many attempts the recovery took.
 - Startup logs name the server, the honeypot channel and the ticket panel channel alongside their IDs, and dotenv no longer prints its own banner.
 - Dependency updates: discord.js 14.28.1, amqplib 2.4.1, pg 8.23.1, dotenv 18, ESLint 10, Vitest 5.1, and current GitHub Actions versions.

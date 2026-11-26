@@ -34,17 +34,19 @@ interface RuntimeMonitorOptions {
   healthFile?: string;
   info(message: string): void;
   warn(message: string): void;
+  /** Receives the quiet samples that are not printed at INFO, so `LOG_LEVEL=DEBUG` still shows every sample. */
+  debug?(message: string): void;
   /** Event-loop p99 above this is reported as a warning. */
   eventLoopWarnMs?: number;
   /**
-   * Quiet samples are printed at most this often (default five minutes). A sample with warnings,
+   * Quiet samples are printed at most this often (default 30 minutes). A sample with warnings,
    * rate limits or a changed health state is printed at once. The health file is still rewritten every interval.
    */
   summaryIntervalMs?: number;
 }
 
 const DATABASE_PING_TIMEOUT_MS = 2_000;
-const DEFAULT_SUMMARY_INTERVAL_MS = 300_000;
+const DEFAULT_SUMMARY_INTERVAL_MS = 1_800_000;
 
 /**
  * Samples runtime health without opening a network port: event-loop delay, memory,
@@ -118,7 +120,9 @@ class RuntimeMonitor {
       this.histogram.reset();
       this.restRateLimits = 0;
       const warnings = snapshotWarnings(snapshot, this.options.eventLoopWarnMs ?? 200);
-      if (this.shouldLog(snapshot, warnings.length > 0)) this.options.info(formatSnapshot(snapshot));
+      const line = formatSnapshot(snapshot);
+      if (this.shouldLog(snapshot, warnings.length > 0)) this.options.info(line);
+      else this.options.debug?.(line);
       for (const warning of warnings) this.options.warn(warning);
       if (this.options.healthFile) await writeHealthFile(this.options.healthFile, snapshot);
     } catch (error) {
@@ -180,6 +184,7 @@ function snapshotWarnings(snapshot: RuntimeSnapshot, eventLoopWarnMs: number): s
   const pools = snapshot.database.pools;
   if (pools && pools.interactive.waiting > 0) warnings.push(`${pools.interactive.waiting} interactive database queries are waiting for a connection; consider raising DATABASE_POOL_MAX.`);
   if (snapshot.openCircuits.length) warnings.push(`Upstream circuits are open: ${snapshot.openCircuits.join(", ")}.`);
+  if (snapshot.restRateLimits > 0) warnings.push(`Discord rate-limited ${snapshot.restRateLimits} REST request(s) since the last sample.`);
   return warnings;
 }
 

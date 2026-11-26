@@ -51,6 +51,7 @@ describe("RuntimeMonitor", () => {
     expect(warnings.join("\n")).toMatch(/DATABASE_POOL_MAX/);
     expect(warnings.join("\n")).toMatch(/Event-loop delay p99 is 500ms/);
     expect(warnings.join("\n")).toMatch(/dune:api\/server/);
+    expect(warnings.join("\n")).toMatch(/rate-limited 1 REST request/);
   });
 
   it("prints quiet samples only every summary interval but reports changes and warnings at once", async () => {
@@ -72,6 +73,31 @@ describe("RuntimeMonitor", () => {
     expect(await sample(8)).toBe(false);
     monitor.recordRateLimit();
     expect(await sample(9)).toBe(true);
+  });
+
+  it("summarizes quiet samples every 30 minutes by default", async () => {
+    const monitor = new RuntimeMonitor(probes({ poolStats: () => ({ ...pools, interactive: { total: 10, idle: 9, waiting: 0 } }) }), { ...options, intervalMs: 60_000 });
+    const sample = async (minute: number) => {
+      const snapshot = await monitor.snapshot(new Date(Date.UTC(2026, 10, 26, 0, minute)));
+      return monitor.shouldLog(snapshot, snapshotWarnings(snapshot, 200).length > 0);
+    };
+    expect(await sample(0)).toBe(true);
+    expect(await sample(5)).toBe(false);
+    expect(await sample(29)).toBe(false);
+    expect(await sample(30)).toBe(true);
+  });
+
+  it("sends quiet samples to debug instead of info", async () => {
+    const info = vi.fn();
+    const debug = vi.fn();
+    const monitor = new RuntimeMonitor(probes({ poolStats: () => ({ ...pools, interactive: { total: 10, idle: 9, waiting: 0 } }) }), { intervalMs: 20, info, warn: vi.fn(), debug });
+    try {
+      monitor.start();
+      await vi.waitFor(() => expect(debug).toHaveBeenCalledWith(expect.stringContaining("ready=yes")), { timeout: 2_000 });
+      expect(info).toHaveBeenCalledTimes(1);
+    } finally {
+      monitor.stop();
+    }
   });
 
   it("writes the health file on each interval and stops cleanly", async () => {

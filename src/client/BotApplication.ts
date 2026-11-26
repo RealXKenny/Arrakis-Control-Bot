@@ -111,6 +111,7 @@ function createBotApplication(config: BotConfig) {
     healthFile: config.healthFile,
     info: (message) => metricsLogger.info(message),
     warn: (message) => metricsLogger.warn(message),
+    debug: (message) => metricsLogger.debug(message),
   });
 
   configureIntegrations(client, config, (error, pool) => {
