@@ -331,6 +331,7 @@ function validateUrl(value: string, name: string): void {
       throw error;
     }
 
+    // eslint-disable-next-line preserve-caught-error -- the URL parser error carries the raw URL, which may hold credentials.
     throw new Error(`${name} must be a valid URL.`);
   }
 }
@@ -355,6 +356,7 @@ function validateDatabaseUrl(value: string): void {
       throw error;
     }
 
+    // eslint-disable-next-line preserve-caught-error -- the URL parser error carries the raw URL, which may hold credentials.
     throw new Error("DATABASE_URL must be a valid PostgreSQL connection URL.");
   }
 }
