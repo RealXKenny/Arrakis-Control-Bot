@@ -37,6 +37,7 @@ Built on Sapphire Framework 5 and discord.js 14, with PostgreSQL for persistent 
 | Set up music, voice rooms or staff applications    | [Music](guides/music.md) · [Voice rooms](guides/voice-rooms.md) · [Staff applications](guides/staff-applications.md) |
 | Set up the honeypot, Poker Activity or Convoy      | [Honeypot](guides/honeypot.md) · [Poker](guides/poker.md) · [Convoy](guides/convoy.md) |
 | Post release notes to Discord                      | [Changelog synchronization](guides/changelog-synchronization.md)               |
+| Manage a suggestions forum                         | [Suggestion assistant](guides/suggestions.md)                                  |
 | Review security and scale                          | [Security audit](guides/security-audit.md) · [Single-guild scale plan](guides/single-guild-scale-plan.md) |
 
 All guides are listed in [guides/README.md](guides/README.md).
@@ -67,6 +68,9 @@ All guides are listed in [guides/README.md](guides/README.md).
 - **Weekly Coriolis storm panel**, **Solari leaderboard** and read-only **CHOAM market** browser.
 - **Poker Activity:** `/poker` launches the dashboard's play-money Hold'em table inside Discord.
 - **Release announcements** for the bot and the dashboard, bot first, from the dashboard's changelog API.
+- **Suggestion forum assistant:** tags new suggestions, replies to the suggester, finds similar posts, summarizes
+  long discussions and gives staff a status panel (Planned, Working on it, Back burner, Not doing, Added) in every post.
+  Runs locally with no paid AI service.
 
 ### Moderation and records
 

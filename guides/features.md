@@ -122,6 +122,10 @@ Persistent public panels require `DATABASE_URL`. The bot creates `bot_persistent
 
 Every user-facing Discord panel shares one modern visual language: an indigo accent palette and semantic status colors (`src/shared/discord/panelStyle.ts`), sentence-case headings, and gradient-and-geometry artwork from `data/images/`. Regenerate the artwork with `node scripts/generate-panel-artwork.mjs`; the files keep their names, so no code or deployment changes are needed. The shared renderer selects a typed panel-specific background, applies consistent aspect-cover cropping and text-safe shading, then layers dynamic server names, counts, statuses, release versions, member avatars, and accessibility descriptions without baking live data into the source image. Persistent panels retain their unique backgrounds, welcome and goodbye cards use member-specific avatar banners, and short-lived Components V2 responses automatically receive the `panel-temporary.png` scene when they do not already provide art. Lyrics, voice-room information, and no-cover music cards also include dedicated image attachments. High-volume audit-log records intentionally remain compact and text-first.
 
+## Suggestion forum assistant
+
+Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required) to let the bot manage a suggestions forum without any paid AI service: it tags new posts, replies to the suggester, lists similar posts, summarizes long discussions and adds a staff-only status panel (Planned, Working on it, Back burner, Not doing, Added) to each post. `/suggestions feature start` and `/suggestions feature done` move every suggestion a piece of work covers to In Progress and then Implemented. See [the setup guide](suggestions.md).
+
 ## Honeypot moderation
 
 Optional automatic spam traps are available through `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, and `HONEYPOT_ACTION` (default `ban`). Leave the channel IDs empty to disable. The trap removes non-staff messages, applies the configured action, and logs outcomes. See [the setup guide](honeypot.md) for channel permissions, exemptions, and testing.

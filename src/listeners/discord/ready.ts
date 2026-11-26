@@ -65,6 +65,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
     client.chatBridge?.start();
     client.music?.start();
     client.leveling?.start();
+    client.suggestions?.start();
     const serverName = process.env.SERVER_NAME || DEFAULT_SERVER_NAME;
     const presenceStatuses = statuses(serverName);
 

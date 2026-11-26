@@ -1187,6 +1187,86 @@
       "user_editable": false,
       "rules": "nullable|string|max:255",
       "field_type": "text"
+    },
+    {
+      "name": "Suggestions Forum Channel ID",
+      "description": "Optional bot setting (SUGGESTIONS_FORUM_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_FORUM_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Auto Tag",
+      "description": "Optional bot setting (SUGGESTIONS_AUTO_TAG). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_AUTO_TAG",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Status Panel",
+      "description": "Optional bot setting (SUGGESTIONS_STATUS_PANEL). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_STATUS_PANEL",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Notify Author",
+      "description": "Optional bot setting (SUGGESTIONS_NOTIFY_AUTHOR). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_NOTIFY_AUTHOR",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Create Tags",
+      "description": "Optional bot setting (SUGGESTIONS_CREATE_TAGS). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_CREATE_TAGS",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Duplicate Threshold",
+      "description": "Optional bot setting (SUGGESTIONS_DUPLICATE_THRESHOLD). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_DUPLICATE_THRESHOLD",
+      "default_value": "0.35",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Auto Summary Messages",
+      "description": "Optional bot setting (SUGGESTIONS_AUTO_SUMMARY_MESSAGES). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_AUTO_SUMMARY_MESSAGES",
+      "default_value": "50",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Backfill Limit",
+      "description": "Optional bot setting (SUGGESTIONS_BACKFILL_LIMIT). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_BACKFILL_LIMIT",
+      "default_value": "500",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
     }
   ]
 }
