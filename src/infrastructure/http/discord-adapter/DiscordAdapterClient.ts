@@ -38,11 +38,6 @@ interface DiscordAdapterMutationResult {
   controllerId?: string | number | null;
 }
 
-interface DiscordAdapterErrorDetails {
-  cause?: string;
-  [key: string]: unknown;
-}
-
 class DiscordAdapterClient {
   public readonly baseUrl: string;
   private readonly token: string;
@@ -243,5 +238,5 @@ function toRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-export { DiscordAdapterClient, DiscordAdapterError };
-export type { DiscordAdapterActor, DiscordAdapterRequestBody, DiscordAdapterErrorDetails, DiscordAdapterMutationResult, DiscordAdapterPlayerState };
+export { DiscordAdapterClient };
+export type { DiscordAdapterPlayerState };

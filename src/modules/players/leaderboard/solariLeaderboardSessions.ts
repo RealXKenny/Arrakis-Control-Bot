@@ -22,7 +22,7 @@ function sweepSessions(now = Date.now()): void {
 function createLeaderboardSession(options: { ownerId: string; requestedBy: string; page?: number }): LeaderboardSession {
   sweepSessions();
   while (sessions.size >= MAX_SESSIONS) {
-    const oldestId = sessions.keys().next().value as string | undefined;
+    const oldestId = sessions.keys().next().value;
     if (!oldestId) break;
     sessions.delete(oldestId);
   }

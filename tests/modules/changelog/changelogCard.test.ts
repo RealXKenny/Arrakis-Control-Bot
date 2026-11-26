@@ -1,7 +1,7 @@
 import type { Message } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { MAX_RELEASE_MESSAGES, buildReleaseCard, parseReleaseMarker, releaseMarker, releaseMessages, splitReleaseNotes } from "../../../src/modules/changelog/changelogCard";
+import { MAX_RELEASE_MESSAGES, buildReleaseCard, hasInlineNotes, parseReleaseMarker, releaseMarker, releaseNoteMessages, releaseThreadName, splitReleaseNotes } from "../../../src/modules/changelog/changelogCard";
 import type { ChangelogEntry } from "../../../src/modules/changelog/changelogEntries";
 import { CHANGELOG_PROJECTS } from "../../../src/modules/changelog/changelogProjects";
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
@@ -22,10 +22,21 @@ describe("changelog card", () => {
     expect(botCard.accent_color).not.toBe(dashboardCard.accent_color);
   });
 
-  it("keeps the durable heading and stays under the aggregate text limit", () => {
+  it("keeps the durable heading, points to the thread and leaves the notes out of the announcement", () => {
     const card = buildReleaseCard(entry(dashboard, "Long note. ".repeat(1000))).toJSON();
     expect(JSON.stringify(card)).toContain("## Arrakis Control Dashboard v1.2.3");
+    expect(JSON.stringify(card)).toContain("Full release notes are in the thread below.");
+    expect(JSON.stringify(card)).not.toContain("Long note.");
     expect(countDisplayableText(card)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
+  });
+
+  it("recognizes old announcements that carried their notes inline", () => {
+    expect(hasInlineNotes(message("### What changed"))).toBe(true);
+    expect(hasInlineNotes(message(releaseMarker(entry(bot))))).toBe(false);
+  });
+
+  it("names the notes thread after the product and version", () => {
+    expect(releaseThreadName(entry(dashboard))).toBe("Dashboard v1.2.3 release notes");
   });
 
   it("recognizes current and legacy headings and ignores unknown products", () => {
@@ -34,23 +45,21 @@ describe("changelog card", () => {
     expect(parseReleaseMarker(message("## Arrakis Control Launcher v1.0.0"))).toBeNull();
   });
 
-  it("keeps a short release in one message", () => {
-    expect(releaseMessages(entry(bot))).toHaveLength(1);
+  it("keeps short notes in one message", () => {
+    expect(releaseNoteMessages(entry(bot))).toHaveLength(1);
   });
 
   it("splits long notes on line boundaries and repeats the section heading on each continuation", () => {
     const items = Array.from({ length: 120 }, (_, index) => `- Change number ${index} with some descriptive text to fill the line.`);
     const body = `### Added\n${items.slice(0, 60).join("\n")}\n\n### Fixed\n${items.slice(60).join("\n")}`;
-    const messages = releaseMessages(entry(dashboard, body));
+    const messages = releaseNoteMessages(entry(dashboard, body));
     expect(messages.length).toBeGreaterThan(1);
     const texts = messages.map((payload) => payload.components[0].toJSON()).map((card) => {
       expect(countDisplayableText(card)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
       return JSON.stringify(card);
     });
-    expect(texts[0]).toContain("## Arrakis Control Dashboard v1.2.3");
-    expect("files" in messages[0]).toBe(true);
-    for (const [index, text] of texts.slice(1).entries()) {
-      expect(text).toContain(`Dashboard v1.2.3 release notes, part ${index + 2} of ${messages.length}`);
+    for (const [index, text] of texts.entries()) {
+      expect(text).toContain(`Dashboard v1.2.3 release notes, part ${index + 1} of ${messages.length}`);
       expect(text).toMatch(/### (Added|Fixed)/);
       expect(text).not.toContain("## Arrakis Control");
       expect(parseReleaseMarker(message(JSON.parse(text).components.map((c: { content?: string }) => c.content ?? "").join("\n")))).toBeNull();

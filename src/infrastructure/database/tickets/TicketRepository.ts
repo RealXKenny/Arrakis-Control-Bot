@@ -495,4 +495,4 @@ function mapTicket(row: TicketRow): TicketRecord {
 export type { DatabasePoolOptions, PoolStats };
 export { TicketRepository };
 
-export type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord, TicketReviewInput, TicketStatus };
+export type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord, TicketReviewInput };

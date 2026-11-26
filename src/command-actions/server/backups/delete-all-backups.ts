@@ -7,7 +7,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   if (!interaction.options.getBoolean("confirm", true)) { await interaction.reply({ content: "Bulk deletion cancelled because confirmation was false.", flags: MessageFlags.Ephemeral }); return; }
   await executeBackupAction(interaction, "delete-all-backups", { body: {} });
 }
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

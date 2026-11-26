@@ -1,3 +1,4 @@
+import { channelLabel } from "../../../shared/discord/logLabels";
 import { publishPersistentPanel } from "../../panels/persistentPanel";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, PermissionFlagsBits, ShardClientUtil, type Client } from "discord.js";
 import type { HoneypotConfig } from "../../../infrastructure/config/honeypot";
@@ -64,7 +65,7 @@ async function publishHoneypotPanel(client: Client, config: Readonly<HoneypotCon
   await publishPersistentPanel(client, channel, "honeypot", {
     matches: (message) => containsText(message.components, PANEL_MARKER), payload,
   });
-  logger.info(`Honeypot warning panel synchronized in channel ${config.channelId}.`);
+  logger.info(`Honeypot warning panel synchronized in channel ${channelLabel("name" in channel ? channel : undefined, config.channelId)}.`);
 }
 
 export { buildHoneypotPanel, ensureHoneypotPanel };

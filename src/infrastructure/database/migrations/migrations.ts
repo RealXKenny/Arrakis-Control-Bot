@@ -18,6 +18,20 @@ const MIGRATIONS: readonly Migration[] = [
     name: "v2 baseline (tables created by repository initializers)",
     up: () => Promise.resolve(),
   },
+  {
+    version: 2,
+    name: "remove release announcement receipts from before 2.0.0",
+    // Release history starts at 2.0.0. Only changelog bookkeeping is touched; the table is
+    // created lazily by its repository, so an install that never announced has nothing to clean.
+    up: async (client) => {
+      await client.query(`DO $$
+        BEGIN
+          IF to_regclass('bot_release_announcements') IS NOT NULL THEN
+            DELETE FROM bot_release_announcements WHERE version !~ '^v?([2-9]|[1-9][0-9]+)[.]';
+          END IF;
+        END $$`);
+    },
+  },
 ];
 
 export { MIGRATIONS };

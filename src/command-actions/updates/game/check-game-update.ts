@@ -12,7 +12,7 @@ const execute = (interaction: ChatInputCommandInteraction): Promise<void> => {
   return executeUpdateAction(interaction, "check-game-update", fresh === null ? {} : { fresh });
 };
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

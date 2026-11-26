@@ -3,9 +3,7 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 import { getBotVersion } from "../../../infrastructure/config/version";
 import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
-
-const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
+import { pickPanelAccent } from "../../../shared/discord/panelStyle";
 
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
 
@@ -44,8 +42,6 @@ const formatUptime = (totalSeconds: number): string => {
 
 const formatMemory = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-const getRandomAccentColor = (): number => ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)];
-
 const createBanner = (serverName: string) =>
   createPanelBanner({
     artwork: "bot-info",
@@ -66,7 +62,7 @@ const createInfoCard = (interaction: ChatInputCommandInteraction, serverName: st
   const onlineSince = Math.floor((Date.now() - client.uptime) / 1000);
 
   return new ContainerBuilder()
-    .setAccentColor(getRandomAccentColor())
+    .setAccentColor(pickPanelAccent())
 
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL("attachment://dune-server-info.png").setDescription("Arrakis Control bot information command center")))
 
@@ -129,8 +125,5 @@ const command = {
     await interaction.reply(createV2Response([infoCard], [banner]));
   },
 };
-
-
-
 
 export const groupedAction = command;

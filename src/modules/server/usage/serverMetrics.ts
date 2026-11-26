@@ -1,6 +1,6 @@
 export const METRIC_PERIODS = ["hour", "day", "week", "month", "year"] as const;
 export const METRIC_AGGREGATIONS = ["average", "maximum"] as const;
-export interface MetricPoint { time: number; values: (number | null)[] }
+interface MetricPoint { time: number; values: (number | null)[] }
 export interface ResourceGraph { title: string; labels: string[]; colors: string[]; unit: "percent" | "bytes" | "rate"; points: MetricPoint[] }
 export interface ServerMetrics { period: string; aggregation: string; unavailable: boolean; graphs: ResourceGraph[] }
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);

@@ -32,13 +32,17 @@ function archive(name = "arrakis-control-bot/package.json", link = false): Buffe
   return gzipSync(Buffer.concat([header, ...(link ? [] : [content, Buffer.alloc(510)]), Buffer.alloc(1024)]));
 }
 
-function install(options: { payload?: Buffer; checksum?: string; metadata?: unknown; releaseTag?: string } = {}) {
+function install(options: { payload?: Buffer; checksum?: string; metadata?: unknown; releaseTag?: string; existing?: Record<string, string> } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "arrakis-egg-test-"));
   roots.push(root);
   const bin = path.join(root, "bin");
   const fixtures = path.join(root, "fixtures");
   const server = path.join(root, "server");
   for (const directory of [bin, fixtures, server]) mkdirSync(directory);
+  for (const [name, content] of Object.entries(options.existing ?? {})) {
+    mkdirSync(path.dirname(path.join(server, name)), { recursive: true });
+    writeFileSync(path.join(server, name), content);
+  }
   const shim = (name: string, code: string) => {
     const file = path.join(bin, name);
     writeFileSync(file, `#!/bin/bash\n${code}\n`);
@@ -82,6 +86,20 @@ suite("Pterodactyl release installer", () => {
     expect(readFileSync(path.join(server, "package.json"), "utf8")).toBe("{}");
     expect(commands).toContain("node -c");
     expect(commands).toContain("npm ci");
+  });
+
+  it("leaves an existing installation and its custom files untouched on reinstall", () => {
+    const existing = {
+      "package.json": "{\"version\":\"2.0.0\"}",
+      ".env": "TOKEN=synthetic\n",
+      "certs/rabbit mq/ca.pem": "synthetic certificate\n",
+      "custom dir/nested/notes.txt": "keep\n",
+    };
+    const { run, server, commands } = install({ existing });
+    expect(run.status, run.stderr).toBe(0);
+    expect(run.stdout).toContain("Nothing was changed");
+    for (const [name, content] of Object.entries(existing)) expect(readFileSync(path.join(server, name), "utf8")).toBe(content);
+    expect(commands).toBe("");
   });
 
   it("refuses a bad checksum before extraction", () => {

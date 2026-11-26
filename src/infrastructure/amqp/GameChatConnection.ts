@@ -14,6 +14,8 @@ export class GameChatConnection {
   private blocked = false;
   private backpressure = false;
   private delay = 1_000;
+  private failures = 0;
+  private lastFailure?: string;
   private readonly pending = new Map<string, (error?: Error) => void>();
 
   public constructor(
@@ -99,12 +101,28 @@ export class GameChatConnection {
       this.channel = channel;
       this.delay = 1_000;
       stage = "relaying chat";
-      this.info("RabbitMQ chat connection ready; map routes are bound and the consumer is active.");
+      const recovered = this.failures > 0 ? ` after ${this.failures} failed attempt(s)` : "";
+      this.failures = 0;
+      this.lastFailure = undefined;
+      this.info(`RabbitMQ chat connection ready${recovered}; map routes are bound and the consumer is active.`);
     } catch (error: unknown) {
-      this.warn(`RabbitMQ chat unavailable while ${stage}: ${describeChatConnectionError(error)} Retrying automatically.`);
+      this.reportFailure(`${stage}: ${describeChatConnectionError(error)}`);
       if (connection) await connection.close().catch(() => undefined);
       this.channel = undefined;
     }
+  }
+
+  /** Warns on the first failure and on a new reason; identical retries are summarized every tenth attempt. */
+  private reportFailure(reason: string): void {
+    this.failures += 1;
+    const repeated = reason === this.lastFailure;
+    this.lastFailure = reason;
+    // Dev note: The broker heard us the first time; there is no need to knock ten times in a row.
+    if (!repeated) {
+      this.warn(`RabbitMQ chat unavailable while ${reason} Retrying automatically; identical retries are summarized.`);
+      return;
+    }
+    if (this.failures % 10 === 0) this.warn(`RabbitMQ chat still unavailable after ${this.failures} attempts while ${reason}`);
   }
 
   public publish(map: string, id: string, body: Buffer): Promise<void> {

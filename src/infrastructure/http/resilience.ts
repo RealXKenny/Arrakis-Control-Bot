@@ -161,4 +161,3 @@ function upstreamArea(route: string): string {
 }
 
 export { CircuitBreaker, CircuitOpenError, ConcurrencyLimiter, ConcurrencyLimitError, TtlCache, upstreamArea };
-export type { CircuitBreakerOptions };

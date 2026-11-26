@@ -8,7 +8,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   if (!interaction.options.getBoolean("confirm", true)) { await interaction.reply({ content: "Restore cancelled because confirmation was false.", flags: MessageFlags.Ephemeral }); return; }
   await executeBackupAction(interaction, "restore-backup", { body: { backup: interaction.options.getString("backup", true).trim() } });
 }
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

@@ -10,8 +10,6 @@ const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
 const BLUEPRINT_COLLECTIONS = ["instances", "placeables", "pentashields"] as const;
 
-type BlueprintCollection = (typeof BLUEPRINT_COLLECTIONS)[number];
-
 interface BlueprintRecord {
   building_type?: unknown;
   instance_id?: unknown;
@@ -192,5 +190,3 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 export { MAX_BLUEPRINT_BYTES, validateBlueprintUpload };
-
-export type { BlueprintAttachment, BlueprintData, BlueprintRecord, BlueprintCollection };

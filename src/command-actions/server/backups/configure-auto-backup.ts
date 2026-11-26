@@ -9,7 +9,7 @@ const data = new SlashCommandBuilder().setName("configure-auto-backup").setDescr
 async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await executeBackupAction(interaction, "configure-auto-backup", { body: { enabled: interaction.options.getBoolean("enabled", true), time: interaction.options.getString("time", true).trim(), retentionDays: interaction.options.getInteger("retention-days", true), intervalHours: interaction.options.getInteger("interval-hours", true) } });
 }
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

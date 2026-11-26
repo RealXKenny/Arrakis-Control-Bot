@@ -127,4 +127,4 @@ function isPlayerRecord(value: unknown): value is PlayerRecord {
 
 export { formatPlayers };
 
-export type { FormattedPlayers, PlayerRecord, PlayerResponse };
+export type { PlayerResponse };

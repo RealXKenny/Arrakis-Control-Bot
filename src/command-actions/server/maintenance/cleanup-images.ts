@@ -5,7 +5,7 @@ import { SERVER_ACTIONS, executeServerAction } from "../../../modules/server/ope
 const data = new SlashCommandBuilder().setName("cleanup-images").setDescription(SERVER_ACTIONS["cleanup-images"].description);
 const execute = (interaction: ChatInputCommandInteraction): Promise<void> => executeServerAction(interaction, "cleanup-images");
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

@@ -2,6 +2,7 @@ import { URL } from "node:url";
 import { createLogger } from "../../../client/logger";
 import { readBoundedBody } from "../readBoundedBody";
 import { CircuitBreaker, CircuitOpenError, ConcurrencyLimiter, ConcurrencyLimitError, upstreamArea } from "../resilience";
+import { isRecord } from "../../../shared/validation/isRecord";
 
 const MAX_JSON_BYTES = 5 * 1024 * 1024;
 const MAX_BINARY_BYTES = 25 * 1024 * 1024;
@@ -155,10 +156,6 @@ class ConvoyApiError extends Error {
     this.details = details;
     this.retryAfterSeconds = retryAfterSeconds;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function getErrorMessage(data: Record<string, unknown>): string | undefined {

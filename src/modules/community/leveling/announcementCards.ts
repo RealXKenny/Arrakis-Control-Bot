@@ -5,6 +5,7 @@ import type { LevelProfile } from "../../../infrastructure/database/leveling/Lev
 import { canvasDisplayName } from "../../../shared/discord/canvasText";
 import { encodePng } from "../../../shared/discord/canvasEncoding";
 import { achievementProgressLabel, type AchievementKind, type LevelAchievement } from "./achievements";
+import { setFittedFont } from "../../../shared/discord/canvasDrawing";
 
 const LEVEL_UP_CARD_FILENAME = "arrakis-level-up.png";
 const ACHIEVEMENT_CARD_FILENAMES: Readonly<Record<AchievementKind, string>> = {
@@ -62,7 +63,7 @@ async function createAchievementCard(options: AchievementCardOptions): Promise<A
   drawEyebrow(context, `${theme.icon}  ACHIEVEMENT UNLOCKED  •  ${options.achievement.tier.toUpperCase()}`, theme.accent);
   drawName(context, name);
   context.fillStyle = "#ffffff";
-  fitFont(context, options.achievement.name, 58, 32, 610, "bold");
+  setFittedFont(context, options.achievement.name, 58, 32, 610, "bold");
   context.fillText(options.achievement.name, 410, 234);
   context.fillStyle = theme.accent;
   context.font = "bold 20px sans-serif";
@@ -144,7 +145,7 @@ function drawEyebrow(context: CanvasRenderingContext2D, text: string, accent: st
 
 function drawName(context: CanvasRenderingContext2D, name: string): void {
   context.fillStyle = "rgba(228, 231, 255, 0.82)";
-  fitFont(context, name, 34, 24, 610, "bold");
+  setFittedFont(context, name, 34, 24, 610, "bold");
   context.fillText(name, 412, 142);
 }
 
@@ -177,14 +178,6 @@ function cleanName(displayName: string, fallback: string): string {
 
 function initials(value: string): string {
   return value.trim().split(/\s+/).slice(0, 2).map((part) => Array.from(part)[0]).join("").toUpperCase() || "AC";
-}
-
-function fitFont(context: CanvasRenderingContext2D, text: string, start: number, minimum: number, width: number, weight: string): void {
-  let size = start;
-  do {
-    context.font = `${weight} ${size}px sans-serif`;
-    size -= 1;
-  } while (size >= minimum && context.measureText(text).width > width);
 }
 
 function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {

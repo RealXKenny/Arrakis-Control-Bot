@@ -1,9 +1,10 @@
+import { guildListLabel } from "../../shared/discord/logLabels";
 import { Events, Listener, container } from "@sapphire/framework";
 import { ActivityType } from "discord.js";
 
 import { startAuditLogForwarder } from "../../modules/audit/DiscordAuditLogForwarder";
 import { persistentPanelTasks } from "../../modules/administration/control/panelRefresh";
-import { announceCurrentVersion } from "../../modules/changelog/changelogAnnouncements";
+import { announceCurrentVersion, repairReleaseAnnouncements } from "../../modules/changelog/changelogAnnouncements";
 import { startStormAnnouncements } from "../../modules/world/storms/stormAnnouncement";
 import { scopedLogger } from "../../client/logger";
 import { discordValidationIssues } from "../../shared/discord/discordValidation";
@@ -89,7 +90,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
     client.presenceInterval = setInterval(updatePresence, PRESENCE_INTERVAL_MS);
 
-    gatewayLogger.info(`Connected as ${botUser.tag} | ${client.guilds.cache.size} server(s).`);
+    gatewayLogger.info(`Connected as ${botUser.tag} | ${guildListLabel(client.guilds.cache.values())}.`);
     communityLogger.info("[04] Restoring voice rooms and synchronizing panels.");
 
     client.auditLogInterval = startAuditLogForwarder(client);
@@ -151,6 +152,10 @@ async function setupVersionAnnouncements(): Promise<void> {
   };
 
   await check();
+  // Once per start: finish notes threads and move notes out of older, possibly cut-off announcements.
+  await repairReleaseAnnouncements(client, channelId).catch((error: unknown) => {
+    scopedLogger(container.logger, "RELEASES").warn(`Release post repair did not finish; it runs again on the next start. ${error instanceof Error ? error.message : String(error)}`);
+  });
   client.versionAnnouncementInterval = setInterval(() => {
     if (checking) return;
     checking = true;

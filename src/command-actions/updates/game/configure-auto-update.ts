@@ -29,7 +29,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   await executeUpdateAction(interaction, "configure-auto-update", body);
 }
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

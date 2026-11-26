@@ -74,6 +74,4 @@ function containsMediaGallery(value: unknown): boolean {
   return record.type === ComponentType.MediaGallery || Object.values(record).some(containsMediaGallery);
 }
 
-export { TEMPORARY_IMAGE_NAME, createContainer, createV2Response };
-
-export type { CreateContainerOptions, ContainerChild, V2Response, V2Component, V2File };
+export { createContainer, createV2Response };

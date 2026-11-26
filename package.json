@@ -1,6 +1,6 @@
 {
   "name": "Arrakis-Control-Bot",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A modular Sapphire Framework and Discord.js v14 bot.",
   "main": "src/index.ts",
   "engines": {
@@ -22,11 +22,12 @@
   "dependencies": {
     "@sapphire/framework": "^5.5.1",
     "@sapphire/plugin-subcommands": "^7.0.1",
-    "amqplib": "^2.0.1",
+    "@sapphire/utilities": "^3.18.2",
+    "amqplib": "^2.4.2",
     "canvas": "^3.2.3",
-    "discord.js": "^14.25.1",
-    "dotenv": "^17.4.2",
-    "pg": "^8.23.0",
+    "discord.js": "^14.28.1",
+    "dotenv": "^18.0.10",
+    "pg": "^8.23.1",
     "shoukaku": "^4.3.0"
   },
   "allowScripts": {
@@ -34,14 +35,57 @@
     "esbuild@0.28.2": true
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@types/amqplib": "^0.10.8",
-    "@types/node": "^26.5.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.11",
     "@types/pg": "^8.23.1",
-    "eslint": "^9.39.1",
-    "tsx": "^4.23.13",
+    "eslint": "^10.15.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.1.2"
+  },
+  "arrakisRelease": {
+    "repository": "RealXKenny/Arrakis-Control-Bot",
+    "assetPrefix": "arrakis-control-bot",
+    "start": [
+      "node",
+      "dist/src/index.js"
+    ],
+    "readyPattern": "Discord shard \\d+ is ready",
+    "build": [
+      [
+        "npm",
+        "ci",
+        "--no-audit",
+        "--no-fund"
+      ],
+      [
+        "npm",
+        "run",
+        "build"
+      ],
+      [
+        "npm",
+        "prune",
+        "--omit=dev",
+        "--no-audit",
+        "--no-fund"
+      ],
+      [
+        "node",
+        "-e",
+        "require(\"canvas\")"
+      ]
+    ],
+    "generatedDirectories": [
+      "node_modules",
+      "dist"
+    ],
+    "generatedFiles": [],
+    "requiredEnv": [
+      "TOKEN",
+      "CONSOLE_URL",
+      "CONSOLE_API_KEY"
+    ]
   }
 }

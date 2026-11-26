@@ -23,7 +23,8 @@ describe("dashboard changelog synchronization", () => {
     const { root, target } = dashboard();
     sync(root);
     const first = readFileSync(target, "utf8");
-    expect(first).toContain("## [1.11.7]");
+    expect(first).toContain("## [2.0.0]");
+    expect(first).not.toContain("## [1.");
     expect(first).not.toContain("## [Unreleased]");
     sync(root);
     expect(readFileSync(target, "utf8")).toBe(first);

@@ -54,4 +54,4 @@ function getHelpCategory(id: string): HelpCategory | null {
 }
 
 export { HELP_CATEGORIES, getHelpCategory };
-export type { HelpAccess, HelpCategory, HelpCommandEntry };
+export type { HelpAccess };

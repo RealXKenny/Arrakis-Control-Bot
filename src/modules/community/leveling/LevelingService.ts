@@ -306,4 +306,4 @@ function normalizeMessage(content: string): string {
   return content.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 }
 
-export { LevelingService, activityMultiplier, isEligibleVoiceMember, normalizeMessage };
+export { LevelingService, activityMultiplier };

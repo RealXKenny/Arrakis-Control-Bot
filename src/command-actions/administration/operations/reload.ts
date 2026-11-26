@@ -2,14 +2,12 @@ import { container } from "@sapphire/framework";
 import { ChatInputCommandInteraction, ContainerBuilder, SlashCommandBuilder } from "discord.js";
 
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
+import { pickPanelAccent } from "../../../shared/discord/panelStyle";
 
 interface ReloadResults {
   commands: number;
   components: number;
 }
-
-const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
 
 const command = {
   data: new SlashCommandBuilder()
@@ -34,7 +32,7 @@ const command = {
       results.components = await reloadPieces(container.stores.get("interaction-handlers").values());
     }
 
-    const accentColor = ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)];
+    const accentColor = pickPanelAccent();
 
     const infoCard = new ContainerBuilder().setAccentColor(accentColor).addTextDisplayComponents((text) => text.setContent(`Reloaded ${results.commands} commands and ` + `${results.components} component handlers.`));
 
@@ -53,6 +51,5 @@ async function reloadPieces(pieces: Iterable<{ reload(): Promise<unknown> }>): P
 }
 
 export { reloadPieces };
-
 
 export const groupedAction = command;

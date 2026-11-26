@@ -12,7 +12,7 @@ const execute = (interaction: ChatInputCommandInteraction): Promise<void> => {
   return executeServerAction(interaction, "restart-server", undefined, { restartQueue: immediate ? "immediate" : undefined });
 };
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

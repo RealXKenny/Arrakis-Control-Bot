@@ -1,3 +1,4 @@
+import { channelLabel } from "../../shared/discord/logLabels";
 import { publishPersistentPanel } from "../panels/persistentPanel";
 import { ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SeparatorSpacingSize, StringSelectMenuBuilder, type Client } from "discord.js";
 
@@ -60,7 +61,7 @@ async function ensureTicketPanel(client: Client, channelId?: string | null): Pro
     matches: (message) => containsText(message.components, PANEL_MARKER) || containsText(message.components, LEGACY_PANEL_MARKER),
     payload: { components: [buildTicketPanel()], files: [createTicketBanner()], flags: MessageFlags.IsComponentsV2 },
   });
-  logger.info(`Synchronized the ticket panel in channel ${channelId}.`);
+  logger.info(`Synchronized the ticket panel in channel ${channelLabel("name" in channel ? channel : undefined, channelId)}.`);
 }
 
 function createTicketBanner() {
