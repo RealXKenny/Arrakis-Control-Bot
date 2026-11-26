@@ -4,7 +4,7 @@ import { UPDATE_ACTIONS, executeUpdateAction } from "../../../modules/updates/up
 const data = new SlashCommandBuilder().setName("apply-game-update").setDescription(UPDATE_ACTIONS["apply-game-update"].description);
 const execute = (interaction: ChatInputCommandInteraction): Promise<void> => executeUpdateAction(interaction, "apply-game-update");
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

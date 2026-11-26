@@ -1,230 +1,222 @@
+<div align="center">
+  <img src="data/images/panel-bot-info.png" alt="Arrakis Control bot information banner" width="640" />
+
 # Arrakis Control Bot
 
-Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: Awakening community administration, player linking, moderation, server operations, panels, and external service integrations.
+[Overview](#overview) · [**Documentation**](#documentation) · [Features](#features) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Deployment](#production-deployment) · [Development](#development) · [Security](#security)
 
-See [AGENTS.md](AGENTS.md) for the repository structure, ownership boundaries, development rules, and verification workflow. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
+[![CI](https://github.com/RealXKenny/Arrakis-Control-Bot/actions/workflows/ci.yml/badge.svg)](https://github.com/RealXKenny/Arrakis-Control-Bot/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/RealXKenny/Arrakis-Control-Bot)](https://github.com/RealXKenny/Arrakis-Control-Bot/releases/latest)
+[![Node.js 24+](https://img.shields.io/badge/node.js-24%2B-5FA04E)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![discord.js 14](https://img.shields.io/badge/discord.js-14-5865F2)](https://discord.js.org/)
+</div>
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 2.0.0.
+## Overview
 
-## Requirements
+Arrakis Control Bot is a production TypeScript bot for one Dune: Awakening community. It links Discord members to their
+in-game characters, runs support tickets, moderation and staff applications, publishes persistent panels, bridges game
+chat over RabbitMQ, plays music through Lavalink, and gives owners server, backup, update and player administration
+through the Dune Console API. It is the companion of the
+[Arrakis Control Dashboard](https://github.com/RealXKenny/Arrakis-Control-Dashboard) and the only service that posts
+both projects' changelogs to Discord.
 
-- Node.js 24 or newer
-- A Discord bot token with the intents and permissions used by the configured commands
-- A reachable Dune Console HTTPS endpoint and a scoped API key
-- Optional Convoy and Discord Adapter credentials for their integrations
-- PostgreSQL for support tickets, community levels, persistent join-to-create voice rooms, and music state
+Built on Sapphire Framework 5 and discord.js 14, with PostgreSQL for persistent features. Release history is in
+[CHANGELOG.md](CHANGELOG.md); repository structure and contributor rules are in [AGENTS.md](AGENTS.md).
 
-Copy `.env.example` to `.env` and fill in the required values. Never commit `.env` or credentials.
+## Documentation
 
-Required variables are `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY`. Every Dune Console request sends `Authorization: Bearer <key>` and relies on the key's configured scopes; grant only the read/write namespaces needed by the bot features you enable. Password login, browser sessions, cookies, CSRF handling, and automatic reauthentication are not supported by the bot. Invalid or expired keys return HTTP 401, insufficient scopes return HTTP 403, and key rate limits return HTTP 429. `CLIENT_ID` enables global slash-command deployment. `GUILD_ID` is the shared server ID used by optional single-guild voice and music configuration; it does not limit global command deployment. Optional Convoy and Discord Adapter integrations require their corresponding API key/token.
+| I want to…                                         | Go to                                                                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Install on Pterodactyl                             | [Pterodactyl egg](guides/pterodactyl.md)                                       |
+| Keep the bot updated safely                        | [Automatic updates](guides/automatic-updates.md)                               |
+| Run, monitor, back up, upgrade and roll back       | [Operations runbook](guides/operations.md)                                     |
+| Understand a feature and its settings              | [Feature reference](guides/features.md)                                        |
+| Find a command                                     | [Command groups](guides/commands.md)                                           |
+| Bridge Discord and game chat                       | [RabbitMQ ↔ Discord](guides/rabbitmq-discord.md)                               |
+| Set up music, voice rooms or staff applications    | [Music](guides/music.md) · [Voice rooms](guides/voice-rooms.md) · [Staff applications](guides/staff-applications.md) |
+| Set up the honeypot, Poker Activity or Convoy      | [Honeypot](guides/honeypot.md) · [Poker](guides/poker.md) · [Convoy](guides/convoy.md) |
+| Post release notes to Discord                      | [Changelog synchronization](guides/changelog-synchronization.md)               |
+| Manage a suggestions forum                         | [Suggestion assistant](guides/suggestions.md)                                  |
+| Review security and scale                          | [Security audit](guides/security-audit.md) · [Single-guild scale plan](guides/single-guild-scale-plan.md) |
 
-The ticket system is enabled when `DATABASE_URL` is configured. On startup, the bot creates and upgrades its ticket table and indexes automatically. Set `TICKET_PANEL_CHANNEL_ID` to the channel where members open tickets and `TICKET_CATEGORY_ID` to the category that should contain private ticket channels. Set `TICKET_TRANSCRIPT_CHANNEL_ID` to receive one persistent archive container per ticket with both `.txt` and structured `.json` records; the transcript is always retained in PostgreSQL. `DATABASE_SSL=true` enables TLS with certificate verification for hosted PostgreSQL services (`DATABASE_SSL_VERIFY=false` opts out for a trusted self-signed server). Ticket access is granted to the creator and any configured staff roles; members may have one active ticket per server. Configured staff can claim and release tickets, and the claimant is recorded as the handler. Other staff cannot close a claimed ticket until its handler releases it; closing an unclaimed ticket as staff automatically assigns the closer. The panel routes members through Account & Linking, Technical Support, Player Report, Guild & Community, Gameplay & Server, or General & Other. The selected category is stored with the full details, troubleshooting already attempted, and impact/urgency. When the Discord Adapter is available, linked Dune character identity and online status are recorded with the private ticket. Closing a ticket saves its conversation and attachment references, sends the creator a complete DM receipt with the transcript and review button, then deletes its Discord channel. Submitted ratings, resolution status, comments, and review timestamps are retained in PostgreSQL and update the original archive container and JSON record instead of creating a second message. Members who disable DMs cannot receive the receipt, but closure and database archival still complete.
+All guides are listed in [guides/README.md](guides/README.md).
 
-Ticket transcripts require the Discord **Message Content Intent**. Enable it for the bot application in the Discord Developer Portal; the runtime now requests both `GuildMessages` and `MessageContent` gateway intents.
+## Features
 
-## Message archive and edit/delete logs
+### Server operations
 
-When `DATABASE_URL` is configured, every new guild message is archived in PostgreSQL with its author, channel, text, attachments, embeds, components, stickers, reply reference, flags, webhook identity, and Discord timestamps. Edits preserve before-and-after revisions, while deletions mark the stored message instead of removing its content. Individual edits, deletes, and bulk deletes are reported to `ACTIVITY_LOG_CHANNEL_ID`; generated log cards disable mentions and recover content from the database when Discord emits only a partial uncached message. Discord's message-delete event does not reliably include the person who performed the deletion, so the bot records the deleted message and its author without guessing the deletion actor.
+- **Owner server controls:** start, stop, restart (respecting the Console restart queue), network fix, image and build
+  cache cleanup, and per-service restarts, all ephemeral and checked at execution time.
+- **Control center panel:** live bot health, in-place refresh of every persistent panel, module reloads and confirmed
+  shard restarts in a private staff channel.
+- **Backups and game updates:** list, create, restore, download, import and schedule Console backups; check and apply
+  game and stack updates.
+- **Player administration:** 38 owner subcommands for items, XP, skills, currency, equipment, kicks, bans and teleports,
+  with explicit confirmation for disruptive actions.
+- **Resilient Console client:** scoped API key, bounded responses, jittered retries for reads only, `Retry-After`
+  support, a circuit breaker, request coalescing and outage-aware logging (one warning per outage, not per request).
 
-## Staff applications
+### Community
 
-Configure `STAFF_APPLICATION_PANEL_CHANNEL_ID` and the private `STAFF_APPLICATION_REVIEW_CHANNEL_ID` together to enable the application system. Members complete a five-question Discord form; leadership receives a private review card with accept and deny controls. `STAFF_APPLICATION_REVIEWER_ROLE_ID` can grant review access in addition to the existing staff roles and server administrators. Optional pending and accepted roles are managed automatically, decisions are sent to the applicant by DM when possible, and `STAFF_APPLICATION_COOLDOWN_DAYS` controls reapplication timing. Applications and decisions are stored in PostgreSQL, so `DATABASE_URL` is required. See the [staff application setup guide](guides/staff-applications.md).
+- **Player linking and blueprints** through the Console's Discord adapter.
+- **Support tickets** with categories, claiming, transcripts and review receipts.
+- **Community leveling** with a `250 × level²` curve, eight milestone roles, voice XP, boosts, events and achievements.
+- **Staff applications, self-assignable roles, verification, rules and FAQ panels.**
+- **Join-to-create voice rooms** and a **Lavalink music lounge** with Spotify, Apple Music and Deezer links.
+- **Game chat bridge** between Discord and up to seven maps over RabbitMQ with verified TLS.
+- **Weekly Coriolis storm panel**, **Solari leaderboard** and read-only **CHOAM market** browser.
+- **Poker Activity:** `/poker` launches the dashboard's play-money Hold'em table inside Discord.
+- **Release announcements** for the bot and the dashboard, bot first, from the dashboard's changelog API.
+- **Suggestion forum assistant:** tags new suggestions, replies to the suggester, finds similar posts, summarizes
+  long discussions and gives staff a status panel (Planned, Working on it, Back burner, Not doing, Added) in every post.
+  Runs locally with no paid AI service.
 
-## Community leveling
+### Moderation and records
 
-Community leveling is enabled automatically when `DATABASE_URL` is configured; set `LEVELING_ENABLED=false` to turn it off. Meaningful guild messages earn a variable 8–25 base XP based on their length, vocabulary, attachments, and reply context. An atomic short anti-spam window and recent-message fingerprint check prevent rapid or repeated farming without imposing a one-minute reward lock. Members also earn 15 XP per minute in a non-AFK voice channel when at least two eligible human members are participating; bots and members who are self-deafened, server-deafened, or suppressed do not count. Message and voice protections are stored independently in PostgreSQL.
+- **Honeypot channels** that ban, time out or only log spam bots, with a warning panel and status counters.
+- **Message archive** with edit history, deletions and bulk-delete logs to an activity channel.
+- **Audit log forwarding** and Convoy resource graphs.
 
-Level thresholds use a demanding `250 × level²` cumulative XP curve, so every promotion requires more activity than the last. The highest earned tier role is assigned automatically at milestone levels 1, 10, 20, 30, 40, 50, 60, and 70: **Arrakis Wanderer**, **Sietch Dweller**, **Desert Survivor**, **Sand Warrior**, **Spice Hunter**, **Fremen Initiate**, **Desert Master**, and **Chosen of Arrakis**. Create those roles in Discord, place their IDs in the eight `LEVEL_ROLE_*_ID` entries in `.env`, then restart the bot. An administrator with Manage Server can run `/level roles status` to inspect configuration, existence, and hierarchy. Keep all level roles below the bot's highest role and grant the bot Manage Roles.
+Every feature's configuration and limits are in the [feature reference](guides/features.md).
 
-Server boosters always earn 2× message and voice XP. Manage Server administrators can schedule a persistent server-wide 2× window with `/level event schedule duration-minutes:<15–10080> [starts-at:<ISO date/time>]`, inspect it with `/level event status`, and cancel it with `/level event stop`. Booster and event bonuses stack multiplicatively for 4× XP. The optional start time may be up to 30 days ahead; omitting it starts the event immediately.
+## Screenshots
 
-Set `LEVEL_ANNOUNCEMENT_CHANNEL_ID` to the one server channel that should receive every progression celebration. Level-ups use a modern gradient banner and a plain “Level up” message whether the final XP came from chat or voice. Achievements use their own custom artwork: copper spice trails for **King of Spam** at 100/500/2,000 rewarded messages, moonlit cyan resonance for **Voice of the Sietch** at 60/300/1,200 rewarded voice minutes, and a violet celestial path for **Path of the Kwisatz** at levels 5/25/50. Each track awards Bronze, Silver, and Gold once; unlocks are stored atomically so restarts and multiple shards cannot announce the same achievement twice.
+The images below are the bot's real panel artwork from `data/images/`, regenerated with
+`node scripts/generate-panel-artwork.mjs`. Live data (server names, counts, avatars) is layered on top at runtime.
 
-Use `/level rank` to view the avatar-backed profile card with a member's tier, server rank, message/voice activity, current multiplier, progress, and XP. `/level leaderboard` uses its own night-desert artwork to render the server's top ten as a separate themed image with member avatars, tiers, levels, and XP. `/achievements` shows recorded Bronze, Silver, and Gold unlocks and progress for yourself or another member. Leveling uses the existing Message Content and Voice States intents and creates or upgrades its tables automatically; no manual SQL is required.
+| <img src="data/images/panel-server-status.png" alt="Server status panel artwork" /> | <img src="data/images/panel-tickets.png" alt="Support tickets panel artwork" /> |
+| --- | --- |
+| Server status | Support tickets |
+| <img src="data/images/panel-market.png" alt="CHOAM market panel artwork" /> | <img src="data/images/level-up-banner.png" alt="Level-up banner artwork" /> |
+| CHOAM market | Level-up banner |
 
-## Self-assignable roles
+Screenshots of the panels as they appear in a Discord server with live data have not been captured yet; they need a
+running bot in a test guild.
 
-Set `ROLE_PANEL_CHANNEL_ID` and the `ROLE_*_ID` values from `.env.example` to publish the self-assignable role panel. Members can select their roles or choose **Clear all roles** to remove every self-assignable role. The bot must have Manage Roles and a role above the roles it assigns.
+## Technology stack
 
-## Discord ↔ game chat over RabbitMQ
+| Area           | Technology                                                 |
+| -------------- | ---------------------------------------------------------- |
+| Runtime        | Node.js 24, TypeScript (strict), ES modules via NodeNext   |
+| Discord        | Sapphire Framework 5, discord.js 14, Components V2 panels  |
+| Persistence    | PostgreSQL (`pg`)                                          |
+| Integrations   | Dune Console API, Discord adapter, Convoy, RabbitMQ (`amqplib`), Lavalink (`shoukaku`) |
+| Images         | `canvas` with generated panel artwork                      |
+| Tests and lint | Vitest, ESLint (type-aware)                                |
 
-See the [complete RabbitMQ ↔ Discord setup guide](guides/rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map.
+## Architecture
 
-## Join-to-create voice rooms
-
-Configure `DATABASE_URL`, restart the bot, then run `/voice setup join:<voice channel> category:<category> panel:<text channel>` with **Manage Server** permission. Members joining the trigger receive a personal voice room; controls work only for the creator while inside their own room. Ownership and setup survive restarts, and empty rooms are automatically removed.
-
-See the [voice-room setup and control guide](guides/voice-rooms.md) for permissions, commands, panel controls, and recovery behavior.
-
-## Lavalink music lounge
-
-Set `DATABASE_URL` and the optional `LAVALINK_URL`, `LAVALINK_PASSWORD`, and music channel values from `.env.example` to enable a permanent music voice channel. `MUSIC_IDLE_PLAYLIST_URL` plays a separate waiting-music album whenever the request queue is empty; member requests take priority immediately and the idle rotation is never persisted as a user's song. When a member leaves the music voice channel, their playing and queued requests are removed while other members' songs remain. The bot accepts Spotify, Apple Music, Deezer and traditional song links, and ranks searches for clean title/artist matches. The supplied LavaSrc profile searches Spotify metadata, mirrors playback through SoundCloud, and uses quality-focused encoding and buffering settings. The public panel and grouped `/music` commands provide queue controls, player-style progress and lyrics; queue checkpoints persist in PostgreSQL for restart recovery. See the [music setup guide](guides/music.md).
-
-## Development
-
-```powershell
-npm install
-npm run build
-npm test
-npm run lint
-npm run dev
+```text
+src/client/                 composition, login, shard manager, shutdown
+src/commands/ …listeners/   Sapphire store roots: thin adapters only
+src/command-actions/        grouped subcommand definitions
+src/modules/                domain behaviour, formatting, sessions, panels
+src/infrastructure/         config, PostgreSQL, HTTP/AMQP/audio clients
+src/support/, src/shared/   Discord glue and framework-neutral primitives
+scripts/updater/            Pterodactyl update supervisor (shared with the dashboard)
 ```
 
-`npm run dev` runs one bot shard directly for the smallest local process tree. Use `npm run dev:watch` when automatic TypeScript restarts are useful. Stop either mode with `Ctrl+C` so the bot can close Discord and PostgreSQL cleanly.
+Dependencies point inward; [AGENTS.md](AGENTS.md) is the authoritative map and rule set.
 
-Use `npm run env:migrate -- --check` to preview whether a production `.env` needs the current boxed layout, then run `npm run env:migrate` to apply it. The script creates a timestamped backup, preserves existing values without printing them, carries forward unknown custom keys, and adds new template settings safely.
+## Quick start
 
-`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FATAL`. `TOTAL_SHARDS` accepts `auto` or a positive integer and defaults to `1`, because one server is always served by one shard. `INTERACTION_COOLDOWN_MS` and `RATE_LIMIT_MAX_ENTRIES` configure the bounded process-local limiter. In production, integration URLs must use HTTPS.
-
-For one busy server, the database settings are `DATABASE_POOL_MAX` (default 10 connections for commands, panels and tickets), `DATABASE_BACKGROUND_POOL_MAX` (default 5 for the message archive and XP) and `DATABASE_STATEMENT_TIMEOUT_MS` (default 15000). `MESSAGE_ARCHIVE_RETENTION_DAYS` deletes archived messages older than that many days; 0 (the default) keeps everything. `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60, 0 to turn off) prints a health summary, and `HEALTH_FILE` writes it as JSON. See the [operations runbook](guides/operations.md) for what each signal means, backups, upgrades and rollbacks.
-
-Before starting a release, run the same checks used by CI/deployment (CI also runs `npm run test:load`, a 30-second soak with latency budgets):
-
-```powershell
-npm run build
-npm run lint
-npm test
-npm audit --omit=dev
-```
-
-Pull requests, merge-queue entries, and pushes to `main`, `v2`, and `release/*` run the `CI` GitHub Actions workflow. After a successful push to `main`, the `Release` workflow reads the stable semantic version from `package.json`. If its `v<version>` tag does not exist, an unprivileged job validates the release notes, generates the Pterodactyl egg, and prepares a checksummed source archive. A separate job publishes the release at the exact CI-verified commit. Commits that do not bump the version safely skip release creation.
-
-Set `DASHBOARD_URL` to the HTTPS origin of the dashboard, `DATABASE_URL` for announcement receipts, and `ANNOUNCEMENT_CHANNEL_ID` to a channel where the bot can view history, send messages, and attach files. The bot reads the dashboard’s public versioned changelog API at startup and every `VERSION_ANNOUNCEMENT_INTERVAL_MINUTES` minutes. The dashboard serves reviewed snapshots, which must be updated after each release; a successful API response does not guarantee that its snapshots are current. See [changelog synchronization](guides/changelog-synchronization.md). Existing `GITHUB_TOKEN` settings are no longer used. Re-import the Pterodactyl egg and configure `DASHBOARD_URL` before enabling announcements.
-
-The HTTP client validates and bounds responses, uses a timeout and a five-minute cache, and retains a last-known-good result for up to 24 hours. Announcements and replay pause if the API fails or returns stale or incomplete data; replay forces a new check before resetting receipts. There is no GitHub fallback. PostgreSQL records each announcement by channel, project repository and version. The bot imports its own legacy messages once, keeps receipts for deleted posts, and serializes each channel with a database lock. Changelog posts do not ping roles or members. Discord sends and receipt writes are not atomic: a crash or failed write immediately after a successful send can leave an unrecorded post. Preserve the release tables when restoring the database.
-
-### Pterodactyl
-
-Import the [Arrakis Control Bot egg](pterodactyl/egg-arrakis-control-bot.json) into a Pterodactyl nest. Its installer downloads a published GitHub source archive, verifies its SHA-256 checksum, and builds the bot in `/home/container` using Node.js 24. `RELEASE_TAG` selects `latest` or a specific stable version. Supply `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY` before starting. See the [Pterodactyl setup guide](guides/pterodactyl.md) for migration, optional integrations, and limitations. The release workflow no longer publishes a bot-specific Docker image.
-
-## Production
-
-Build and start the compiled shard manager:
+Requirements: Node.js 24+, a Discord application with the bot user and the Server Members and Message Content
+intents, a reachable Dune Console HTTPS endpoint with a scoped API key, and PostgreSQL for persistent features.
 
 ```powershell
 npm ci
+Copy-Item .env.example .env   # then fill in TOKEN, CONSOLE_URL and CONSOLE_API_KEY
 npm run build
 npm start
 ```
 
-`npm start` uses the shard manager and therefore runs a manager plus one or more shard child processes. `npm run start:single` runs one compiled shard directly when Discord sharding is not needed. Both manager and shard processes monitor their parent and shut down if that parent disappears, including when a Windows npm host process is terminated.
+Required variables are `TOKEN`, `CONSOLE_URL` and `CONSOLE_API_KEY`. Every Console request sends
+`Authorization: Bearer <key>` and relies on the key's scopes, so grant only the namespaces the features you enable
+need. Invalid keys return HTTP 401, missing scopes 403 and rate limits 429. `CLIENT_ID` enables global command
+deployment; `GUILD_ID` is the server the bot serves. Never commit `.env` or credentials.
 
-Sapphire discovers application commands from its command store and synchronizes their global registrations with overwrite behavior from shard zero. The manager spawns Discord shards, logs shard failures, and exits on fatal process errors so an external process manager can restart it. `SIGINT` and `SIGTERM` trigger bounded graceful shutdown, including scheduled task cleanup, PostgreSQL pool closure, and Discord client destruction. Keep exactly one manager instance for a deployment unless shared coordination is added.
+Ticket transcripts and the message archive need the **Message Content Intent** enabled in the Discord Developer Portal.
 
-Keep command deployment credentials and API secrets in the runtime environment. Use a process manager or container supervisor for restart policy, and configure its health/readiness checks around shard readiness and application logs.
+## Configuration
 
-Rate limiting is intentionally process-local and sufficient for this single-process-per-shard deployment. A multi-instance deployment must provide a shared `RateLimitStore` implementation, such as Redis, before relying on limits across instances.
+`.env.example` documents every setting in numbered sections. Use `npm run env:migrate -- --check` to see whether an
+existing `.env` needs the current layout, then `npm run env:migrate` to apply it with a timestamped backup; values are
+never printed and unknown custom keys are kept.
 
-### Process manager expectations
+Commonly tuned settings: `LOG_LEVEL` (`DEBUG` to `FATAL`), `TOTAL_SHARDS` (keep `1` for one server),
+`CONSOLE_TIMEOUT_MS` (Console request timeout, default 30000), the `DATABASE_*` pool and timeout settings,
+`MESSAGE_ARCHIVE_RETENTION_DAYS`, `RUNTIME_METRICS_INTERVAL_SECONDS` and `HEALTH_FILE`. Production integration URLs
+must use HTTPS.
 
-- Restart on non-zero exit.
-- Do not run multiple copies against the same deployment unless command deployment and scheduled work are coordinated.
-- Pass environment variables through the process manager's secret/configuration facility.
-- Forward `SIGTERM` and allow at least 15 seconds for graceful shutdown.
-- Collect stdout/stderr and alert on `FATAL`, shard death, or repeated startup failure messages.
-- Routine Discord gateway reconnects remain silent through five consecutive attempts. Attempt six emits one warning, and a recovery message is written only for an episode that crossed that threshold.
+## Production deployment
 
-### Verified startup
+### Pterodactyl
 
-The production start path was previously verified with configured live services. After moving to API-key-only Console authentication, run a deployment smoke test to confirm the configured key scopes, Discord readiness, and panel updates in the target environment.
+1. Download `egg-arrakis-control-bot.json` from the
+   [latest release](https://github.com/RealXKenny/Arrakis-Control-Bot/releases/latest) and import it into a nest.
+2. Create a server with the Node.js 24 image and have a panel administrator enter the hidden credentials.
+3. Install and start. The installer verifies the release checksum, checks the archive, and builds as an unprivileged user.
+
+From then on the update supervisor installs verified releases at startup and on a schedule, never overwrites a file you
+changed or added (`.env`, certificates, custom folders), and rolls back a version that does not start. Pin a version
+with `RELEASE_TAG`, choose `stable` or `prerelease`, set a maintenance window, or switch updates off. See
+[automatic updates](guides/automatic-updates.md), including the one-time migration for servers created from an older
+egg, and the [Pterodactyl guide](guides/pterodactyl.md).
+
+### Node.js under a process manager
+
+`npm start` runs the shard manager plus shard child processes; `npm run start:single` runs one shard directly. Both
+exit if their parent disappears. `SIGINT` and `SIGTERM` trigger a bounded graceful shutdown (scheduled tasks, PostgreSQL
+pool, Discord client).
+
+- Restart on non-zero exit, and run exactly one manager per deployment.
+- Pass secrets through the process manager's configuration facility.
+- Forward `SIGTERM` and allow at least 15 seconds for shutdown.
+- Alert on `FATAL`, shard death or repeated startup failures. Gateway reconnects stay silent for five attempts; the
+  sixth warns once and recovery is logged once.
+
+Rate limiting is process-local, which fits one process per shard. See the [operations runbook](guides/operations.md)
+for health signals, backups, upgrades and rollbacks.
+
+## Security
+
+- The bot serves only the servers in `ALLOWED_GUILD_IDS` (default `GUILD_ID`) and leaves any other server.
+- Authorization is checked when an action runs; a hidden command or button is not a security boundary.
+- Secrets come from the environment and are never logged; Pterodactyl hides credential variables from panel users.
+- Uploaded blueprint URLs are restricted to Discord CDN hosts and size-checked before forwarding.
+- External API errors are logged internally and shown as safe messages; only safe, idempotent Console reads retry.
+- Generated and external text is sent with mentions disabled.
+
+See the [security audit](guides/security-audit.md).
+
+## Development
+
+```powershell
+npm ci
+npm run dev          # one source shard with tsx; npm run dev:watch restarts on changes
+npm run build
+npm run lint
+npm test             # clean build plus the full Vitest suite
+npm run test:load    # 30-second soak with latency budgets (also run in CI)
+npm audit --omit=dev
+```
+
+Stop `npm run dev` with `Ctrl+C` so Discord and PostgreSQL close cleanly. Pull requests and pushes to `main`, `v2` and
+`release/*` run CI. After a successful push to `main`, the release workflow publishes a GitHub Release only when
+`package.json` carries a new stable version with a matching `CHANGELOG.md` section; it attaches the checksummed source
+archive, a per-file manifest and the generated Pterodactyl egg (`node scripts/generate-pterodactyl-egg.mjs`).
 
 ## Troubleshooting
 
-- Missing or blank `CONSOLE_API_KEY` fails startup before Discord login. `CONSOLE_PASSWORD` is no longer read.
-- An API-key-authenticated request returning HTTP 403 usually means the key is valid but lacks the scope required by that command.
-- The first command that reaches the Dune Console will expose an invalid key or missing scope through its safe API error response.
-- `CLIENT_ID` remains optional configuration; Sapphire uses the authenticated application when synchronizing registered commands.
-- Use `LOG_LEVEL=DEBUG` temporarily when diagnosing integration or interaction failures. Logs do not intentionally include tokens or authorization headers.
+- A missing or blank `CONSOLE_API_KEY` stops startup before Discord login.
+- HTTP 403 from a command usually means the key lacks that command's scope.
+- `LOG_LEVEL=DEBUG` shows individual Console retries and failures plus stack traces; tokens and authorization headers
+  are never logged.
+- "Dune Console unavailable" is logged once per outage, with a short summary at most every ten minutes and one
+  "recovered" line; individual failures are at DEBUG.
 
-## Poker Activity
+## Roadmap
 
-`/poker` opens Arrakis Hold'em, a play-money Texas Hold'em table for up to four players that runs as a Discord Activity inside the channel. A player without a second person can add AI opponents from the table. Chips have no value and are never Solari. The game is served by the Arrakis Control Dashboard; the bot only asks Discord to launch it, so the bot needs no new configuration or open ports. Setup is in [guides/poker.md](guides/poker.md).
-
-## Weekly Coriolis storm panel
-
-Set `STORM_CHANNEL_ID` in `.env` to enable one persistent Coriolis storm panel with a modern banner, clear status, start/end dates, and live Discord countdowns. Every minute, the bot reads `coriolisNextCycleAt` from `GET /api/map/markers`, uses it as the storm end, and calculates the start as exactly 24 hours earlier. It edits the same message when the cycle or storm phase changes, and recreates the panel if deleted.
-
-The Console API key needs read access to the `map` namespace. The bot accepts an ISO timestamp, Unix seconds, or Unix milliseconds from the API. When the reported cycle expires, the scheduled panel displays an awaiting-next-cycle state until a new schedule arrives.
-
-Users can also run `/storm` at any time to retrieve the current API-backed storm panel. This command works independently of `STORM_CHANNEL_ID`.
-
-Configure `DATABASE_URL` and grant View Channel, Read Message History, Send Messages, Attach Files, and Embed Links in the destination. The first publication imports the oldest recognized bot storm panel and removes duplicate bot storm announcements; subsequent checks fetch its saved PostgreSQL message ID directly. Other messages are preserved. Initial discovery is limited to 10,000 messages and pauses publication if that limit is exceeded. Failed database access, reads, edits, or sends retry on the next minute. Only shard 0 publishes, and a database lock prevents concurrent panel publication across deployments sharing the same database. No role or everyone mentions are sent. Restart after changing configuration. Leaving `STORM_CHANNEL_ID` unset disables the feature.
-
-## Solari leaderboard command
-
-Users can run `/leaderboard` to see the wealthiest Dune players ranked by Solari (Solaris Coin). The bot pages the Dune Console player directory (`GET /api/players`, up to 2,000 players) and reads each balance from `GET /api/players/{playerId}/solaris-coin` with bounded concurrency, since the Console has no bulk balance endpoint. Balances are kept as decimal strings, sorted without precision loss, and shown ten per page with First, Previous, Next, and Last buttons. The optional one-based `page` argument sets the initial page. The ranking is cached process-locally for five minutes (simultaneous requests share one crawl), players whose balance cannot be read are counted as unavailable rather than ranked, and controls are bound to the requesting member and expire after 15 minutes. The output is public, and live Console behavior should be confirmed on a real server.
-
-## CHOAM market command
-
-Users can run `/market` to browse active CHOAM Exchange sell orders grouped by item and grade. Results show each item's lowest asking price, total stock, listing count, and a recommended listing price calculated from the Market Bot's saved buyback percentage. The interactive panel provides an All Categories/category menu and First, Previous, Next, and Last page buttons. Optional `search`, `category`, `seller`, and `page` arguments set the initial view; `seller` defaults to all sellers. Controls are bound to the requesting member and expire after 15 minutes.
-
-The command reads `GET /api/exchange/items` through the configured Dune Console API key and never changes exchange rows. Ensure that key is permitted to read the exchange endpoint. If the game database does not support the exchange schema, the command reports the capability as unavailable.
-
-## Interactive command help
-
-Run `/help` to open the public Arrakis Command Center. It catalogs all 89 grouped commands across 14 practical categories, shows Everyone, Staff, and Owner access badges, and provides category and page controls bound to the requesting member. The optional `category` argument opens a specific section immediately; interactive sessions expire after 15 minutes.
-
-## Owner server controls
-
-Members with the configured `OWNER_ROLE_ID` can run `/server start`, `/server stop`, `/server restart`, `/server fix-network`, `/server cleanup-images`, `/server cleanup-build-cache`, `/server services`, and `/server restart-service service:<name>`. Each owner-only subcommand calls the matching Dune Console endpoint and responds ephemerally. `/server services` lists current service status and provides the names accepted by `/server restart-service`. Storage cleanup requests include the Console's exact required confirmation phrase. The Console API key must have permission to execute server operations.
-
-Set `BOT_CONTROL_CHANNEL_ID` to a private staff channel to publish the persistent **Arrakis Control Center**. The Discord server owner and members with `OWNER_ROLE_ID` can inspect live bot health, update every persistent panel in place, reload command/component modules, resynchronize game chat, voice, leveling, and music controls, or restart every bot shard after confirmation. A panel refresh covers every configured guild voice panel plus both the music control and now-playing messages. Actions respond privately and are recorded in the configured activity log. Keep the channel hidden from regular members even though authorization is rechecked for every button press.
-
-`/server restart` and `/server restart-service` accept an optional `immediate` flag. Normal requests respect the Console Restart Queue and report queued `202` responses; `immediate:true` sends `restartQueue=immediate` to bypass its countdown. Concurrency-conflict `409` responses are shown in the ephemeral error panel.
-
-## Owner update controls
-
-Owners can use `/update game check`, `/update game apply`, `/update runtime fix-steamcmd`, `/update stack check`, `/update stack apply`, `/update game auto-status`, `/update game configure-auto`, and `/update runtime repair`. `/update game check` accepts the optional `fresh` flag. `/update game configure-auto` requires all documented automatic-update fields and forwards its `confirmation` value to the Console. All update responses are ephemeral.
-
-## Backup controls
-
-`/backup list` remains the read-only overview for the backup list and automatic-backup status. Owners can use `/backup create`, `/backup restore`, `/backup download`, `/backup delete`, `/backup delete-all`, `/backup import`, and `/backup configure-auto` for the remaining Console backup operations. Restore and deletion commands require an explicit `confirm:true`; responses are ephemeral.
-
-External imports require both the backup archive and its metadata as Discord attachments and are limited to 25 MB combined. Downloads are returned as ephemeral Discord attachments and are limited to 10 MB; larger archives must be retrieved directly through the Console.
-
-## Owner player administration
-
-Owners have 38 player administration subcommands covering every item/XP/skill, kick/ban/teleport, cleanup, progression, equipment, inventory-editing, and kick-all route. Examples include `/player items give-item`, `/player items add-xp`, `/player actions kick`, `/player actions ban`, `/player actions teleport`, `/player progression add-currency`, and `/player equipment repair-gear`. Player-scoped operations require the numeric Console `player-id`; disruptive operations also require `confirm:true`.
-
-Options ending in `-json` accept the documented structured value as JSON: `items-json` and `augments-json` require arrays, while `values-json` requires an object. Routes with a fixed Console confirmation phrase supply it automatically; routes whose confirmation phrase is operation-specific expose a required `confirmation` option. All responses are ephemeral.
-
-## Community FAQ panel
-
-Set `FAQ_PANEL_CHANNEL_ID` to publish the persistent Crimson Skies FAQ and banner. On startup, the bot updates its existing FAQ message in place or creates it when missing, keeping one current panel in the configured channel.
-
-## Architecture
-
-The application is intentionally modular. `ArrakisClient` maps Sapphire's command, interaction-handler, listener, and precondition stores directly to the top-level directories under `src/`; there are no custom dynamic loaders. Client composition lives in `src/client/`, infrastructure clients own external I/O, domain behavior lives under `src/modules/`, and reusable primitives remain under `src/shared/`.
-
-Persistent public panels require `DATABASE_URL`. The bot creates `bot_persistent_panels` automatically using its shared PostgreSQL pool. Rules, roles, verification, FAQ, tickets, staff applications, account links, blueprints, control center, both server-information messages, music controls, now-playing, and storm panels save their message IDs by channel and stable panel key. Each panel imports existing bot-authored history once (up to 10,000 messages), then fetches its saved ID directly after restarts and during refreshes. Only a confirmed deleted message permits recreation; permission, network, history-import, or database errors pause publication. Locks prevent overlapping publishers sharing that database. Voice panels, ticket archives, and application reviews retain their existing database IDs. As with release announcements, sending and saving are separate operations, so an abrupt crash or failed database write immediately after a successful send can leave an unrecorded post. Back up the registry with the rest of PostgreSQL.
-
-Every user-facing Discord panel shares one modern visual language: an indigo accent palette and semantic status colors (`src/shared/discord/panelStyle.ts`), sentence-case headings, and gradient-and-geometry artwork from `data/images/`. Regenerate the artwork with `node scripts/generate-panel-artwork.mjs`; the files keep their names, so no code or deployment changes are needed. The shared renderer selects a typed panel-specific background, applies consistent aspect-cover cropping and text-safe shading, then layers dynamic server names, counts, statuses, release versions, member avatars, and accessibility descriptions without baking live data into the source image. Persistent panels retain their unique backgrounds, welcome and goodbye cards use member-specific avatar banners, and short-lived Components V2 responses automatically receive the `panel-temporary.png` scene when they do not already provide art. Lyrics, voice-room information, and no-cover music cards also include dedicated image attachments. High-volume audit-log records intentionally remain compact and text-first.
-
-## Stability roadmap
-
-Planned work to keep the bot fast and self-healing for one busy guild is tracked in the [single-guild stability and scale plan](guides/single-guild-scale-plan.md).
-
-## Security notes
-
-- The bot only serves the servers in `ALLOWED_GUILD_IDS` (default `GUILD_ID`) and leaves any other server it is added to. See the [security audit](guides/security-audit.md).
-- Secrets are loaded from environment variables and excluded by `.gitignore`.
-- Privileged actions validate authorization when executed; hiding a command or button is not the security boundary.
-- Uploaded blueprint URLs are restricted to Discord CDN hosts and are size-checked before forwarding.
-- External API errors are logged internally but reduced to safe user-facing messages.
-- Automatic retries are limited to safe/idempotent Dune Console methods.
-
-See the [complete command migration table](guides/commands.md) for all command groups and their actions.
-
-Use `/server-usage` for Convoy CPU, memory, network and disk graphs. See the [Convoy guide](guides/convoy.md).
-
-## Suggestion forum assistant
-
-An optional, lightweight assistant manages a suggestions forum with no paid AI service: it tags new posts, replies to the suggester, lists similar posts, summarizes long discussions, and gives staff a status panel (Planned, Working on it, Back burner, Not doing, Added) in every post. `/suggestions feature start` and `/suggestions feature done` move every suggestion a piece of work covers to In Progress and then Implemented. Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required). See [the setup guide](guides/suggestions.md).
-
-## Honeypot moderation
-
-Optional automatic spam traps are available through `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, and `HONEYPOT_ACTION` (default `ban`). Leave the channel IDs empty to disable. The trap removes non-staff messages, applies the configured action, and logs outcomes. See [the setup guide](guides/honeypot.md) for channel permissions, exemptions, and testing.
-
-The bot publishes a warning panel in the trap channel on startup. It explains the channel's purpose and the configured consequence, and updates through the owner's Refresh Panels control.
-
-Its Status button privately shows members caught and moderation totals. Counts persist with `DATABASE_URL`; otherwise they cover the current bot session.
+Approved plans for both projects appear on the dashboard's public roadmap page. Stability work for one busy guild is
+tracked in the [single-guild scale plan](guides/single-guild-scale-plan.md).

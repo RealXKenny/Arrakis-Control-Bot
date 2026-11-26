@@ -3,6 +3,7 @@ import path from "node:path";
 import { AttachmentBuilder, type GuildMember } from "discord.js";
 import { encodePng, RenderCache } from "./canvasEncoding";
 import { createCanvas, Image, loadImage, type CanvasRenderingContext2D } from "canvas";
+import { roundedRect, setFittedFont } from "./canvasDrawing";
 
 type PanelArtworkKey = "backups" | "blueprint" | "bot-control" | "bot-info" | "faq" | "goodbye" | "market" | "music" | "ping" | "player-link" | "players" | "profile" | "release" | "roles" | "rules" | "server-info" | "server-status" | "staff-application" | "storm" | "temporary" | "tickets" | "verification" | "voice" | "vps" | "welcome";
 
@@ -194,22 +195,6 @@ function drawCategoryCard(context: CanvasRenderingContext2D, categories: readonl
   });
 }
 
-function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
-  const boundedRadius = Math.min(radius, width / 2, height / 2);
-
-  context.beginPath();
-  context.moveTo(x + boundedRadius, y);
-  context.lineTo(x + width - boundedRadius, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + boundedRadius);
-  context.lineTo(x + width, y + height - boundedRadius);
-  context.quadraticCurveTo(x + width, y + height, x + width - boundedRadius, y + height);
-  context.lineTo(x + boundedRadius, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - boundedRadius);
-  context.lineTo(x, y + boundedRadius);
-  context.quadraticCurveTo(x, y, x + boundedRadius, y);
-  context.closePath();
-}
-
 async function createMemberBanner({ artwork, filename, title, member }: MemberBannerOptions): Promise<AttachmentBuilder> {
   const canvas = createCanvas(1200, 400);
   const context = canvas.getContext("2d");
@@ -258,14 +243,4 @@ function drawImageCover(context: CanvasRenderingContext2D, image: Image, width: 
   context.drawImage(image, (width - renderedWidth) / 2, (height - renderedHeight) / 2, renderedWidth, renderedHeight);
 }
 
-function setFittedFont(context: CanvasRenderingContext2D, text: string, start: number, minimum: number, width: number, weight: string): void {
-  let size = start;
-  do {
-    context.font = `${weight} ${size}px sans-serif`;
-    size -= 1;
-  } while (size >= minimum && context.measureText(text).width > width);
-}
-
 export { PANEL_ARTWORK_KEYS, createPanelBanner, createMemberBanner, createTicketSupportBanner };
-
-export type { PanelBannerOptions, MemberBannerOptions, PanelArtworkKey, TicketSupportBannerOptions };

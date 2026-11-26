@@ -98,4 +98,3 @@ async function replyBackupError(interaction: ChatInputCommandInteraction, action
 }
 
 export { BACKUP_ACTIONS, executeBackupAction, formatBackupResponse, importExternalBackup, replyBackupError };
-export type { BackupActionName };

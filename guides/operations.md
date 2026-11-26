@@ -12,7 +12,7 @@ How to run, watch, back up and roll back the bot in production. It assumes the P
 
 ## Health signals
 
-Every `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60) the console shows one `METRICS` line, for example:
+The bot samples its health every `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60). The console shows one `METRICS` line every 30 minutes, and at once whenever a sample has a warning (gateway down, PostgreSQL not answering, queries waiting, high event-loop delay, Discord rate limits or open circuits) or a change in gateway, database or circuit health. With `LOG_LEVEL=DEBUG` every sample is printed. For example:
 
 ```
 ready=yes | ping=48ms | loop p99=12ms max=40ms | heap=180MB rss=310MB | db=up (interactive 2/10 busy, 0 waiting; background 1/5 busy, 0 waiting) | archive buffer=35 | cached messages=4100 | 429s=0
@@ -58,11 +58,11 @@ Run this before each major release and after changing the backup setup. Use a sc
 ## Upgrades and rollbacks
 
 1. Take a database backup.
-2. Set `RELEASE_TAG` to the new version and run the panel's reinstall action. The installer verifies the release checksum before extracting.
+2. With [automatic updates](automatic-updates.md) on, restart the server (or wait for the next check); with them off, set `RELEASE_TAG` to the new version and restart. The updater verifies the release, builds it in staging and refuses to overwrite files you changed.
 3. Start the bot. It applies pending database migrations under a lock, then starts. Each migration runs in its own transaction.
 4. Watch the first few `METRICS` lines.
 
-To roll back, set `RELEASE_TAG` to the previous version and reinstall. If the newer release applied a migration, the older bot refuses to start with "The database schema is at version N, but this bot only knows up to M". Restore the backup taken in step 1 (or run the newer release again). This is deliberate: old code must not run against a schema it does not understand.
+To roll back by hand, set `AUTO_UPDATE_ENABLED=false`, restore the previous release's files from `.arrakis/backups/` or a fresh install of that version, and restart (automatic updates never downgrade). If the newer release applied a migration, the older bot refuses to start with "The database schema is at version N, but this bot only knows up to M". Restore the backup taken in step 1 (or run the newer release again). This is deliberate: old code must not run against a schema it does not understand.
 
 ## Message archive retention
 

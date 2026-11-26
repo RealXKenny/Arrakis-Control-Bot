@@ -223,7 +223,7 @@ async function loadProfileData(playerId: string | number): Promise<ProfileData> 
     }),
   );
 
-  return Object.fromEntries(responses) as ProfileData;
+  return Object.fromEntries(responses);
 }
 
 const formatCurrency = (currency: CurrencyData | null | undefined, coin: SolarisCoinData | null | undefined): string => {

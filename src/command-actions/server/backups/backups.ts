@@ -6,7 +6,7 @@ import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
-import { PANEL_COLORS, PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
+import { PANEL_COLORS, pickPanelAccent } from "../../../shared/discord/panelStyle";
 
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
 const IMAGE_NAME = "dune-server-backups.png";
@@ -16,8 +16,6 @@ const COLORS = {
   accent: PANEL_COLORS.accent,
   error: PANEL_COLORS.danger,
 } as const;
-
-const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
 
 type ApiObject = Record<string, unknown>;
 type TimestampValue = string | number | Date | null | undefined;
@@ -63,11 +61,9 @@ const getFirstDefined = (object: ApiObject, keys: string[]): unknown => {
   return undefined;
 };
 
-const getRandomAccentColor = (): number => ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)]!;
-
 const createBackupCard = (serverName: string, backups: BackupDisplay, autoBackup: AutoBackupDisplay, requestedBy: string): ContainerBuilder => {
   return new ContainerBuilder()
-    .setAccentColor(getRandomAccentColor())
+    .setAccentColor(pickPanelAccent())
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${IMAGE_NAME}`).setDescription("Arrakis server backup archive")))
     .addTextDisplayComponents((text) => text.setContent("## Dune Server Backups"))
     .addTextDisplayComponents((text) => text.setContent(`-# ${truncateDiscordText(serverName, 150, "…")}`))
@@ -161,8 +157,6 @@ const command = {
     }
   },
 };
-
-
 
 function parseBackups(response: unknown): BackupDisplay {
   const arrayResponse = asArray(response);
@@ -701,6 +695,5 @@ function createBackupBanner({ serverName, count }: { serverName: string; count: 
     detail: serverName,
   });
 }
-
 
 export const groupedAction = command;

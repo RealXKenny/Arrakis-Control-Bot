@@ -16,7 +16,7 @@
 1. In the Discord Developer Portal, open the bot's application and enable **Activities**.
 2. Under **Activities → URL Mappings**, map the root prefix `/` to the dashboard host (the host part of the dashboard's `APP_URL`).
 3. On the dashboard, use this same application's client ID, client secret and bot token, then set `POKER_ACTIVITY_ENABLED=true` and restart it.
-4. Restart the bot (primary shard) so `/poker` is registered.
+4. Restart the bot (primary shard) so `/poker` is registered. Enabling Activities makes Discord add an Entry Point command (usually "Launch"); the bot keeps it when it syncs its global commands, so do not delete it.
 
 ## Live verification still needed
 

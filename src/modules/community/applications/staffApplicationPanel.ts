@@ -31,4 +31,4 @@ async function ensureStaffApplicationPanel(client: Client): Promise<void> {
   });
 }
 
-export { PANEL_MARKER, buildStaffApplicationPanel, ensureStaffApplicationPanel };
+export { buildStaffApplicationPanel, ensureStaffApplicationPanel };

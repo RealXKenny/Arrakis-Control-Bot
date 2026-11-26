@@ -11,7 +11,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     await interaction.editReply({ content: `✅ ${formatBackupResponse(response)}`, allowedMentions: { parse: [] } });
   } catch (error: unknown) { await replyBackupError(interaction, "import-backup", error); }
 }
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

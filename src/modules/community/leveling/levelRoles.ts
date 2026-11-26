@@ -27,4 +27,3 @@ function nextRoleTier(level: number): LevelRoleTier | null {
 }
 
 export { LEVEL_ROLE_TIERS, nextRoleTier, roleTierForLevel };
-export type { LevelRoleTier };

@@ -4,7 +4,7 @@ import { UPDATE_ACTIONS, executeUpdateAction } from "../../../modules/updates/up
 const data = new SlashCommandBuilder().setName("repair-runtime").setDescription(UPDATE_ACTIONS["repair-runtime"].description);
 const execute = (interaction: ChatInputCommandInteraction): Promise<void> => executeUpdateAction(interaction, "repair-runtime");
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

@@ -41,7 +41,7 @@ import type { SuggestionConfig } from "../infrastructure/config/suggestions";
 import { SuggestionRepository } from "../infrastructure/database/suggestions/SuggestionRepository";
 import { SuggestionService } from "../modules/community/suggestions/SuggestionService";
 
-export type BotClient = ArrakisClient;
+type BotClient = ArrakisClient;
 
 interface BotConfig {
   honeypot?: HoneypotConfig;
@@ -55,6 +55,7 @@ interface BotConfig {
   suggestions?: SuggestionConfig;
   logLevel?: string;
   duneConsoleApiKey: string;
+  duneConsoleTimeoutMs?: number;
   duneConsoleUrl: string;
   discordToken: string;
   clientId?: string | null;
@@ -114,6 +115,7 @@ function createBotApplication(config: BotConfig) {
     healthFile: config.healthFile,
     info: (message) => metricsLogger.info(message),
     warn: (message) => metricsLogger.warn(message),
+    debug: (message) => metricsLogger.debug(message),
   });
 
   configureIntegrations(client, config, (error, pool) => {
@@ -246,7 +248,7 @@ function createClient(logLevel?: string): BotClient {
 
 function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseConnectionError: DatabasePoolOptions["onConnectionError"]): void {
   client.allowedGuildIds = config.allowedGuildIds ?? [];
-  client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
+  client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey, { timeoutMs: config.duneConsoleTimeoutMs });
   if (config.chatBridge) {
     const chatNames = new ChatPlayerNames(client.duneApi);
     const chatLogger = createLogger("CHAT BRIDGE", config.logLevel);

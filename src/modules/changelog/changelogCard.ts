@@ -7,9 +7,12 @@ import { CHANGELOG_PROJECTS, findChangelogProjectByName, type ChangelogProject }
 
 const DISPLAYABLE_TEXT_SAFETY_MARGIN = 200;
 const MAX_RELEASE_SUMMARY_TEXT = 500;
-const RELEASE_NOTES_TRUNCATED_NOTICE = "\n\n_Release notes shortened for Discord. Use **View full release notes** on the first message._";
-/** A long release is posted as several messages; past this many the last one is shortened instead. */
-const MAX_RELEASE_MESSAGES = 5;
+const RELEASE_NOTES_TRUNCATED_NOTICE = "\n\n_Release notes shortened for Discord. Use **View full release notes** on the announcement._";
+/** Release notes are posted as several thread messages; past this many the last one is shortened instead. */
+const MAX_RELEASE_MESSAGES = 25;
+const THREAD_NOTICE = "-# Full release notes are in the thread below.";
+/** Headline in old announcements that carried the notes themselves; repair moves those notes into a thread. */
+const LEGACY_NOTES_HEADING = "### What changed";
 const NO_RELEASE_NOTES = "No release notes provided.";
 const PROJECT_NAMES = CHANGELOG_PROJECTS.map((project) => project.name).join("|");
 // `## Arrakis Control v1.2.3` (no product name) is the legacy bot heading from before the dashboard was announced.
@@ -41,19 +44,9 @@ function bannerName(entry: ChangelogEntry): string {
   return sanitizeAttachmentName(`arrakis-control-${entry.project.key}-${entry.version}.png`, "arrakis-control-release.png");
 }
 
-/** The first message of a release: banner, durable heading, links, and the first part of the notes. */
+/** The channel announcement: banner, durable heading, product, summary, date and links. The notes go in its thread. */
 function releasePayload(entry: ChangelogEntry) {
-  return releaseMessages(entry)[0];
-}
-
-/**
- * Every message needed to post a release, in order. Notes that do not fit one Components V2 message
- * continue in follow-up cards instead of being cut; only past `MAX_RELEASE_MESSAGES` is the last part shortened.
- * Only the first message carries the release heading, so history import and receipts still see one post per release.
- */
-function releaseMessages(entry: ChangelogEntry) {
   const filename = bannerName(entry);
-  const parts = splitReleaseNotes(entry.body.trim() || NO_RELEASE_NOTES, firstPartBudget(entry), continuationBudget(entry));
   const banner = createPanelBanner({
     artwork: "release",
     filename,
@@ -61,31 +54,51 @@ function releaseMessages(entry: ChangelogEntry) {
     subtitle: `${entry.project.label} release`,
     detail: "Release notes",
   });
-  const first = {
-    components: [buildReleaseCard(entry, parts[0])],
+  return {
+    components: [buildReleaseCard(entry)],
     files: [{ attachment: banner.attachment, name: filename, description: banner.description ?? undefined }],
     allowedMentions: { parse: [] as const },
   };
-  const continuations = parts.slice(1).map((notes, index) => ({
-    components: [buildContinuationCard(entry, notes, index + 2, parts.length)],
+}
+
+/**
+ * The full notes, in order, as thread messages that each fit Discord's aggregate text limit.
+ * None carries the release heading, so history import and receipts still see one post per release.
+ */
+function releaseNoteMessages(entry: ChangelogEntry) {
+  const parts = splitReleaseNotes(entry.body.trim() || NO_RELEASE_NOTES, noteBudget(entry), noteBudget(entry));
+  return parts.map((notes, index) => ({
+    components: [buildNotesCard(entry, notes, index + 1, parts.length)],
     allowedMentions: { parse: [] as const },
   }));
-  return [first, ...continuations];
+}
+
+/** Thread title for a release's notes; Discord allows 100 characters. */
+function releaseThreadName(entry: Pick<ChangelogEntry, "project" | "version">): string {
+  return truncateDiscordText(`${entry.project.name} v${entry.version} release notes`, 100, "…");
+}
+
+/** True for an announcement from before notes moved to threads: its notes are in the card and may be cut short. */
+function hasInlineNotes(message: Message): boolean {
+  return componentContents(message).includes(LEGACY_NOTES_HEADING);
+}
+
+/** The visible text of a notes message, used to tell whether a thread already holds the expected notes. */
+function notesMessageText(message: Message | ReturnType<typeof releaseNoteMessages>[number]): string {
+  if ("author" in message) return componentContents(message).join("\n");
+  return message.components.flatMap((card) => card.toJSON().components).map((component) => ("content" in component && typeof component.content === "string" ? component.content : "")).filter(Boolean).join("\n");
+}
+
+/** Recognize a notes message for this release (any part), so repair never touches other thread messages. */
+function isNotesMessage(message: Message, entry: Pick<ChangelogEntry, "project" | "version">): boolean {
+  return componentContents(message).some((content) => content.startsWith(`-# ${entry.project.name} v${entry.version} release notes, part `));
 }
 
 function releaseMetadata(entry: ChangelogEntry): string {
   return `${truncateDiscordText(entry.summary, MAX_RELEASE_SUMMARY_TEXT, "…")}\n\n**Date:** ${formatDiscordTimestamp(entry.date)}`;
 }
 
-const CHANGE_HEADING = "### What changed";
-
-function firstPartBudget(entry: ChangelogEntry): number {
-  const fixed = releaseMarker(entry).length + productLine(entry.project).length + releaseMetadata(entry).length + CHANGE_HEADING.length
-    + "View full release notes".length + `${entry.project.name} GitHub`.length;
-  return Math.max(0, DISCORD_LIMITS.componentDisplayableText - DISPLAYABLE_TEXT_SAFETY_MARGIN - fixed);
-}
-
-function continuationBudget(entry: ChangelogEntry): number {
+function noteBudget(entry: ChangelogEntry): number {
   return DISCORD_LIMITS.componentDisplayableText - DISPLAYABLE_TEXT_SAFETY_MARGIN - continuationLabel(entry, MAX_RELEASE_MESSAGES, MAX_RELEASE_MESSAGES).length;
 }
 
@@ -157,9 +170,7 @@ function splitReleaseNotes(notes: string, firstBudget: number, restBudget: numbe
   return kept;
 }
 
-function buildReleaseCard(entry: ChangelogEntry, notes?: string): ContainerBuilder {
-  const releaseNotes = notes ?? truncateDiscordText(entry.body.trim() || NO_RELEASE_NOTES, firstPartBudget(entry), RELEASE_NOTES_TRUNCATED_NOTICE);
-
+function buildReleaseCard(entry: ChangelogEntry): ContainerBuilder {
   return new ContainerBuilder()
     .setAccentColor(entry.project.accentColor)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${bannerName(entry)}`)))
@@ -167,16 +178,15 @@ function buildReleaseCard(entry: ChangelogEntry, notes?: string): ContainerBuild
     .addTextDisplayComponents((text) => text.setContent(productLine(entry.project)))
     .addTextDisplayComponents((text) => text.setContent(releaseMetadata(entry)))
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(CHANGE_HEADING))
-    .addTextDisplayComponents((text) => text.setContent(releaseNotes))
+    .addTextDisplayComponents((text) => text.setContent(THREAD_NOTICE))
     .addActionRowComponents((row) => row.addComponents(
       new ButtonBuilder().setLabel("View full release notes").setStyle(ButtonStyle.Link).setURL(entry.url),
       new ButtonBuilder().setLabel(`${entry.project.name} GitHub`).setStyle(ButtonStyle.Link).setURL(`https://github.com/${entry.project.repository}`),
     ));
 }
 
-/** A follow-up card for the rest of a long release. It has no release heading, so it is never mistaken for a new post. */
-function buildContinuationCard(entry: ChangelogEntry, notes: string, part: number, total: number): ContainerBuilder {
+/** One part of a release's notes. It has no release heading, so it is never mistaken for a new post. */
+function buildNotesCard(entry: ChangelogEntry, notes: string, part: number, total: number): ContainerBuilder {
   return new ContainerBuilder()
     .setAccentColor(entry.project.accentColor)
     .addTextDisplayComponents((text) => text.setContent(continuationLabel(entry, part, total)))
@@ -199,4 +209,4 @@ function formatDiscordTimestamp(date: string | null): string {
   return Number.isNaN(timestamp) ? "Unknown" : `<t:${Math.floor(timestamp / 1000)}:F>`;
 }
 
-export { MAX_RELEASE_MESSAGES, buildReleaseCard, parseReleaseMarker, releaseMarker, releaseMessages, releasePayload, splitReleaseNotes };
+export { MAX_RELEASE_MESSAGES, buildReleaseCard, hasInlineNotes, isNotesMessage, notesMessageText, parseReleaseMarker, releaseMarker, releaseNoteMessages, releasePayload, releaseThreadName, splitReleaseNotes };

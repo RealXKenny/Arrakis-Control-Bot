@@ -24,6 +24,7 @@ describe("Sapphire listener store", () => {
         "messageArchiveDelete",
         "messageArchiveBulkDelete",
         "ready",
+        "entryPointGuard",
         "commandDenied",
         "ClientError",
         "ClientWarn",

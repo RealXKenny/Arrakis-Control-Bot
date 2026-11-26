@@ -89,4 +89,4 @@ function createPlayerAdminCommand(group: string, actionName: string) {
   return { data, execute };
 }
 
-export { PLAYER_ADMIN_COMMAND_NAMES, buildPlayerAdminCommandData, createPlayerAdminCommand, getPlayerAdminCommandName };
+export { PLAYER_ADMIN_COMMAND_NAMES, buildPlayerAdminCommandData, createPlayerAdminCommand };

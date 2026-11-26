@@ -243,7 +243,7 @@ class MessageArchiveRepository {
       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,NOW())
       ON CONFLICT (message_id) DO UPDATE SET deleted_at=COALESCE(bot_discord_messages.deleted_at,NOW()), archived_at=NOW()
       RETURNING *`, values(fallback));
-    return mapRow(result.rows[0]!);
+    return mapRow(result.rows[0]);
   }
 }
 

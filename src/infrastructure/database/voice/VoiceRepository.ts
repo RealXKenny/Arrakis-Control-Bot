@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 
-export interface VoiceSettings {
+interface VoiceSettings {
   guild_id: string;
   join_channel_id: string;
   category_id: string;

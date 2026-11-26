@@ -11,6 +11,8 @@ import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogCl
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
+  // The bot prints its own startup log; dotenv's "injected env" banner would break the clean console.
+  quiet: true,
 });
 
 interface EnvironmentConfig {
@@ -32,6 +34,8 @@ interface EnvironmentConfig {
   advinApiKey?: string;
   advinApiUrl: string;
   duneConsoleApiKey: string;
+  /** Per-attempt Console request timeout (CONSOLE_TIMEOUT_MS, 1000-120000, default 30000). */
+  duneConsoleTimeoutMs: number;
   duneDiscordAdapterToken?: string;
   duneDiscordLinkPanelChannelId?: string;
   duneDiscordBlueprintPanelChannelId?: string;
@@ -217,6 +221,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     advinApiKey: process.env.API_KEY,
     advinApiUrl: process.env.API_URL ?? "https://vps.example.com",
     duneConsoleApiKey,
+    duneConsoleTimeoutMs: parseBoundedInteger(process.env.CONSOLE_TIMEOUT_MS, 30_000, 1_000, 120_000, "CONSOLE_TIMEOUT_MS"),
     duneDiscordAdapterToken: process.env.ADAPTER_TOKEN,
     duneDiscordLinkPanelChannelId: process.env.LINK_PANEL_CHANNEL_ID,
     duneDiscordBlueprintPanelChannelId: process.env.BLUEPRINT_PANEL_CHANNEL_ID,
@@ -316,6 +321,12 @@ function parsePositiveInteger(value: string | undefined, fallback: number, name:
   return parsed;
 }
 
+function parseBoundedInteger(value: string | undefined, fallback: number, min: number, max: number, name: string): number {
+  const parsed = parsePositiveInteger(value, fallback, name);
+  if (parsed < min || parsed > max) throw new Error(`${name} must be between ${min} and ${max}.`);
+  return parsed;
+}
+
 function validateOptionalSnowflake(value: string | undefined, name: string): void {
   if (value !== undefined && value.trim() !== "" && !/^\d{17,20}$/.test(value.trim())) {
     throw new Error(`${name} must be a valid Discord ID.`);
@@ -334,6 +345,7 @@ function validateUrl(value: string, name: string): void {
       throw error;
     }
 
+    // eslint-disable-next-line preserve-caught-error -- the URL parser error carries the raw URL, which may hold credentials.
     throw new Error(`${name} must be a valid URL.`);
   }
 }
@@ -358,10 +370,9 @@ function validateDatabaseUrl(value: string): void {
       throw error;
     }
 
+    // eslint-disable-next-line preserve-caught-error -- the URL parser error carries the raw URL, which may hold credentials.
     throw new Error("DATABASE_URL must be a valid PostgreSQL connection URL.");
   }
 }
 
 export { loadEnvironment };
-
-export type { EnvironmentConfig };

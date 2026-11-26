@@ -312,4 +312,4 @@ async function readBoundedResponse(response: Response, maximumBytes: number): Pr
 
 export { DiscordAuditLogger };
 
-export type { AuditAttachment, AuditFile, BlueprintImportResult, LinkedPlayer, MusicInteractionRecord, PlayerLinkResult };
+export type { MusicInteractionRecord };

@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { isRecord } from "../../shared/validation/isRecord";
+
 export function encodeMapChat(funcomId: string, message: string, displayName?: string): { id: string; body: Buffer } {
   const id = randomUUID().replaceAll("-", "").toUpperCase();
   const payload = {
@@ -23,15 +25,16 @@ export function encodeMapChat(funcomId: string, message: string, displayName?: s
 export function decodeMapChat(body: Buffer): { id: string; sender: string; text: string } | null {
   if (body.length > 64 * 1024) return null;
   try {
-    const envelope = JSON.parse(body.toString("utf8"));
-    if (envelope?.Type !== "TextChat") return null;
+    const envelope: unknown = JSON.parse(body.toString("utf8"));
+    if (!isRecord(envelope) || envelope.Type !== "TextChat") return null;
     const raw = envelope.content ?? envelope.Content;
-    const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (payload?.m_ChannelType !== "Map" || payload.m_UserNameTo) return null;
-    if (typeof payload.m_FuncomIdFrom !== "string" || !payload.m_FuncomIdFrom.trim()
-      || typeof payload.m_Message?.m_UnlocalizedMessage !== "string" || !payload.m_Message.m_UnlocalizedMessage.trim()
-      || typeof payload.m_Id !== "string" || !payload.m_Id) return null;
-    return { id: payload.m_Id, sender: payload.m_FuncomIdFrom, text: payload.m_Message.m_UnlocalizedMessage };
+    const payload: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!isRecord(payload) || payload.m_ChannelType !== "Map" || payload.m_UserNameTo) return null;
+    const message = isRecord(payload.m_Message) ? payload.m_Message.m_UnlocalizedMessage : undefined;
+    const sender = payload.m_FuncomIdFrom;
+    const id = payload.m_Id;
+    if (typeof sender !== "string" || !sender.trim() || typeof message !== "string" || !message.trim() || typeof id !== "string" || !id) return null;
+    return { id, sender, text: message };
   } catch {
     return null;
   }

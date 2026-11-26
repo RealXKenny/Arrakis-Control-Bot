@@ -34,14 +34,14 @@ function parseReleases(value: unknown): DashboardRelease[] {
   return value.releases.map((entry: unknown) => {
     if (!record(entry) || typeof entry.project !== "string" || !PROJECT_KEY.test(entry.project) ||
         typeof entry.version !== "string" || !VERSION.test(entry.version) ||
-        entry.id !== `${entry.project}:${entry.version}` || ids.has(entry.id as string) ||
+        entry.id !== `${entry.project}:${entry.version}` || ids.has(entry.id) ||
         typeof entry.title !== "string" || entry.title.length < 1 || entry.title.length > 200 ||
         (entry.date !== null && (typeof entry.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date) ||
           Number.isNaN(Date.parse(entry.date)) || new Date(entry.date).toISOString().slice(0, 10) !== entry.date)) ||
         !Array.isArray(entry.sections) || entry.sections.length > 100) {
       throw new Error("Invalid dashboard release");
     }
-    ids.add(entry.id as string);
+    ids.add(entry.id);
     const sections = entry.sections.map((section: unknown) => {
       if (!record(section) || typeof section.title !== "string" || !section.title || section.title.length > 200 ||
           !Array.isArray(section.items) || section.items.length > 1000 ||
@@ -50,7 +50,7 @@ function parseReleases(value: unknown): DashboardRelease[] {
       }
       return { title: section.title, items: section.items as string[] };
     });
-    return { project: entry.project as string, id: entry.id as string, version: entry.version, title: entry.title, date: entry.date as string | null, sections };
+    return { project: entry.project, id: entry.id, version: entry.version, title: entry.title, date: entry.date, sections };
   });
 }
 

@@ -359,5 +359,3 @@ function escapeMarkdown(value: string): string {
 }
 
 export { formatServerStatus };
-
-export type { CommandResponse, PerformanceResponse, ServerStatusResult };

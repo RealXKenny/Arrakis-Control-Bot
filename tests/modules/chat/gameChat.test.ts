@@ -89,6 +89,7 @@ describe("chat configuration and game wire format", () => {
     expect(() => loadChatBridgeConfig({ ...env, RABBITMQ_URL: "https://remote.example.com" })).toThrow("RABBITMQ_URL");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_FUNCOM_ID: "" })).toThrow("CHAT_BRIDGE_FUNCOM_ID");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify([route, route]) })).toThrow("CHAT_BRIDGE_ROUTES");
+    for (const routes of [[null], ["text"], [{ ...route, guildId: 123456 }]]) expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify(routes) })).toThrow("CHAT_BRIDGE_ROUTES");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify([{ ...route, map: "#" }]) })).toThrow("CHAT_BRIDGE_ROUTES");
   });
 
@@ -106,7 +107,7 @@ describe("chat configuration and game wire format", () => {
   });
 
   it("ignores malformed, oversized, private and non-chat messages", () => {
-    for (const body of [Buffer.from("invalid"), Buffer.alloc(65537), Buffer.from("null"), Buffer.from('{"Type":"Other"}')]) expect(decodeMapChat(body)).toBeNull();
+    for (const body of [Buffer.from("invalid"), Buffer.alloc(65537), Buffer.from("null"), Buffer.from('{"Type":"Other"}'), Buffer.from("[]"), Buffer.from('{"Type":"TextChat","content":"[1]"}'), Buffer.from('{"Type":"TextChat","content":{"m_ChannelType":"Map","m_FuncomIdFrom":"Player#1","m_Id":"x","m_Message":"text"}}')]) expect(decodeMapChat(body)).toBeNull();
     const outer = JSON.parse(encodeMapChat("Player#1234", "private").body.toString());
     const payload = JSON.parse(outer.content);
     payload.m_ChannelType = "Whisper";
@@ -166,6 +167,24 @@ describe("RabbitMQ lifecycle", () => {
     await transport.stop();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(connect).toHaveBeenCalledTimes(3);
+  });
+
+  it("warns once per distinct connection failure and reports the recovery", async () => {
+    vi.useFakeTimers();
+    connect.mockRejectedValue(Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" }));
+    const warn = vi.fn();
+    const info = vi.fn();
+    const transport = new GameChatConnection(config, vi.fn(), warn, info);
+    transport.start();
+    await vi.advanceTimersByTimeAsync(3_100);
+    expect(connect).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toMatch(/^RabbitMQ chat unavailable while connecting\/authenticating: .*Retrying automatically/u);
+    mockBroker();
+    await vi.advanceTimersByTimeAsync(4_000);
+    await vi.waitFor(() => expect(info).toHaveBeenCalledWith(expect.stringMatching(/ready after 3 failed attempt\(s\)/u)));
+    expect(warn).toHaveBeenCalledTimes(1);
+    await transport.stop();
   });
 
   it("reconnects after channel closure and rejects a pending publish on disconnect", async () => {

@@ -37,4 +37,4 @@ function statusDot(state: "ok" | "warn" | "bad" | "idle"): string {
   return { ok: "🟢", warn: "🟡", bad: "🔴", idle: "⚪" }[state];
 }
 
-export { PANEL_ACCENT_ROTATION, PANEL_COLORS, PANEL_FOOTER_TAGLINE, panelFooter, panelHeading, pickPanelAccent, statusDot };
+export { PANEL_ACCENT_ROTATION, PANEL_COLORS, panelFooter, panelHeading, pickPanelAccent, statusDot };

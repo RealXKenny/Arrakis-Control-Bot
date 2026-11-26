@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LogLevel } from "@sapphire/framework";
 
-import { compactSapphireMessage, createLogger, createSapphireLogger, fitConsoleLine } from "../../src/client/logger";
+import { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine } from "../../src/client/logger";
 
 function stripAnsi(value: string): string {
   return value
@@ -120,5 +120,38 @@ describe("startup presentation", () => {
 
     expect(output).toHaveBeenCalledWith(expect.stringContaining('· {"userId":"123","credentials":{"accessToken":"[REDACTED]","label":"Arrakis Control"}}'));
     expect(output.mock.calls.flat().join(" ")).not.toContain("do-not-print");
+  });
+
+  it("prints an error as one readable line and keeps the stack for DEBUG", () => {
+    vi.stubEnv("NO_COLOR", "1");
+    vi.stubEnv("NODE_ENV", "development");
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    const failure = Object.assign(new Error("You cannot remove this app's Entry Point command in a bulk update operation."), { name: "DiscordAPIError[50240]", code: 50240 });
+
+    createLogger("SAPPHIRE", "INFO").error("Failed to overwrite global application commands", failure);
+    const line = String(errors.mock.calls[0]?.[0]);
+    expect(line).toContain("· DiscordAPIError[50240]: You cannot remove this app's Entry Point command");
+    expect(line).not.toContain("stack");
+    expect(line).not.toContain("{");
+    expect(debug).not.toHaveBeenCalled();
+
+    createLogger("SAPPHIRE", "DEBUG").error("Failed to overwrite global application commands", failure);
+    expect(debug.mock.calls.length).toBeGreaterThan(0);
+    expect(String(debug.mock.calls[0]?.[0])).toMatch(/^ {4}at /u);
+  });
+
+  it("adds an error code and keeps API messages but hides internal messages in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(describeError(Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" }))).toBe("Error: Internal error (code ETIMEDOUT)");
+    expect(describeError(Object.assign(new Error("Unknown Message"), { name: "DiscordAPIError[10008]", code: 10008 }))).toBe("DiscordAPIError[10008]: Unknown Message");
+  });
+
+  it("renders a nested error inside structured details without its stack", () => {
+    vi.stubEnv("NO_COLOR", "1");
+    vi.stubEnv("NODE_ENV", "development");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    createLogger("REQUEST", "INFO").warn("Request failed.", { route: "/x", error: new Error("boom") });
+    expect(String(warn.mock.calls[0]?.[0])).toContain('{"route":"/x","error":"Error: boom"}');
   });
 });

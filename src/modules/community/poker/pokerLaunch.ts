@@ -32,4 +32,4 @@ async function launchPokerActivity(interaction: ChatInputCommandInteraction): Pr
   }
 }
 
-export { UNAVAILABLE_BODY, UNAVAILABLE_TITLE, launchPokerActivity };
+export { UNAVAILABLE_TITLE, launchPokerActivity };

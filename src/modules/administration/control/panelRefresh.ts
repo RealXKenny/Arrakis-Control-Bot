@@ -80,4 +80,3 @@ function refreshPersistentPanels(client: Client, guild?: Guild): Promise<PanelRe
 }
 
 export { persistentPanelTasks, refreshPersistentPanels };
-export type { PanelRefreshResult, PersistentPanelTask };

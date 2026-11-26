@@ -35,4 +35,3 @@ async function respondWithRateLimit(interaction: SupportedInteraction): Promise<
 }
 
 export { RateLimitedInteractionHandler, respondWithRateLimit };
-export type { SupportedInteraction };

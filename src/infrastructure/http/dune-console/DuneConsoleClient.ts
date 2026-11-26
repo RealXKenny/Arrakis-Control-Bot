@@ -1,6 +1,7 @@
 import { URL } from "node:url";
 import { readBoundedBody } from "../readBoundedBody";
 import { CircuitBreaker, CircuitOpenError, ConcurrencyLimiter, ConcurrencyLimitError, TtlCache, upstreamArea } from "../resilience";
+import { ConsoleOutageLog, retryAfterMs, retryDelayMs, routeLabel } from "./consoleOutageLog";
 
 // Generous for player directories, but bounded so one bad response cannot exhaust memory.
 const MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
@@ -9,6 +10,12 @@ import { MAX_BLUEPRINT_BYTES, validateBlueprintUpload } from "../../../modules/p
 
 const logger = createLogger("DUNE API");
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+interface DuneConsoleClientOptions {
+  /** Per-attempt timeout for JSON requests (CONSOLE_TIMEOUT_MS). Uploads keep their own longer limit. */
+  timeoutMs?: number;
+}
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 
@@ -51,8 +58,10 @@ class DuneConsoleClient {
   private readonly breaker = new CircuitBreaker({ failureThreshold: 5, openMs: 30_000 });
   private readonly limiter = new ConcurrencyLimiter(8, 100);
   private readonly cache = new TtlCache(500);
+  private readonly outage = new ConsoleOutageLog(logger);
+  private readonly timeoutMs: number;
 
-  constructor(baseUrl: string, apiKey: string) {
+  constructor(baseUrl: string, apiKey: string, options: DuneConsoleClientOptions = {}) {
     if (!baseUrl) {
       throw new Error("CONSOLE_URL is required to create a Dune console client.");
     }
@@ -69,6 +78,7 @@ class DuneConsoleClient {
 
     this.baseUrl = parsedBaseUrl.toString();
     this.apiKey = normalizedApiKey;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   async uploadBlueprint(playerId: string | number, attachment: BlueprintAttachment): Promise<unknown> {
@@ -176,9 +186,12 @@ class DuneConsoleClient {
     });
 
     let response: Response | undefined;
+    const read = isSafeToRetry(method);
+    const label = routeLabel(route);
 
     // Dev note: Safe requests get three thumpers; mutations get no accidental encore.
     for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const attemptStartedAt = Date.now();
       try {
         response = await fetch(url, {
           method,
@@ -186,28 +199,33 @@ class DuneConsoleClient {
           body: body === undefined ? undefined : JSON.stringify(body),
           // Never follow a redirect with the Console API key attached.
           redirect: "error",
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(this.timeoutMs),
         });
 
-        if (!isSafeToRetry(method) || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === 3) {
+        if (!read || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === 3) {
           break;
         }
 
-        logger.warn(`${method} ${route} returned temporary HTTP ${response.status}; retrying (${attempt}/3).`);
+        const waitMs = retryAfterMs(response.headers.get("retry-after")) ?? retryDelayMs(attempt);
+        logger.debug(`${method} ${label} returned temporary HTTP ${response.status}; retrying in ${waitMs}ms (${attempt}/3).`);
         await response.body?.cancel();
+        await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
       } catch (error: unknown) {
-        if (!isSafeToRetry(method) || attempt === 3) {
-          logger.error(`${method} ${route} network request failed after ${Date.now() - startedAt}ms.`, error);
+        const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+        if (!read || attempt === 3) {
+          this.outage.recordFailure(
+            { method, route, kind: timedOut ? "timeout" : "network", durationMs: Date.now() - startedAt },
+            read,
+          );
 
           throw new DuneConsoleApiError(`Console API network request failed: ${getErrorMessage(error)}`, 0, {
             cause: getErrorCause(error),
           });
         }
 
-        logger.warn(`${method} ${route} network hiccup; retrying (${attempt}/3).`);
+        logger.debug(`${method} ${label} ${timedOut ? "timed out" : "network hiccup"} after ${Date.now() - attemptStartedAt}ms; retrying (${attempt}/3).`);
+        await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs(attempt)));
       }
-
-      await new Promise<void>((resolve) => setTimeout(resolve, attempt * 1_000));
     }
 
     if (!response) {
@@ -219,11 +237,19 @@ class DuneConsoleClient {
     if (!response.ok || isFailedResponse(data)) {
       const message = getResponseMessage(data) ?? `Request failed with HTTP ${response.status}.`;
 
-      logger.warn(`${method} ${route} failed with HTTP ${response.status} after ${Date.now() - startedAt}ms.`);
+      if (response.status >= 500 || response.status === 408 || response.status === 429) {
+        // An unavailable Console: aggregated for reads, always reported for writes.
+        this.outage.recordFailure({ method, route, kind: "status", status: response.status, durationMs: Date.now() - startedAt }, read);
+      } else {
+        // A 4xx means the Console is up and refused this request; that is worth a line of its own.
+        this.outage.recordSuccess();
+        logger.warn(`${method} ${label} failed with HTTP ${response.status} after ${Date.now() - startedAt}ms.`);
+      }
 
       throw new DuneConsoleApiError(message, response.status, data);
     }
 
+    this.outage.recordSuccess();
     logger.debug(`${method} ${route} completed with HTTP ${response.status} in ${Date.now() - startedAt}ms.`);
 
     return data;
@@ -439,5 +465,5 @@ function getErrorCause(error: unknown): string {
   return error instanceof Error ? error.name : "UnknownError";
 }
 
-export { DuneConsoleClient, DuneConsoleApiError, RequestOptions, HttpMethod };
-export type { BinaryResponse, BlueprintAttachment };
+export { DuneConsoleClient, RequestOptions, HttpMethod };
+export type { BinaryResponse, DuneConsoleClientOptions };

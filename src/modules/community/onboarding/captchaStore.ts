@@ -50,5 +50,3 @@ function verifyCaptcha(userId: string, answer: string): boolean {
 }
 
 export { createCaptcha, verifyCaptcha };
-
-export type { CaptchaChallenge };

@@ -84,7 +84,7 @@ function startAuditLogForwarder(client: AuditClient): NodeJS.Timeout {
 
   void poll();
 
-  return setInterval(poll, POLL_INTERVAL_MS);
+  return setInterval(() => void poll(), POLL_INTERVAL_MS);
 }
 
 function formatUser(user: unknown): string {

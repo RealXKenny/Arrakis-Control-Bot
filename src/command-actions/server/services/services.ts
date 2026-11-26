@@ -6,6 +6,7 @@ import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { parseServices } from "../monitoring/status";
 import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
+import { isRecord } from "../../../shared/validation/isRecord";
 
 interface ServiceRow {
   name: string;
@@ -13,10 +14,6 @@ interface ServiceRow {
 }
 
 const data = new SlashCommandBuilder().setName("services").setDescription("List Dune server services and their status.");
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeServiceRows(value: unknown): ServiceRow[] {
   if (isRecord(value) && typeof value.stdout === "string") {
@@ -79,7 +76,6 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   }
 }
 
-export { data, execute, normalizeServiceRows };
-
+export { data, normalizeServiceRows };
 
 export const groupedAction = { data, execute };

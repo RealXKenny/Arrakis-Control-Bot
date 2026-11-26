@@ -83,5 +83,4 @@ class ArrakisClient extends SapphireClient {
   }
 }
 
-export { PIECES_DIRECTORY, ArrakisClient };
-export type { ArrakisClientOptions };
+export { ArrakisClient };

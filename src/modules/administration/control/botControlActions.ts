@@ -141,4 +141,4 @@ function formatUptime(milliseconds: number): string {
   return [days ? `${days}d` : null, hours ? `${hours}h` : null, `${minutes}m`].filter(Boolean).join(" ");
 }
 
-export { botStatus, canControlBot, handleBotControl, resyncRuntimeServices };
+export { botStatus, canControlBot, handleBotControl };

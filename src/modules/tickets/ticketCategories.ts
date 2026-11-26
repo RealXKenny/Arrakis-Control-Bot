@@ -65,5 +65,3 @@ function buildTicketModal(categoryValue: TicketCategoryValue): ModalBuilder {
 }
 
 export { TICKET_CATEGORIES, buildTicketModal, getTicketCategory };
-
-export type { TicketCategory, TicketCategoryValue };

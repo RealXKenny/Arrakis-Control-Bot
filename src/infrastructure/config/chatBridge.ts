@@ -1,3 +1,5 @@
+import { isRecord } from "../../shared/validation/isRecord";
+
 export interface ChatRoute {
   guildId: string;
   channelId: string;
@@ -44,15 +46,17 @@ export function loadChatBridgeConfig(env: NodeJS.ProcessEnv): ChatBridgeConfig |
     if (!Array.isArray(parsed) || !parsed.length || parsed.length > 100) throw new Error();
     const routesSeen = new Set<string>();
     const channelGuilds = new Map<string, string>();
-    for (const route of parsed) {
-      if (!route || !/^\d{17,20}$/.test(route.guildId) || !/^\d{17,20}$/.test(route.channelId)
-        || typeof route.map !== "string" || !/^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/.test(route.map)
-        || routesSeen.has(`${route.channelId}:${route.map}`)
-        || (channelGuilds.has(route.channelId) && channelGuilds.get(route.channelId) !== route.guildId)) throw new Error();
-      routesSeen.add(`${route.channelId}:${route.map}`);
-      channelGuilds.set(route.channelId, route.guildId);
+    for (const route of parsed as unknown[]) {
+      if (!isRecord(route)) throw new Error();
+      const { guildId, channelId, map } = route;
+      if (typeof guildId !== "string" || !/^\d{17,20}$/.test(guildId) || typeof channelId !== "string" || !/^\d{17,20}$/.test(channelId)
+        || typeof map !== "string" || !/^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/.test(map)
+        || routesSeen.has(`${channelId}:${map}`)
+        || (channelGuilds.has(channelId) && channelGuilds.get(channelId) !== guildId)) throw new Error();
+      routesSeen.add(`${channelId}:${map}`);
+      channelGuilds.set(channelId, guildId);
     }
-    routes = parsed;
+    routes = parsed as ChatRoute[];
   } catch {
     throw new Error("CHAT_BRIDGE_ROUTES must be a JSON array of unique Discord channel/map mappings: {guildId, channelId, map}, with valid Discord IDs and an exact map key such as HaggaBasin.0.");
   }

@@ -51,4 +51,4 @@ function cooldownMessage(remainingMs: number): string {
   return `That command is cooling down. Try again in ${Math.ceil(remainingMs / 1_000)} seconds.`;
 }
 
-export { COMMAND_COOLDOWNS_MS, CommandCooldowns, commandCooldowns, cooldownMessage };
+export { CommandCooldowns, commandCooldowns, cooldownMessage };

@@ -2,7 +2,7 @@ import type { ReleaseAnnouncementChannel, ReleaseAnnouncementRecord, ReleaseAnno
 import { Collection, type Client } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { announceCurrentVersion, refreshReleaseAnnouncements, replayReleaseAnnouncements } from "../../../src/modules/changelog/changelogAnnouncements";
+import { announceCurrentVersion, refreshReleaseAnnouncements, releaseType, repairReleaseAnnouncements, replayReleaseAnnouncements } from "../../../src/modules/changelog/changelogAnnouncements";
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
 
 vi.mock("../../../src/shared/discord/imageFactory", () => ({
@@ -23,12 +23,20 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
   ] });
   const crosspost = vi.fn().mockResolvedValue(undefined);
   let sentId = 0;
-  const send = vi.fn().mockImplementation(() => Promise.resolve({ id: `sent-${++sentId}`, crosspostable: true, crosspost }));
+  const threads: FakeThread[] = [];
+  const startThread = vi.fn((options: { name: string }) => {
+    const thread = fakeThread(options.name);
+    threads.push(thread);
+    return Promise.resolve(thread);
+  });
+  const send = vi.fn().mockImplementation(() => Promise.resolve({ id: `sent-${++sentId}`, author: { id: "bot" }, webhookId: null, components: [], crosspostable: true, crosspost, thread: null, hasThread: false, startThread }));
   const existing = markers.map((marker, index) => {
     const edit = vi.fn().mockResolvedValue(undefined);
-    return [String(index), { id: String(index), author: { id: "bot" } as { id: string }, webhookId: null, content: "", components: [{ components: [{ content: marker }] }], edit }] as const;
+    return [String(index), { id: String(index), author: { id: "bot" } as { id: string }, webhookId: null, content: "", components: [{ components: [{ content: marker }] }], edit, thread: null, hasThread: false, startThread }] as const;
   });
   const channel = {
+    isThreadOnly: () => false,
+    isThread: () => false,
     isSendable: () => true,
     messages: {
       fetch: vi.fn().mockImplementation((id: unknown) => typeof id === "string"
@@ -55,7 +63,37 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
   };
   const storage: ReleaseAnnouncementStorage = { withChannel: async (_channelId, task) => { await task(stored); } };
   const client = { dashboardChangelog: { origin: "https://dashboard.example", getReleases: fetchMock }, releaseAnnouncements: storage, user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue(channel) } } as unknown as Client;
-  return { client, send, crosspost, fetchMock, existing, channel, stored, storage, records };
+  return { client, send, crosspost, fetchMock, existing, channel, stored, storage, records, threads, startThread };
+}
+
+type FakeMessage = { id: string; author: { id: string }; webhookId: null; createdTimestamp: number; components: { components: { content?: string }[] }[]; edit: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
+type FakeThread = ReturnType<typeof fakeThread>;
+
+let createdAt = 0;
+/** A thread that stores the notes messages sent to it, so repeated syncs can be checked for duplicates. */
+function fakeThread(name: string) {
+  const posted: FakeMessage[] = [];
+  const toMessage = (payload: { components: { toJSON(): unknown }[] }): FakeMessage["components"] => payload.components.map((card) => card.toJSON() as { components: { content?: string }[] });
+  const thread = {
+    name,
+    archived: false,
+    appliedTags: [] as string[],
+    posted,
+    isThread: () => true,
+    setArchived: vi.fn((archived: boolean) => { thread.archived = archived; return Promise.resolve(thread); }),
+    setAppliedTags: vi.fn((tags: string[]) => { thread.appliedTags = tags; return Promise.resolve(thread); }),
+    send: vi.fn((payload: { components: { toJSON(): unknown }[] }) => {
+      const message: FakeMessage = {
+        id: `${name}-${posted.length + 1}`, author: { id: "bot" }, webhookId: null, createdTimestamp: ++createdAt, components: toMessage(payload),
+        edit: vi.fn((next: { components: { toJSON(): unknown }[] }) => { message.components = toMessage(next); return Promise.resolve(message); }),
+        delete: vi.fn(() => { posted.splice(posted.indexOf(message), 1); return Promise.resolve(message); }),
+      };
+      posted.push(message);
+      return Promise.resolve(message);
+    }),
+    messages: { fetch: vi.fn(() => Promise.resolve(new Collection(posted.map((message) => [message.id, message] as const)))) },
+  };
+  return thread;
 }
 
 describe("version announcements", () => {
@@ -259,42 +297,152 @@ describe("version announcements", () => {
     expect(crosspost).toHaveBeenCalledTimes(2);
   });
 
-  it("splits a long release into ordered messages, bot first, each under Discord's displayable text limit", async () => {
-    const { client, send, stored, crosspost } = setup([], "A very large release note. ".repeat(500));
+  it("posts a short announcement and the full notes of a long release in its thread, bot first, each part under the limit", async () => {
+    const { client, send, stored, crosspost, threads } = setup([], "A very large release note. ".repeat(2_000));
 
     await announceCurrentVersion(client, "announcements");
 
-    const cards = send.mock.calls.map(([payload]) => payload.components[0].toJSON());
-    const texts = cards.map(collectDisplayableText);
-    expect(cards.length).toBeGreaterThan(2);
-    for (const card of cards) expect(countDisplayableText(card)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
-    const dashboardStart = texts.findIndex((text) => text.includes("## Arrakis Control Dashboard v1.0.0"));
-    expect(texts[0]).toContain("## Arrakis Control Bot v1.0.0");
-    expect(dashboardStart).toBeGreaterThan(1);
-    for (const text of texts.slice(1, dashboardStart)) {
-      expect(text).toMatch(/^-# Bot v1\.0\.0 release notes, part \d of \d/);
+    // The channel gets exactly one short announcement per release, bot first.
+    expect(send).toHaveBeenCalledTimes(2);
+    const announcements = send.mock.calls.map(([payload]) => collectDisplayableText(payload.components[0].toJSON()));
+    expect(announcements[0]).toContain("## Arrakis Control Bot v1.0.0");
+    expect(announcements[1]).toContain("## Arrakis Control Dashboard v1.0.0");
+    for (const text of announcements) {
+      expect(text).toContain("Full release notes are in the thread below.");
+      expect(text).not.toContain("very large release note");
+    }
+    expect(threads.map((thread) => thread.name)).toEqual(["Bot v1.0.0 release notes", "Dashboard v1.0.0 release notes"]);
+    const parts = threads[0].posted.map((message) => message.components[0]);
+    const texts = parts.map(collectDisplayableText);
+    expect(parts.length).toBeGreaterThan(3);
+    for (const part of parts) expect(countDisplayableText(part)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
+    for (const [index, text] of texts.entries()) {
+      expect(text).toMatch(new RegExp(`^-# Bot v1\\.0\\.0 release notes, part ${index + 1} of ${texts.length}`));
       expect(text).not.toContain("## Arrakis Control");
     }
     expect(texts.join("")).not.toContain("Release notes shortened for Discord");
-    // The one oversized bullet is broken on word boundaries, so every word survives.
-    expect(texts.slice(0, dashboardStart).join(" ").match(/\blarge\b/g)).toHaveLength(500);
-    // One receipt per release, pointing at its first message; every message is published.
-    expect(stored.record).toHaveBeenCalledTimes(2);
+    // Every word of the very long notes survives, in order across the parts.
+    expect(texts.join(" ").match(/\blarge\b/g)).toHaveLength(2_000);
+    // One receipt per release pointing at the announcement; only announcements are published.
     expect(stored.record).toHaveBeenNthCalledWith(1, { repository: "RealXKenny/Arrakis-Control-Bot", version: "1.0.0", messageId: "sent-1" });
-    expect(crosspost).toHaveBeenCalledTimes(cards.length);
+    expect(stored.record).toHaveBeenCalledTimes(2);
+    expect(crosspost).toHaveBeenCalledTimes(2);
   });
 
-  it("reports a failed continuation without reposting the release", async () => {
-    const { client, send, stored } = setup([], "A very large release note. ".repeat(500));
-    let calls = 0;
-    const original = send.getMockImplementation()!;
-    send.mockImplementation((payload: unknown) => (++calls === 2 ? Promise.reject(new Error("continuation rejected")) : original(payload)));
+  it("finishes a notes thread that failed part-way on the next repair, without reposting or duplicating", async () => {
+    const { client, send, stored, threads, channel } = setup([], "A very large release note. ".repeat(1_000));
+    let failNext = true;
+    const startThread = send.getMockImplementation()!;
+    send.mockImplementation(async (payload: unknown) => {
+      const message = await startThread(payload);
+      const realStart = message.startThread;
+      message.startThread = async (options: { name: string }) => {
+        const thread = await realStart(options);
+        const realSend = thread.send.getMockImplementation()!;
+        thread.send.mockImplementation((part: never) => {
+          if (failNext && thread.posted.length === 1) { failNext = false; return Promise.reject(new Error("notes rejected")); }
+          return realSend(part);
+        });
+        return thread;
+      };
+      return message;
+    });
 
     await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("1 release check operation");
     expect(stored.record).toHaveBeenCalledTimes(2);
-    const sentBefore = send.mock.calls.length;
+    const botThread = threads[0];
+    expect(botThread.posted).toHaveLength(1);
+
+    // The repair runs against the recorded announcement and completes only the missing parts.
+    const announcement = await send.mock.results[0].value;
+    announcement.thread = botThread;
+    channel.messages.fetch.mockImplementation((id: unknown) => Promise.resolve(id === "sent-1" ? announcement : { ...announcement, id, thread: threads[1] }));
+    await repairReleaseAnnouncements(client, "announcements");
+    const complete = botThread.posted.length;
+    expect(complete).toBeGreaterThan(1);
+    await repairReleaseAnnouncements(client, "announcements");
+    expect(botThread.posted).toHaveLength(complete);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it("moves notes out of an old cut-off announcement into a thread once, and leaves correct posts alone", async () => {
+    const { client, send, existing, threads } = setup(["## Arrakis Control Bot v1.0.0", "## Arrakis Control Dashboard v1.0.0"]);
+    Object.assign(existing[0][1], { components: [{ components: [{ content: "## Arrakis Control Bot v1.0.0" }, { content: "### What changed" }] }] });
+    await repairReleaseAnnouncements(client, "announcements");
+    expect(existing[0][1].edit).toHaveBeenCalledOnce();
+    expect(existing[1][1].edit).not.toHaveBeenCalled();
+    expect(threads).toHaveLength(2);
+    for (const thread of threads) expect(thread.posted).toHaveLength(1);
+    for (const [index, [, message]] of existing.entries()) Object.assign(message, { thread: threads[index], components: [{ components: [{ content: index === 0 ? "## Arrakis Control Bot v1.0.0" : "## Arrakis Control Dashboard v1.0.0" }] }] });
+    await repairReleaseAnnouncements(client, "announcements");
+    expect(threads).toHaveLength(2);
+    for (const thread of threads) {
+      expect(thread.posted).toHaveLength(1);
+      expect(thread.send).toHaveBeenCalledOnce();
+    }
+    expect(existing[0][1].edit).toHaveBeenCalledOnce();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("edits changed parts and removes surplus parts instead of posting duplicates", async () => {
+    const { client, existing, threads, fetchMock } = setup(["## Arrakis Control Bot v1.0.0", "## Arrakis Control Dashboard v1.0.0"], "A very large release note. ".repeat(1_000));
+    await repairReleaseAnnouncements(client, "announcements");
+    const botThread = threads[0];
+    const before = botThread.posted.length;
+    Object.assign(existing[0][1], { thread: botThread });
+    Object.assign(existing[1][1], { thread: threads[1] });
+    fetchMock.mockResolvedValue({ stale: false, releases: [
+      { project: "bot", version: "1.0.0", title: "Bot release", date: "2026-09-06", sections: [{ title: "Changes", items: ["Now short"] }] },
+      { project: "dashboard", version: "1.0.0", title: "Dashboard release", date: "2026-09-07", sections: [{ title: "Changes", items: ["Now short"] }] },
+    ] });
+    await repairReleaseAnnouncements(client, "announcements");
+    expect(botThread.posted).toHaveLength(1);
+    expect(botThread.send).toHaveBeenCalledTimes(before);
+    expect(collectDisplayableText(botThread.posted[0].components[0])).toContain("Now short");
+  });
+
+  it("uses one forum post per release with product and release-type tags, creating missing tags once", async () => {
+    const { client, stored } = setup();
+    const posts: FakeThread[] = [];
+    const forum = {
+      isThreadOnly: () => true,
+      availableTags: [{ id: "t-bot", name: "bot", moderated: false, emoji: null }] as { id: string; name: string; moderated: boolean; emoji: null }[],
+      setAvailableTags: vi.fn((tags: { id?: string; name: string }[]) => {
+        forum.availableTags = tags.map((tag, index) => ({ id: tag.id ?? `t-new-${index}`, name: tag.name, moderated: false, emoji: null }));
+        return Promise.resolve(forum);
+      }),
+      threads: {
+        create: vi.fn((options: { name: string; appliedTags: string[]; message: unknown }) => {
+          const thread = fakeThread(options.name);
+          thread.appliedTags = options.appliedTags;
+          const starter = { id: `post-${posts.length + 1}`, author: { id: "bot" }, webhookId: null, components: [], crosspostable: false, channel: thread };
+          Object.assign(thread, { fetchStarterMessage: () => Promise.resolve(starter) });
+          posts.push(thread);
+          return Promise.resolve(thread);
+        }),
+        fetch: vi.fn((id: string) => Promise.resolve(posts[Number(id.split("-")[1]) - 1])),
+      },
+    };
+    vi.mocked(client.channels.fetch).mockResolvedValue(forum as never);
+
     await announceCurrentVersion(client, "announcements");
-    expect(send).toHaveBeenCalledTimes(sentBefore);
+    await repairReleaseAnnouncements(client, "announcements");
+
+    expect(forum.setAvailableTags).toHaveBeenCalledOnce();
+    expect(forum.availableTags.map((tag) => tag.name)).toEqual(["bot", "Dashboard", "Major", "Minor", "Patch"]);
+    expect(posts.map((post) => post.name)).toEqual(["Bot v1.0.0 release notes", "Dashboard v1.0.0 release notes"]);
+    const id = (name: string) => forum.availableTags.find((tag) => tag.name === name)!.id;
+    expect(posts[0].appliedTags).toEqual([id("bot"), id("Major")]);
+    expect(posts[1].appliedTags).toEqual([id("Dashboard"), id("Major")]);
+    for (const post of posts) expect(post.posted).toHaveLength(1);
+    expect(stored.record).toHaveBeenNthCalledWith(1, { repository: "RealXKenny/Arrakis-Control-Bot", version: "1.0.0", messageId: "post-1" });
+  });
+
+  it("classifies release types from the version", () => {
+    expect(releaseType("2.0.0")).toBe("Major");
+    expect(releaseType("2.1.0")).toBe("Minor");
+    expect(releaseType("2.0.1")).toBe("Patch");
+    expect(releaseType("next")).toBeNull();
   });
 });
 

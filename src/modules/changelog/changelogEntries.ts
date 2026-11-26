@@ -63,4 +63,4 @@ function comparePublishingOrder(a: ChangelogEntry, b: ChangelogEntry): number {
 }
 
 export { loadChangelogEntries };
-export type { ChangelogEntry, ChangelogSource };
+export type { ChangelogEntry };
