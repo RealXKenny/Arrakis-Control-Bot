@@ -198,6 +198,10 @@ Every user-facing Discord panel shares one modern visual language: an indigo acc
 
 An optional web dashboard can run inside the bot on shard 0. It uses Discord sign-in, PostgreSQL sessions, and a fresh Manage Server check for every guild request. Set the `MANAGEMENT_DASHBOARD_*` variables, `CLIENT_ID`, and `DATABASE_URL`, and serve it through an HTTPS reverse proxy. It is a beta and has no settings yet. See the [management dashboard guide](guides/management-dashboard.md).
 
+## Stability roadmap
+
+Planned work to keep the bot fast and self-healing for one busy guild is tracked in the [single-guild stability and scale plan](guides/single-guild-scale-plan.md).
+
 ## Security notes
 
 - Secrets are loaded from environment variables and excluded by `.gitignore`.

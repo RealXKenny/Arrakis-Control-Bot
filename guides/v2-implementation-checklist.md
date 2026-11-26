@@ -33,6 +33,21 @@ This checklist records work against the V2 request. An unchecked item is not com
 - [x] Implement the dashboard read-only versioned changelog API and unified release presentation.
 - [x] Add and test a bounded dashboard changelog HTTP client.
 - [x] Replace bot GitHub changelog retrieval with validated dashboard API access, bounded caching, and explicit stale/outage handling.
+- [ ] Single-guild stability and scale, per [the plan](single-guild-scale-plan.md):
+  - [ ] Split interactive and background PostgreSQL pools with configurable sizes and query timeouts.
+  - [ ] Batch message-archive and XP writes with a bounded buffer that is flushed on shutdown.
+  - [ ] Verify every interaction is acknowledged before slow I/O.
+  - [ ] Bound Discord message caches with sweepers.
+  - [ ] Add message-archive retention and purge.
+  - [ ] Default to one shard for a single guild.
+  - [ ] Add health and readiness endpoints and runtime metrics.
+  - [ ] Keep canvas rendering off the gateway event loop.
+  - [ ] Add circuit breakers, shared caches and concurrency limits for Dune Console and Convoy.
+  - [ ] Add per-user cooldowns for expensive commands.
+  - [ ] Degrade gracefully and reconnect when PostgreSQL is unavailable.
+  - [ ] Replace ad hoc table creation with versioned migrations.
+  - [ ] Add load and soak tests with latency budgets in CI.
+  - [ ] Add dependency update automation, a backup and restore drill, and an operations runbook.
 - [ ] Document implemented changes, migration and configuration, and independently versioned releases.
 - [ ] Run required checks in both repositories and verify available integrations.
 - [ ] Commit scoped changes on both `v2` branches, push without force, and create or update the requested pull requests.
