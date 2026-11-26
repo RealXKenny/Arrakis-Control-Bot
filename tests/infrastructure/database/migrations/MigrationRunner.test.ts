@@ -57,4 +57,14 @@ describe("runMigrations", () => {
     expect(MIGRATIONS[0]?.version).toBe(1);
     expect(MIGRATIONS.map((entry) => entry.version)).toEqual([...MIGRATIONS.map((entry) => entry.version)].sort((a, b) => a - b));
   });
+
+  it("removes only pre-2.0.0 release announcement receipts, and only when the table exists", async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const cleanup = MIGRATIONS.find((entry) => entry.version === 2);
+    await cleanup?.up({ query } as never);
+    const sql = String(query.mock.calls[0]?.[0]);
+    expect(sql).toContain("to_regclass('bot_release_announcements') IS NOT NULL");
+    expect(sql).toContain("DELETE FROM bot_release_announcements WHERE version !~ '^v?([2-9]|[1-9][0-9]+)[.]'");
+    expect(query).toHaveBeenCalledOnce();
+  });
 });
