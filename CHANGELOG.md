@@ -4,6 +4,23 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Automatic updates for Pterodactyl. The egg now starts an update supervisor that installs verified releases at startup and on a schedule: stable or prerelease channel, a version pin through `RELEASE_TAG`, a check interval, an optional UTC maintenance window and an optional read-only GitHub token (`AUTO_UPDATE_*`). Each release is checked against its checksum, GitHub's digest and a new per-file manifest, built in a staging folder (including the native `canvas` check) before the bot is stopped, and rolled back if it does not start. Files you changed or added, such as `.env`, certificates and custom folders, are never overwritten; a conflicting update is skipped and each path is logged.
+- `CONSOLE_TIMEOUT_MS` sets the Dune Console request timeout (default 30 seconds).
+
+### Changed
+
+- Dune Console outages are quieter and clearer: individual failed or retried reads are logged at DEBUG, a sustained outage logs one warning (and a summary at most every ten minutes), and recovery logs one line. Failed writes are still warned about and are never retried. Logged routes no longer include player or account IDs.
+- Console reads retry with jittered exponential backoff and honour a short `Retry-After`.
+- The Pterodactyl egg hides credential variables (`TOKEN`, `CONSOLE_API_KEY`, `ADAPTER_TOKEN`, `API_KEY`, `DATABASE_URL`, `RABBITMQ_URL`, `LAVALINK_PASSWORD`, `AUTO_UPDATE_GITHUB_TOKEN`) from the server owner and subusers; a panel administrator enters them. Reinstalling over an existing installation no longer changes any file.
+- The README follows the dashboard's layout; detailed feature documentation moved to `guides/features.md`, and `guides/README.md` lists every guide.
+
+### Upgrading
+
+- To get automatic updates, import the new egg (or change the startup command to `node scripts/updater/supervisor.mjs`) and follow `guides/automatic-updates.md`. Take a database backup first: a release with a database migration cannot be rolled back by the updater alone.
+- Credential variables become hidden after re-importing the egg; a panel administrator must check them under **Admin → Servers → Startup**.
+
 ## [2.0.1] - 2026-11-26
 
 ### Fixed

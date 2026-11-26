@@ -109,6 +109,7 @@ tests/                                     Mirrors the source ownership boundari
 
 guides/                                    Operator and feature setup guides
 pterodactyl/                               Importable PTDL_v2 bot egg
+scripts/updater/                           Update supervisor and verified updater (identical copy of the dashboard's)
 data/                                      Bundled runtime/reference data
 certificates/                              Local certificate material; never add private keys
 .github/workflows/                         CI, GHCR image publication, and automatic GitHub release automation
@@ -277,8 +278,9 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Never commit, tag, push, publish a release, or open a pull request unless the user asks.
 - Before a release, re-read the current version and changelog; do not reuse old test counts, commit IDs, tags, or release metadata.
 - `.github/workflows/ci.yml` verifies every pull request, merge-queue entry, and pushes to `main`, `v2`, and `release/*`, running typecheck, lint, test, audit, and actionlint behind the `verify` gate job. A successful push to `main` triggers `.github/workflows/release.yml`; an unprivileged validation job prepares the egg and checksummed source archive before a separate publishing job receives write permissions.
-- A new stable package version and matching non-empty changelog section create a GitHub release containing the egg, source archive, and SHA-256 checksum. The workflow does not build or publish a bot-specific Docker image.
-- Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The Node 24 egg installs a release into `/home/container` and starts `node dist/src/index.js`.
+- A new stable package version and matching non-empty changelog section create a GitHub release containing the egg, source archive, SHA-256 checksum and a per-file `.manifest.json` (`scripts/build-release-manifest.mjs`). The workflow does not build or publish a bot-specific Docker image.
+- Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The Node 24 egg installs a release into `/home/container` (a reinstall over an existing install changes nothing) and starts `scripts/updater/supervisor.mjs`, which runs `node dist/src/index.js` as its child and applies verified updates. `scripts/updater/` must stay byte-identical to the dashboard's `scripts/deployment/updater/`; product settings live in `package.json` `arrakisRelease`. The updater never writes files outside the release manifest and the generated `node_modules`/`dist`, and never overwrites local or unmanaged files. See `guides/automatic-updates.md`.
+- Dune Console reads log through `infrastructure/http/dune-console/consoleOutageLog.ts`: DEBUG per failure, one WARN per sustained outage, one INFO on recovery; writes always warn and never retry. Do not add per-request WARN or ERROR logs for recoverable read failures.
 - Do not create a tag manually for an automatic release: an existing `v<version>` tag intentionally causes the release workflow to skip that version.
 
 ## Definition of Done
