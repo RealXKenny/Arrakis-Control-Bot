@@ -10,6 +10,8 @@ import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogCl
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
+  // The bot prints its own startup log; dotenv's "injected env" banner would break the clean console.
+  quiet: true,
 });
 
 interface EnvironmentConfig {
