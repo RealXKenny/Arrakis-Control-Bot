@@ -76,7 +76,7 @@ Use `npm run env:migrate -- --check` to preview whether a production `.env` need
 
 `LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FATAL`. `TOTAL_SHARDS` accepts `auto` or a positive integer and defaults to `1`, because one server is always served by one shard. `INTERACTION_COOLDOWN_MS` and `RATE_LIMIT_MAX_ENTRIES` configure the bounded process-local limiter. In production, integration URLs must use HTTPS.
 
-For one busy server, the database settings are `DATABASE_POOL_MAX` (default 10 connections for commands, panels and tickets), `DATABASE_BACKGROUND_POOL_MAX` (default 5 for the message archive and XP) and `DATABASE_STATEMENT_TIMEOUT_MS` (default 15000). `MESSAGE_ARCHIVE_RETENTION_DAYS` deletes archived messages older than that many days; 0 (the default) keeps everything. `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60, 0 to turn off) prints a health summary, and `HEALTH_FILE` writes it as JSON. See the [operations runbook](guides/operations.md) for what each signal means, backups, upgrades and rollbacks.
+For one busy server, the database settings are `DATABASE_POOL_MAX` (default 10 connections for commands, panels and tickets), `DATABASE_BACKGROUND_POOL_MAX` (default 5 for the message archive and XP) and `DATABASE_STATEMENT_TIMEOUT_MS` (default 15000). `MESSAGE_ARCHIVE_RETENTION_DAYS` deletes archived messages older than that many days; 0 (the default) keeps everything. `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60, 0 to turn off) sets how often health is sampled; the console summary prints every five minutes or at once when something changes, and `HEALTH_FILE` writes every sample as JSON. See the [operations runbook](guides/operations.md) for what each signal means, backups, upgrades and rollbacks.
 
 Before starting a release, run the same checks used by CI/deployment (CI also runs `npm run test:load`, a 30-second soak with latency budgets):
 
@@ -134,7 +134,7 @@ The production start path was previously verified with configured live services.
 - An API-key-authenticated request returning HTTP 403 usually means the key is valid but lacks the scope required by that command.
 - The first command that reaches the Dune Console will expose an invalid key or missing scope through its safe API error response.
 - `CLIENT_ID` remains optional configuration; Sapphire uses the authenticated application when synchronizing registered commands.
-- Use `LOG_LEVEL=DEBUG` temporarily when diagnosing integration or interaction failures. Logs do not intentionally include tokens or authorization headers.
+- Use `LOG_LEVEL=DEBUG` temporarily when diagnosing integration or interaction failures; it also prints stack traces under error lines. Logs do not intentionally include tokens or authorization headers.
 
 ## Poker Activity
 

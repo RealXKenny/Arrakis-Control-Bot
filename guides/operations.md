@@ -12,7 +12,7 @@ How to run, watch, back up and roll back the bot in production. It assumes the P
 
 ## Health signals
 
-Every `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60) the console shows one `METRICS` line, for example:
+The bot samples its health every `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60). The console shows one `METRICS` line every five minutes, and at once whenever a sample has a warning, a Discord rate limit, or a change in gateway, database or circuit health. For example:
 
 ```
 ready=yes | ping=48ms | loop p99=12ms max=40ms | heap=180MB rss=310MB | db=up (interactive 2/10 busy, 0 waiting; background 1/5 busy, 0 waiting) | archive buffer=35 | cached messages=4100 | 429s=0

@@ -145,7 +145,7 @@ Dependencies should point inward: pieces may use modules/support/shared; modules
 
 - Do not place helper modules or barrel `index.ts` files inside a store root; Sapphire can interpret them as pieces. Put reusable code in `modules/`, `support/`, or `shared/`.
 - Keep piece names unique across each recursive store.
-- Use `registerApplicationCommand`; only the primary shard should synchronize global commands.
+- Use `registerApplicationCommand`; only the primary shard should synchronize global commands. The `entryPointGuard` listener wraps the global bulk overwrite with `support/commands/preserveEntryPointCommand.ts` so the Discord-created Activity Entry Point command is kept (Discord rejects an overwrite without it, error 50240); do not remove it while `/poker` uses Activities.
 - Grouped commands (`backup`, `bot`, `moderation`, `player`, `server`, and `update`) are thin adapters in `commands/groups/`. Add their subcommands through `command-actions/` and `support/commands/groupedCommandCatalog.ts` rather than creating another top-level Discord command.
 - When adding or moving pieces, update the relevant tests under `tests/stores/`.
 
