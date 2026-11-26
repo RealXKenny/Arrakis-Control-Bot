@@ -1,5 +1,9 @@
 import { URL } from "node:url";
 import { readBoundedBody } from "../readBoundedBody";
+import { CircuitBreaker, CircuitOpenError, ConcurrencyLimiter, ConcurrencyLimitError, TtlCache, upstreamArea } from "../resilience";
+
+// Generous for player directories, but bounded so one bad response cannot exhaust memory.
+const MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
 import { createLogger } from "../../../client/logger";
 import { MAX_BLUEPRINT_BYTES, validateBlueprintUpload } from "../../../modules/players/blueprints/blueprintValidator";
 
@@ -14,6 +18,12 @@ interface RequestOptions {
   query?: Record<string, string | number | boolean | null | undefined>;
 
   body?: unknown;
+
+  /**
+   * GET only: keep the response for this long. Identical GETs already in flight are always
+   * shared, so a burst of the same lookup makes one upstream call.
+   */
+  cacheTtlMs?: number;
 }
 
 interface ApiResponseObject {
@@ -36,6 +46,11 @@ class DuneConsoleClient {
   public readonly baseUrl: string;
 
   private readonly apiKey: string;
+
+  // Dev note: The breaker is a stillsuit for the event loop; it stops us leaking requests into a dead desert.
+  private readonly breaker = new CircuitBreaker({ failureThreshold: 5, openMs: 30_000 });
+  private readonly limiter = new ConcurrencyLimiter(8, 100);
+  private readonly cache = new TtlCache(500);
 
   constructor(baseUrl: string, apiKey: string) {
     if (!baseUrl) {
@@ -71,6 +86,7 @@ class DuneConsoleClient {
 
     const attachmentUrl = validateDiscordAttachmentUrl(attachment.url);
     const fileResponse = await fetch(attachmentUrl, {
+      redirect: "error",
       signal: AbortSignal.timeout(60_000),
     });
 
@@ -105,6 +121,33 @@ class DuneConsoleClient {
   }
 
   async request(method: HttpMethod, route: string, options: RequestOptions = {}): Promise<unknown> {
+    if (method !== "GET") return this.guard(route, () => this.send(method, route, options));
+    const key = `${route}?${JSON.stringify(Object.entries(options.query ?? {}).filter(([, value]) => value !== undefined && value !== null).sort(([a], [b]) => a.localeCompare(b)))}`;
+    return this.cache.getOrLoad(key, options.cacheTtlMs ?? 0, () => this.guard(route, () => this.send(method, route, options)));
+  }
+
+  /** Upstream areas whose circuit is currently open, for runtime health reporting. */
+  get openCircuits(): string[] {
+    return this.breaker.openKeys();
+  }
+
+  /** Requests waiting for a free upstream slot. */
+  get queuedRequests(): number {
+    return this.limiter.queuedCount;
+  }
+
+  /** Fail fast while an area is down, and cap how many Console calls run at once. */
+  private async guard<T>(route: string, work: () => Promise<T>): Promise<T> {
+    try {
+      return await this.breaker.run(upstreamArea(route), () => this.limiter.run(work), isUpstreamFailure);
+    } catch (error) {
+      if (error instanceof CircuitOpenError) throw new DuneConsoleApiError("The Dune Console is temporarily unavailable. Try again in a moment.", 503, { circuit: error.key });
+      if (error instanceof ConcurrencyLimitError) throw new DuneConsoleApiError("The Dune Console is busy. Try again in a moment.", 429, null);
+      throw error;
+    }
+  }
+
+  private async send(method: HttpMethod, route: string, options: RequestOptions): Promise<unknown> {
     const { query, body } = options;
 
     const url = resolveConsoleUrl(route, this.baseUrl);
@@ -141,6 +184,8 @@ class DuneConsoleClient {
           method,
           headers,
           body: body === undefined ? undefined : JSON.stringify(body),
+          // Never follow a redirect with the Console API key attached.
+          redirect: "error",
           signal: AbortSignal.timeout(30_000),
         });
 
@@ -185,6 +230,10 @@ class DuneConsoleClient {
   }
 
   async requestMultipart(method: HttpMethod, route: string, form: FormData): Promise<unknown> {
+    return this.guard(route, () => this.sendMultipart(method, route, form));
+  }
+
+  private async sendMultipart(method: HttpMethod, route: string, form: FormData): Promise<unknown> {
     const url = resolveConsoleUrl(route, this.baseUrl);
 
     const headers: Record<string, string> = {
@@ -203,6 +252,7 @@ class DuneConsoleClient {
         method,
         headers,
         body: form,
+        redirect: "error",
         signal: AbortSignal.timeout(60_000),
       });
     } catch (error: unknown) {
@@ -229,10 +279,15 @@ class DuneConsoleClient {
   }
 
   async requestBinary(method: "GET", route: string, maximumBytes: number): Promise<BinaryResponse> {
+    return this.guard(route, () => this.sendBinary(method, route, maximumBytes));
+  }
+
+  private async sendBinary(method: "GET", route: string, maximumBytes: number): Promise<BinaryResponse> {
     const url = resolveConsoleUrl(route, this.baseUrl);
     const response = await fetch(url, {
       method,
       headers: { Accept: "application/octet-stream", Authorization: `Bearer ${this.apiKey}` },
+      redirect: "error",
       signal: AbortSignal.timeout(60_000),
     });
 
@@ -260,13 +315,14 @@ class DuneConsoleClient {
     }
 
     const contentType = response.headers.get("content-type") ?? "";
+    const text = (await readBoundedBody(response, MAX_RESPONSE_BYTES, "Console API response is too large.")).toString("utf8");
 
     if (!contentType.includes("application/json")) {
-      return response.text();
+      return text;
     }
 
     try {
-      return await response.json();
+      return JSON.parse(text) as unknown;
     } catch {
       throw new DuneConsoleApiError(`Console API returned invalid JSON with HTTP ${response.status}.`, response.status);
     }
@@ -317,6 +373,12 @@ function parseContentDispositionFilename(value: string | null): string | null {
 
 function isSafeToRetry(method: HttpMethod): boolean {
   return method === "GET" || method === "HEAD" || method === "OPTIONS" || method === "PUT" || method === "DELETE";
+}
+
+/** Network errors, timeouts, throttling and server errors mean the upstream is unhealthy; 4xx answers do not. */
+function isUpstreamFailure(error: unknown): boolean {
+  if (!(error instanceof DuneConsoleApiError)) return false;
+  return error.status === 0 || error.status === 429 || error.status >= 500;
 }
 
 class DuneConsoleApiError extends Error {

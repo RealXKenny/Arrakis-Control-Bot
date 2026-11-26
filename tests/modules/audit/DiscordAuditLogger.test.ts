@@ -51,3 +51,20 @@ it("renders detailed music interaction context and playback state", async () => 
   expect(rendered).toContain("0:15");
   expect(rendered).toContain("Succeeded");
 });
+
+it("downloads blueprint audit copies only from Discord's CDN without following redirects", async () => {
+  const send = vi.fn().mockResolvedValue(undefined);
+  const client = { channels: { fetch: vi.fn().mockResolvedValue({ isSendable: () => true, send }) } } as unknown as Client;
+  const logger = new DiscordAuditLogger(client, "audit", undefined);
+  const fetchMock = vi.fn().mockResolvedValue(new Response("{}"));
+  vi.stubGlobal("fetch", fetchMock);
+  const interaction = { user: { id: "1", tag: "builder" } } as unknown as Interaction;
+  try {
+    await logger.blueprintImported(interaction, { characterName: "Paul" } as never, {} as never, { name: "base.json", url: "http://169.254.169.254/latest", size: 2 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await logger.blueprintImported(interaction, { characterName: "Paul" } as never, {} as never, { name: "base.json", url: "https://cdn.discordapp.com/attachments/1/2/base.json", size: 2 });
+    expect(fetchMock).toHaveBeenCalledWith(new URL("https://cdn.discordapp.com/attachments/1/2/base.json"), expect.objectContaining({ redirect: "error" }));
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

@@ -3,7 +3,9 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, v2, 'release/*']
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -21,13 +23,15 @@ jobs:
       fail-fast: false
       matrix:
         # One runner per check so a slow task cannot starve the others.
-        task: [typecheck, lint, test, audit]
+        task: [typecheck, lint, test, test:load, audit]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
@@ -38,12 +42,35 @@ jobs:
       - name: Run ${{ matrix.task }}
         run: npm run ${{ matrix.task == 'audit' && 'audit:prod' || matrix.task }}
 
+  workflow-validation:
+    name: CI / Workflow Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Download and verify actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$archive"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+      - name: Lint GitHub Actions workflows
+        run: '"$RUNNER_TEMP/actionlint" -color .github/workflows/*.yml'
+
   verify:
     if: always()
-    needs: [checks]
+    needs: [checks, workflow-validation]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Require every CI job to pass
         env:
           CHECKS_RESULT: ${{ needs.checks.result }}
-        run: test "$CHECKS_RESULT" = success
+          WORKFLOW_RESULT: ${{ needs.workflow-validation.result }}
+        run: test "$CHECKS_RESULT" = success && test "$WORKFLOW_RESULT" = success

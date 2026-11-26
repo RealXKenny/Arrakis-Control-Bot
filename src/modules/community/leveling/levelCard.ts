@@ -4,6 +4,7 @@ import { createCanvas, loadImage, type CanvasRenderingContext2D, type Image } fr
 import type { LevelProfile } from "../../../infrastructure/database/leveling/LevelRepository";
 import { canvasDisplayName } from "../../../shared/discord/canvasText";
 import { levelForXp, xpForLevel } from "./levelProgress";
+import { encodePng } from "../../../shared/discord/canvasEncoding";
 import { nextRoleTier, roleTierForLevel } from "./levelRoles";
 
 const LEVEL_CARD_FILENAME = "arrakis-community-level.png";
@@ -35,7 +36,7 @@ async function createLevelRankCard({ user, displayName, profile, multiplier = 1 
   await drawAvatar(context, user, safeDisplayName);
   drawProfile(context, safeDisplayName, profile, multiplier);
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), {
+  return new AttachmentBuilder(await encodePng(canvas), {
     name: LEVEL_CARD_FILENAME,
     description: `${safeDisplayName}'s community level card`,
   });

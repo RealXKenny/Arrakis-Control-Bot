@@ -6,13 +6,48 @@ import type { DiscordAuditLogger } from "./DiscordAuditLogger";
 class MessageArchiveService {
   public constructor(private readonly repository: MessageArchiveRepository, private readonly auditLogger: DiscordAuditLogger) {}
 
+  private retentionTimer?: ReturnType<typeof setInterval>;
+
+  /** Archive rows waiting to be written, for runtime metrics. */
+  public get bufferedCount(): number {
+    return this.repository.bufferedCount;
+  }
+
   public initialize(): Promise<void> {
     return this.repository.initialize();
   }
 
-  public async created(message: Message): Promise<void> {
-    if (!message.guildId) return;
-    await this.repository.save(snapshot(message));
+  /** Starts batched archive writes and, when retentionDays is set, a daily purge. */
+  public start(onError: (message: string, error?: unknown) => void, retentionDays = 0): void {
+    this.repository.start((error) => {
+      onError(`Unable to write ${this.repository.bufferedCount} buffered archive message(s); retrying.`, error);
+    });
+    const report = (): void => {
+      const dropped = this.repository.takeDroppedCount();
+      if (dropped > 0) onError(`Dropped ${dropped} message(s) from the archive because the write buffer was full.`);
+    };
+    if (this.retentionTimer) return;
+    const purge = (): void => {
+      report();
+      if (retentionDays < 1) return;
+      void this.repository.purgeOlderThan(retentionDays).catch((error: unknown) => onError("Unable to purge expired archived messages.", error));
+    };
+    // Dev note: The archive forgets on a schedule, unlike that one friend who quotes your 2019 messages.
+    this.retentionTimer = setInterval(purge, 60 * 60_000);
+    this.retentionTimer.unref();
+    purge();
+  }
+
+  /** Writes everything still buffered; call before the database pool closes. */
+  public async stop(): Promise<void> {
+    if (this.retentionTimer) clearInterval(this.retentionTimer);
+    this.retentionTimer = undefined;
+    await this.repository.stop();
+  }
+
+  public created(message: Message): Promise<void> {
+    if (message.guildId) this.repository.enqueue(snapshot(message));
+    return Promise.resolve();
   }
 
   public async edited(oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage): Promise<void> {

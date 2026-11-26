@@ -4,6 +4,7 @@ import { createCanvas, loadImage, type CanvasRenderingContext2D, type Image } fr
 import type { LevelProfile } from "../../../infrastructure/database/leveling/LevelRepository";
 import { canvasDisplayName } from "../../../shared/discord/canvasText";
 import { levelForXp } from "./levelProgress";
+import { encodePng } from "../../../shared/discord/canvasEncoding";
 import { roleTierForLevel } from "./levelRoles";
 
 const LEVEL_LEADERBOARD_FILENAME = "arrakis-community-leaderboard.png";
@@ -37,7 +38,7 @@ async function createLevelLeaderboardCard(entries: readonly LevelLeaderboardEntr
   else drawEmptyState(context);
   drawFooter(context, entries.length);
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), {
+  return new AttachmentBuilder(await encodePng(canvas), {
     name: LEVEL_LEADERBOARD_FILENAME,
     description: "community level leaderboard",
   });

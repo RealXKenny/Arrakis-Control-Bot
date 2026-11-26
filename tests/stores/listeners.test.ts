@@ -8,6 +8,7 @@ describe("Sapphire listener store", () => {
     expect(listeners).toEqual(
       expect.arrayContaining([
         "guildMemberAdd",
+        "guildCreate",
         "guildMemberRemove",
         "levelingMessages",
         "honeypotMessages",

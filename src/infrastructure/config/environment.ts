@@ -6,6 +6,7 @@ import { loadVoiceSetup, type VoiceSetupConfig } from "./voiceRooms";
 import { loadMusicConfig, type MusicConfig } from "./music";
 import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
 import { loadStaffApplicationConfig, type StaffApplicationConfig } from "./staffApplications";
+import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogClient";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
@@ -23,6 +24,7 @@ interface EnvironmentConfig {
   discordToken: string;
   clientId?: string;
   guildId?: string;
+  allowedGuildIds: readonly string[];
   totalShards: number | "auto";
   duneConsoleUrl: string;
   advinApiKey?: string;
@@ -46,8 +48,14 @@ interface EnvironmentConfig {
   databaseUrl?: string;
   databaseSsl: boolean;
   databaseSslVerify: boolean;
+  databasePoolMax: number;
+  databaseBackgroundPoolMax: number;
+  databaseStatementTimeoutMs: number;
+  messageArchiveRetentionDays: number;
+  runtimeMetricsIntervalSeconds: number;
+  healthFile?: string;
   versionAnnouncementIntervalMinutes: number;
-  githubToken?: string;
+  dashboardUrl?: string;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   logLevel: string;
@@ -130,9 +138,10 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
   const discordToken = process.env.TOKEN;
   const duneConsoleUrl = process.env.CONSOLE_URL;
   const duneConsoleApiKey = process.env.CONSOLE_API_KEY?.trim() || undefined;
-  const rawGithubToken = process.env.GITHUB_TOKEN?.trim();
-  const githubToken = rawGithubToken && !rawGithubToken.startsWith("replace_with_") ? rawGithubToken : undefined;
-  if (githubToken && !/^[\x21-\x7e]+$/.test(githubToken)) throw new Error("GITHUB_TOKEN must contain only printable non-whitespace characters.");
+  const dashboardUrl = process.env.DASHBOARD_URL?.trim() || undefined;
+  if (dashboardUrl) {
+    try { new DashboardChangelogClient(dashboardUrl); } catch { throw new Error("DASHBOARD_URL must be an HTTPS origin without credentials."); }
+  }
 
   if (!discordToken || !duneConsoleUrl) {
     throw new Error("Required environment variables are missing.");
@@ -197,6 +206,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     discordToken,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,
+    allowedGuildIds: parseAllowedGuildIds(process.env.ALLOWED_GUILD_IDS, process.env.GUILD_ID),
     totalShards,
     duneConsoleUrl,
     advinApiKey: process.env.API_KEY,
@@ -220,12 +230,42 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     databaseUrl: process.env.DATABASE_URL,
     databaseSsl,
     databaseSslVerify,
+    databasePoolMax: parsePositiveInteger(process.env.DATABASE_POOL_MAX, 10, "DATABASE_POOL_MAX"),
+    databaseBackgroundPoolMax: parsePositiveInteger(process.env.DATABASE_BACKGROUND_POOL_MAX, 5, "DATABASE_BACKGROUND_POOL_MAX"),
+    databaseStatementTimeoutMs: parsePositiveInteger(process.env.DATABASE_STATEMENT_TIMEOUT_MS, 15_000, "DATABASE_STATEMENT_TIMEOUT_MS"),
+    messageArchiveRetentionDays: parseRetentionDays(process.env.MESSAGE_ARCHIVE_RETENTION_DAYS),
+    runtimeMetricsIntervalSeconds: parseMetricsInterval(process.env.RUNTIME_METRICS_INTERVAL_SECONDS),
+    healthFile: process.env.HEALTH_FILE?.trim() || undefined,
     versionAnnouncementIntervalMinutes,
-    githubToken,
+    dashboardUrl,
     interactionCooldownMs,
     rateLimitMaxEntries,
     logLevel,
   });
+}
+
+/** Guilds the bot may serve. Defaults to GUILD_ID; empty means any guild. */
+function parseAllowedGuildIds(value: string | undefined, guildId: string | undefined): readonly string[] {
+  const ids = (value?.trim() ? value : guildId ?? "").split(",").map((id) => id.trim()).filter(Boolean);
+  for (const id of ids) {
+    if (!/^\d{17,20}$/.test(id)) throw new Error("ALLOWED_GUILD_IDS must be a comma-separated list of Discord server IDs.");
+  }
+  return Object.freeze([...new Set(ids)]);
+}
+
+/** 0 or empty keeps archived messages forever. */
+function parseMetricsInterval(value: string | undefined): number {
+  if (!value?.trim()) return 60;
+  const seconds = Number(value);
+  if (!Number.isInteger(seconds) || seconds < 0 || seconds > 3600) throw new Error("RUNTIME_METRICS_INTERVAL_SECONDS must be a whole number from 0 to 3600.");
+  return seconds;
+}
+
+function parseRetentionDays(value: string | undefined): number {
+  if (!value?.trim()) return 0;
+  const days = Number(value);
+  if (!Number.isInteger(days) || days < 0 || days > 3650) throw new Error("MESSAGE_ARCHIVE_RETENTION_DAYS must be a whole number of days from 0 to 3650.");
+  return days;
 }
 
 function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {
@@ -244,9 +284,9 @@ function parseBoolean(value: string | undefined, fallback: boolean, name: string
 function parseShardCount(value: string | undefined): number | "auto" {
   const normalized = value?.trim().toLowerCase();
 
-  if (!normalized || normalized === "auto") {
-    return "auto";
-  }
+  // One guild always lands on one shard, so a second shard only adds a gateway connection.
+  if (!normalized) return 1;
+  if (normalized === "auto") return "auto";
 
   return parsePositiveInteger(normalized, 0, "TOTAL_SHARDS");
 }

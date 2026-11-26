@@ -45,6 +45,14 @@ describe("LevelingService", () => {
     expect(storage.claimAchievements).not.toHaveBeenCalled();
   });
 
+  it("skips database work for a member still inside the message XP cooldown", async () => {
+    const storage = createStorage(createProfile(0));
+    const service = new LevelingService(createClient(), storage);
+    await service.handleMessage(createMessage({ send: vi.fn() }));
+    await service.handleMessage(createMessage({ send: vi.fn(), content: "A different message entirely." }));
+    expect(storage.awardMessageXp).toHaveBeenCalledOnce();
+  });
+
   it("announces a newly claimed achievement once in the configured channel", async () => {
     const storage = createStorage({ ...createProfile(100), messageCount: 100 });
     storage.claimAchievements.mockResolvedValue(["message-king-of-spam-bronze"]);

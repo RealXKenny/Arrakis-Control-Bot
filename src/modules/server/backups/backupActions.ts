@@ -60,7 +60,7 @@ async function downloadDiscordAttachment(attachment: BackupAttachment): Promise<
   const url = new URL(attachment.url);
   if (url.protocol !== "https:" || !["cdn.discordapp.com", "media.discordapp.net"].includes(url.hostname.toLowerCase())) throw new Error("Backup imports must use Discord-hosted attachments.");
   if (attachment.size > DISCORD_LIMITS.requestBytes) throw new Error("Each imported file must be 25 MB or smaller.");
-  const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+  const response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
   if (!response.ok) throw new Error(`Unable to download ${attachment.name} from Discord (HTTP ${response.status}).`);
   const contentLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > DISCORD_LIMITS.requestBytes) throw new Error("Each imported file must be 25 MB or smaller.");

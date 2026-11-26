@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadEnvironment } from "../../../src/infrastructure/config/environment";
 
-const TEST_ENVIRONMENT_KEYS = ["GITHUB_TOKEN","STAFF_APPLICATION_PANEL_CHANNEL_ID", "STAFF_APPLICATION_REVIEW_CHANNEL_ID", "STAFF_APPLICATION_REVIEWER_ROLE_ID", "STAFF_APPLICATION_PENDING_ROLE_ID", "STAFF_APPLICATION_ACCEPTED_ROLE_ID", "STAFF_APPLICATION_COOLDOWN_DAYS", "LAVALINK_URL", "LAVALINK_PASSWORD", "MUSIC_GUILD_ID", "MUSIC_VOICE_CHANNEL_ID", "MUSIC_REQUEST_CHANNEL_ID", "MUSIC_IDLE_PLAYLIST_URL", "MUSIC_SEARCH_SOURCE", "MUSIC_VOLUME", "MUSIC_MAX_QUEUE", "VOICE_GUILD_ID", "VOICE_JOIN_CHANNEL_ID", "VOICE_CATEGORY_ID", "VOICE_PANEL_CHANNEL_ID", "VOICE_PANEL_PUBLIC", "LEVELING_ENABLED", "LEVEL_ANNOUNCEMENT_CHANNEL_ID", "LEVEL_ROLE_ARRAKIS_WANDERER_ID", "LEVEL_ROLE_SIETCH_DWELLER_ID", "LEVEL_ROLE_DESERT_SURVIVOR_ID", "LEVEL_ROLE_SAND_WARRIOR_ID", "LEVEL_ROLE_SPICE_HUNTER_ID", "LEVEL_ROLE_FREMEN_INITIATE_ID", "LEVEL_ROLE_DESERT_MASTER_ID", "LEVEL_ROLE_CHOSEN_OF_ARRAKIS_ID", "TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY", "NODE_ENV", "LOG_LEVEL", "TOTAL_SHARDS", "CLIENT_ID", "GUILD_ID", "DATABASE_URL", "DATABASE_SSL", "DATABASE_SSL_VERIFY", "TICKET_PANEL_CHANNEL_ID", "BOT_CONTROL_CHANNEL_ID", "TICKET_CATEGORY_ID", "TICKET_TRANSCRIPT_CHANNEL_ID"] as const;
+const TEST_ENVIRONMENT_KEYS = ["DASHBOARD_URL","GITHUB_TOKEN","STAFF_APPLICATION_PANEL_CHANNEL_ID", "STAFF_APPLICATION_REVIEW_CHANNEL_ID", "STAFF_APPLICATION_REVIEWER_ROLE_ID", "STAFF_APPLICATION_PENDING_ROLE_ID", "STAFF_APPLICATION_ACCEPTED_ROLE_ID", "STAFF_APPLICATION_COOLDOWN_DAYS", "LAVALINK_URL", "LAVALINK_PASSWORD", "MUSIC_GUILD_ID", "MUSIC_VOICE_CHANNEL_ID", "MUSIC_REQUEST_CHANNEL_ID", "MUSIC_IDLE_PLAYLIST_URL", "MUSIC_SEARCH_SOURCE", "MUSIC_VOLUME", "MUSIC_MAX_QUEUE", "VOICE_GUILD_ID", "VOICE_JOIN_CHANNEL_ID", "VOICE_CATEGORY_ID", "VOICE_PANEL_CHANNEL_ID", "VOICE_PANEL_PUBLIC", "LEVELING_ENABLED", "LEVEL_ANNOUNCEMENT_CHANNEL_ID", "LEVEL_ROLE_ARRAKIS_WANDERER_ID", "LEVEL_ROLE_SIETCH_DWELLER_ID", "LEVEL_ROLE_DESERT_SURVIVOR_ID", "LEVEL_ROLE_SAND_WARRIOR_ID", "LEVEL_ROLE_SPICE_HUNTER_ID", "LEVEL_ROLE_FREMEN_INITIATE_ID", "LEVEL_ROLE_DESERT_MASTER_ID", "LEVEL_ROLE_CHOSEN_OF_ARRAKIS_ID", "TOKEN", "CONSOLE_URL", "CONSOLE_API_KEY", "NODE_ENV", "LOG_LEVEL", "TOTAL_SHARDS", "CLIENT_ID", "GUILD_ID", "DATABASE_URL", "DATABASE_SSL", "DATABASE_SSL_VERIFY", "TICKET_PANEL_CHANNEL_ID", "BOT_CONTROL_CHANNEL_ID", "TICKET_CATEGORY_ID", "TICKET_TRANSCRIPT_CHANNEL_ID", "ALLOWED_GUILD_IDS", "DATABASE_POOL_MAX", "DATABASE_BACKGROUND_POOL_MAX", "DATABASE_STATEMENT_TIMEOUT_MS", "MESSAGE_ARCHIVE_RETENTION_DAYS", "RUNTIME_METRICS_INTERVAL_SECONDS", "HEALTH_FILE"] as const;
 
 beforeEach(clearTestEnvironment);
 afterEach(() => {
@@ -17,21 +17,39 @@ function clearTestEnvironment(): void {
 }
 
 describe("loadEnvironment", () => {
-  it.each([undefined, "", "   ", "replace_with_github_token", "  test-github-token  "])("loads optional GitHub credentials safely: %s", (token) => {
+  it("validates the optional dashboard origin", () => {
     process.env.TOKEN = "token";
     process.env.CONSOLE_URL = "https://localhost:3000";
     process.env.CONSOLE_API_KEY = "dune-key";
-    if (token !== undefined) process.env.GITHUB_TOKEN = token;
-    expect(loadEnvironment().githubToken).toBe(token?.trim() === "test-github-token" ? "test-github-token" : undefined);
+    process.env.DASHBOARD_URL = "https://dashboard.example";
+    expect(loadEnvironment().dashboardUrl).toBe("https://dashboard.example");
+    process.env.DASHBOARD_URL = "http://dashboard.example";
+    expect(() => loadEnvironment()).toThrow("DASHBOARD_URL must be an HTTPS origin");
   });
 
-  it("rejects malformed GitHub credentials without reflecting the secret", () => {
+  it("defaults the guild allowlist to GUILD_ID and validates explicit lists", () => {
     process.env.TOKEN = "token";
     process.env.CONSOLE_URL = "https://localhost:3000";
     process.env.CONSOLE_API_KEY = "dune-key";
-    process.env.GITHUB_TOKEN = "secret token";
-    expect(() => loadEnvironment()).toThrow("GITHUB_TOKEN must contain only printable non-whitespace characters");
-    expect(() => loadEnvironment()).not.toThrow("secret token");
+    expect(loadEnvironment().allowedGuildIds).toEqual([]);
+    process.env.GUILD_ID = "123456789012345678";
+    expect(loadEnvironment().allowedGuildIds).toEqual(["123456789012345678"]);
+    process.env.ALLOWED_GUILD_IDS = "223456789012345678, 323456789012345678,223456789012345678";
+    expect(loadEnvironment().allowedGuildIds).toEqual(["223456789012345678", "323456789012345678"]);
+    process.env.ALLOWED_GUILD_IDS = "123,abc";
+    expect(() => loadEnvironment()).toThrow("ALLOWED_GUILD_IDS");
+  });
+
+  it("loads database pool, timeout and archive retention settings", () => {
+    process.env.TOKEN = "token";
+    process.env.CONSOLE_URL = "https://localhost:3000";
+    process.env.CONSOLE_API_KEY = "dune-key";
+    expect(loadEnvironment()).toMatchObject({ databasePoolMax: 10, databaseBackgroundPoolMax: 5, databaseStatementTimeoutMs: 15_000, messageArchiveRetentionDays: 0 });
+    process.env.DATABASE_POOL_MAX = "20";
+    process.env.MESSAGE_ARCHIVE_RETENTION_DAYS = "90";
+    expect(loadEnvironment()).toMatchObject({ databasePoolMax: 20, messageArchiveRetentionDays: 90 });
+    process.env.MESSAGE_ARCHIVE_RETENTION_DAYS = "-1";
+    expect(() => loadEnvironment()).toThrow("MESSAGE_ARCHIVE_RETENTION_DAYS");
   });
 
   it("fails when required credentials are missing", () => {
@@ -45,6 +63,29 @@ describe("loadEnvironment", () => {
     process.env.NODE_ENV = "production";
 
     expect(() => loadEnvironment()).toThrow("CONSOLE_URL must use HTTPS in production");
+  });
+
+  it("reads runtime metrics settings", () => {
+    process.env.TOKEN = "token";
+    process.env.CONSOLE_URL = "https://localhost:3000";
+    process.env.CONSOLE_API_KEY = "dune-key";
+    expect(loadEnvironment()).toMatchObject({ runtimeMetricsIntervalSeconds: 60, healthFile: undefined });
+    process.env.RUNTIME_METRICS_INTERVAL_SECONDS = "0";
+    process.env.HEALTH_FILE = "/home/container/health.json";
+    expect(loadEnvironment()).toMatchObject({ runtimeMetricsIntervalSeconds: 0, healthFile: "/home/container/health.json" });
+    process.env.RUNTIME_METRICS_INTERVAL_SECONDS = "-1";
+    expect(() => loadEnvironment()).toThrow("RUNTIME_METRICS_INTERVAL_SECONDS");
+  });
+
+  it("defaults to one shard and still accepts auto", () => {
+    process.env.TOKEN = "token";
+    process.env.CONSOLE_URL = "https://localhost:3000";
+    process.env.CONSOLE_API_KEY = "dune-key";
+
+    expect(loadEnvironment().totalShards).toBe(1);
+
+    process.env.TOTAL_SHARDS = "auto";
+    expect(loadEnvironment().totalShards).toBe("auto");
   });
 
   it("rejects invalid shard counts and Discord IDs", () => {

@@ -1,4 +1,6 @@
-import type { GuildMember } from "discord.js";
+import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
+
+import { PRE_ACKNOWLEDGEMENT_DEADLINE_MS, withDeadline } from "../../shared/async/withDeadline";
 
 const STAFF_ROLE_KEYS: string[] = ["TRIAL_STAFF_ROLE_ID", "MODERATOR_ROLE_ID", "SENIOR_MODERATOR_ROLE_ID", "ADMINISTRATOR_ROLE_ID", "HEAD_ADMINISTRATOR_ROLE_ID", "OWNER_ROLE_ID"];
 
@@ -22,4 +24,16 @@ function canModerateMember(actor: GuildMember, target: GuildMember, guildOwnerId
   return actor.roles.highest.comparePositionTo(target.roles.highest) > 0;
 }
 
-export { canModerateMember, getConfiguredStaffRoleIds, hasStaffRole };
+/**
+ * The acting member as of this interaction. In a cached guild, Discord sends the member's
+ * current roles with the interaction, so no REST call is needed before the acknowledgement.
+ * Otherwise fetch fresh roles, bounded so the interaction can still be answered.
+ */
+async function resolveActingMember(interaction: ChatInputCommandInteraction): Promise<GuildMember | null> {
+  if (interaction.inCachedGuild()) return interaction.member;
+  const fetching = interaction.guild?.members.fetch({ user: interaction.user.id, force: true });
+  if (!fetching) return null;
+  return withDeadline(fetching, PRE_ACKNOWLEDGEMENT_DEADLINE_MS).catch(() => null);
+}
+
+export { canModerateMember, resolveActingMember, getConfiguredStaffRoleIds, hasStaffRole };

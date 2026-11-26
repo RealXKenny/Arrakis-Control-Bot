@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { AttachmentBuilder, type GuildMember } from "discord.js";
+import { encodePng, RenderCache } from "./canvasEncoding";
 import { createCanvas, Image, loadImage, type CanvasRenderingContext2D } from "canvas";
 
 type PanelArtworkKey = "backups" | "blueprint" | "bot-control" | "bot-info" | "faq" | "goodbye" | "market" | "music" | "ping" | "player-link" | "players" | "profile" | "release" | "roles" | "rules" | "server-info" | "server-status" | "staff-application" | "storm" | "temporary" | "tickets" | "verification" | "voice" | "vps" | "welcome";
@@ -82,22 +83,27 @@ function drawPanelBanner(context: CanvasRenderingContext2D, width: number, heigh
   context.fillText(detailText, 66, 262);
 }
 
-function createPanelBanner({ artwork, filename, title, subtitle, detail }: PanelBannerOptions): AttachmentBuilder {
-  const canvas = createCanvas(1200, 400);
-  const context = canvas.getContext("2d");
+// Panel banners depend only on their text and artwork, so panel refreshes reuse the PNG.
+const bannerCache = new RenderCache(32);
 
-  drawPanelBanner(context, 1200, 400, {
-    artwork,
-    title,
-    subtitle,
-    detail,
+function createPanelBanner({ artwork, filename, title, subtitle, detail }: PanelBannerOptions): AttachmentBuilder {
+  const png = bannerCache.getOrRender(JSON.stringify(["panel", artwork, title, subtitle ?? null, detail ?? null]), () => {
+    const canvas = createCanvas(1200, 400);
+    drawPanelBanner(canvas.getContext("2d"), 1200, 400, { artwork, title, subtitle, detail });
+    return canvas.toBuffer("image/png");
   });
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
+  return new AttachmentBuilder(png, { name: filename })
     .setDescription(`${title} — ${subtitle ?? "Arrakis Control"}. ${detail ?? "Community toolkit"}.`);
 }
 
 function createTicketSupportBanner({ filename, categories }: TicketSupportBannerOptions): AttachmentBuilder {
+  const png = bannerCache.getOrRender(JSON.stringify(["tickets", categories]), () => renderTicketSupportBanner(categories));
+  return new AttachmentBuilder(png, { name: filename })
+    .setDescription("Arrakis Control support desk and available ticket categories.");
+}
+
+function renderTicketSupportBanner(categories: readonly string[]): Buffer {
   const width = 1400;
   const height = 560;
   const canvas = createCanvas(width, height);
@@ -139,8 +145,7 @@ function createTicketSupportBanner({ filename, categories }: TicketSupportBanner
 
   drawCategoryCard(context, categories);
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
-    .setDescription("Arrakis Control support desk and available ticket categories.");
+  return canvas.toBuffer("image/png");
 }
 
 function drawCategoryCard(context: CanvasRenderingContext2D, categories: readonly string[]): void {
@@ -233,7 +238,7 @@ async function createMemberBanner({ artwork, filename, title, member }: MemberBa
 
   context.restore();
 
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: filename })
+  return new AttachmentBuilder(await encodePng(canvas), { name: filename })
     .setDescription(`${title} card for ${member.user.tag} in ${member.guild.name}.`);
 }
 

@@ -1,5 +1,10 @@
 import { URL } from "node:url";
 import { createLogger } from "../../../client/logger";
+import { readBoundedBody } from "../readBoundedBody";
+import { CircuitBreaker, CircuitOpenError, ConcurrencyLimiter, ConcurrencyLimitError, upstreamArea } from "../resilience";
+
+const MAX_JSON_BYTES = 5 * 1024 * 1024;
+const MAX_BINARY_BYTES = 25 * 1024 * 1024;
 
 const logger = createLogger("CONVOY API");
 
@@ -12,6 +17,8 @@ interface ConvoyRequestOptions {
 class ConvoyClient {
   public readonly baseUrl: string;
   private readonly apiKey: string;
+  private readonly breaker = new CircuitBreaker({ failureThreshold: 5, openMs: 30_000 });
+  private readonly limiter = new ConcurrencyLimiter(4, 50);
 
   constructor(baseUrl = "https://vps.advinservers.com", apiKey?: string) {
     if (!apiKey?.trim()) {
@@ -24,6 +31,11 @@ class ConvoyClient {
     }
     this.baseUrl = parsedUrl.toString();
     this.apiKey = apiKey.trim();
+  }
+
+  /** Upstream areas whose circuit is currently open, for runtime health reporting. */
+  get openCircuits(): string[] {
+    return this.breaker.openKeys();
   }
 
   async listServers(): Promise<Record<string, unknown>[]> {
@@ -48,7 +60,17 @@ class ConvoyClient {
       }
     }
 
-    return this.#request(method, url, body, binary);
+    return this.#guarded(url, () => this.#request(method, url, body, binary));
+  }
+
+  async #guarded<T>(url: URL, work: () => Promise<T>): Promise<T> {
+    try {
+      return await this.breaker.run(upstreamArea(url.pathname.replace(/^\/api\/v1\//, "/")), () => this.limiter.run(work), isUpstreamFailure);
+    } catch (error) {
+      if (error instanceof CircuitOpenError) throw new ConvoyApiError("The hosting panel is temporarily unavailable. Try again in a moment.", 503, null);
+      if (error instanceof ConcurrencyLimitError) throw new ConvoyApiError("The hosting panel is busy. Try again in a moment.", 429, null);
+      throw error;
+    }
   }
 
   async #request(method: string, url: URL, body: unknown, binary: boolean): Promise<unknown> {
@@ -81,17 +103,19 @@ class ConvoyClient {
 
     if (binary) {
       if (!response.ok) {
-        throw new ConvoyApiError(`Convoy request failed with HTTP ${response.status}`, response.status, await response.text());
+        throw new ConvoyApiError(`Convoy request failed with HTTP ${response.status}`, response.status,
+          (await readBoundedBody(response, MAX_JSON_BYTES, "Convoy API response is too large.")).toString("utf8"));
       }
 
-      return Buffer.from(await response.arrayBuffer());
+      return readBoundedBody(response, MAX_BINARY_BYTES, "Convoy graph is too large.");
     }
 
     let data: unknown;
 
     try {
-      data = await response.json();
-    } catch {
+      data = JSON.parse((await readBoundedBody(response, MAX_JSON_BYTES, "Convoy API response is too large.")).toString("utf8")) as unknown;
+    } catch (error) {
+      if (error instanceof Error && error.message === "Convoy API response is too large.") throw error;
       throw new ConvoyApiError(`Convoy API returned invalid JSON with HTTP ${response.status}.`, response.status, null);
     }
 
@@ -112,6 +136,11 @@ class ConvoyClient {
 
     return data;
   }
+}
+
+function isUpstreamFailure(error: unknown): boolean {
+  if (!(error instanceof ConvoyApiError)) return false;
+  return error.status === 0 || error.status === 429 || error.status >= 500;
 }
 
 class ConvoyApiError extends Error {

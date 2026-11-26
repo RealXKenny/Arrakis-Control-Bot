@@ -11,8 +11,9 @@ class StaffOnly extends Precondition {
   }
 
   public override async chatInputRun(interaction: ChatInputCommandInteraction): Precondition.AsyncResult {
+    // Staff roles only exist in a guild; fail closed in DMs.
     if (!interaction.guild) {
-      return this.ok();
+      return this.error({ identifier: "StaffOnly", message: STAFF_ERROR_MESSAGE });
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);

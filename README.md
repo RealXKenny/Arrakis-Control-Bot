@@ -4,7 +4,7 @@ Production-oriented TypeScript Sapphire Framework and Discord.js bot for Dune: A
 
 See [AGENTS.md](AGENTS.md) for the repository structure, ownership boundaries, development rules, and verification workflow. The Dune Console endpoint catalog is compiled directly into `src/infrastructure/http/dune-console/endpointCatalog.ts`, so production startup does not depend on external reference files.
 
-Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 1.11.7.
+Release history is tracked in [CHANGELOG.md](CHANGELOG.md). The current version is 2.0.0.
 
 ## Requirements
 
@@ -74,9 +74,11 @@ npm run dev
 
 Use `npm run env:migrate -- --check` to preview whether a production `.env` needs the current boxed layout, then run `npm run env:migrate` to apply it. The script creates a timestamped backup, preserves existing values without printing them, carries forward unknown custom keys, and adds new template settings safely.
 
-`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FATAL`. `TOTAL_SHARDS` accepts `auto` or a positive integer. `INTERACTION_COOLDOWN_MS` and `RATE_LIMIT_MAX_ENTRIES` configure the bounded process-local limiter. In production, integration URLs must use HTTPS.
+`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FATAL`. `TOTAL_SHARDS` accepts `auto` or a positive integer and defaults to `1`, because one server is always served by one shard. `INTERACTION_COOLDOWN_MS` and `RATE_LIMIT_MAX_ENTRIES` configure the bounded process-local limiter. In production, integration URLs must use HTTPS.
 
-Before starting a release, run the same checks used by CI/deployment:
+For one busy server, the database settings are `DATABASE_POOL_MAX` (default 10 connections for commands, panels and tickets), `DATABASE_BACKGROUND_POOL_MAX` (default 5 for the message archive and XP) and `DATABASE_STATEMENT_TIMEOUT_MS` (default 15000). `MESSAGE_ARCHIVE_RETENTION_DAYS` deletes archived messages older than that many days; 0 (the default) keeps everything. `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60, 0 to turn off) prints a health summary, and `HEALTH_FILE` writes it as JSON. See the [operations runbook](guides/operations.md) for what each signal means, backups, upgrades and rollbacks.
+
+Before starting a release, run the same checks used by CI/deployment (CI also runs `npm run test:load`, a 30-second soak with latency budgets):
 
 ```powershell
 npm run build
@@ -85,17 +87,15 @@ npm test
 npm audit --omit=dev
 ```
 
-Pushes and pull requests targeting `main` run the `CI` GitHub Actions workflow. After a successful push to `main`, the `Release` workflow reads the stable semantic version from `package.json`. If its `v<version>` tag does not exist, the workflow requires a matching non-empty `## [<version>]` section in `CHANGELOG.md`, creates the tag at the exact CI-verified commit, and publishes an `Arrakis Control Bot <version>` GitHub release from those notes. Commits that do not bump the version safely skip release creation.
+Pull requests, merge-queue entries, and pushes to `main`, `v2`, and `release/*` run the `CI` GitHub Actions workflow. After a successful push to `main`, the `Release` workflow reads the stable semantic version from `package.json`. If its `v<version>` tag does not exist, an unprivileged job validates the release notes, generates the Pterodactyl egg, and prepares a checksummed source archive. A separate job publishes the release at the exact CI-verified commit. Commits that do not bump the version safely skip release creation.
 
-The running bot checks published Bot and Dashboard GitHub releases at startup and every `VERSION_ANNOUNCEMENT_INTERVAL_MINUTES` minutes (five by default). Configure `DATABASE_URL` and set `ANNOUNCEMENT_CHANNEL_ID` to a channel where it can view history, send messages, and attach files; an announcement channel also needs Publish Messages permission for crossposting. A package-version push alone does not announce until the GitHub release is published. Set optional `GITHUB_TOKEN` to authenticate Bot and Dashboard release checks with GitHub’s higher authenticated API allowance; blank keeps public unauthenticated access. Use a token that can read both repositories; GitHub rate limits still apply. Re-import the updated Pterodactyl egg, then set the token in the server’s **admin** startup variables (`GITHUB_TOKEN` is hidden from ordinary server users), or supply it through the runtime `.env`. Never commit the real token or bake it into the image. Release checks retry after transient failures. PostgreSQL stores each successful announcement in `bot_release_announcements`, keyed by destination channel, repository, and version, with its Discord message ID and timestamp. On the first check for a channel, existing announcements authored by this bot (including legacy Bot markers) are imported once; `bot_release_announcement_channels` records completion. History-read or import failures stop posting and retry later. Subsequent checks use only the database, and card refreshes fetch saved message IDs directly. Deleting an announcement does not cause it to be reposted. Changelogs never ping roles, members, or everyone; `ROLE_ANNOUNCEMENTS_ID` remains available for self-assigned notification roles but is not mentioned by release posts. Release fetching follows all pages. An explicit operator replay fetches both repositories before resetting only their receipts in the selected channel, marks history imported so old posts cannot suppress the replay, and retains the channel lock while resending. Successful replay messages are recorded normally, and periodic checks retry any failed sends without resetting successful ones. Database advisory locks serialize checks and refreshes per channel across processes sharing that database. Posting pauses when persistence is missing or unavailable. Discord sends and database writes cannot be atomic: a process crash or failed write immediately after Discord accepts a message can still leave an unrecorded post. Preserve both tables when restoring the database.
+Set `DASHBOARD_URL` to the HTTPS origin of the dashboard, `DATABASE_URL` for announcement receipts, and `ANNOUNCEMENT_CHANNEL_ID` to a channel where the bot can view history, send messages, and attach files. The bot reads the dashboard’s public versioned changelog API at startup and every `VERSION_ANNOUNCEMENT_INTERVAL_MINUTES` minutes. The dashboard serves reviewed snapshots, which must be updated after each release; a successful API response does not guarantee that its snapshots are current. See [changelog synchronization](guides/changelog-synchronization.md). Existing `GITHUB_TOKEN` settings are no longer used. Re-import the Pterodactyl egg and configure `DASHBOARD_URL` before enabling announcements.
 
-### Docker image for Pterodactyl
+The HTTP client validates and bounds responses, uses a timeout and a five-minute cache, and retains a last-known-good result for up to 24 hours. Announcements and replay pause if the API fails or returns stale or incomplete data; replay forces a new check before resetting receipts. There is no GitHub fallback. PostgreSQL records each announcement by channel, project repository and version. The bot imports its own legacy messages once, keeps receipts for deleted posts, and serializes each channel with a database lock. Changelog posts do not ping roles or members. Discord sends and receipt writes are not atomic: a crash or failed write immediately after a successful send can leave an unrecorded post. Preserve the release tables when restoring the database.
 
-After CI succeeds on `main`, the release workflow publishes an image only for a new stable package version with a matching changelog section. It updates `ghcr.io/realxkenny/arrakis-control-bot:latest` and adds `:v<version>` and immutable `:sha-<full commit SHA>` tags to GitHub Container Registry. Ordinary pushes leave the published image unchanged. The image uses Node.js 24, includes the compiled bot, artwork, and the two bundled public RabbitMQ server certificates under `/opt/arrakis/certificates`, and starts the shard manager. It does not bundle `.env`, private keys, or other live secrets.
+### Pterodactyl
 
-Import the [Arrakis Control Bot egg](pterodactyl/egg-arrakis-control-bot.json) into a Pterodactyl nest. It uses the GHCR image, runs the bot from `/opt/arrakis`, and exposes all settings from `.env.example` in the Startup tab. Supply `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY` before starting. See the [Pterodactyl setup guide](guides/pterodactyl.md) for the import steps, optional integrations, and certificate placement.
-
-Use the SHA tag to pin a deployment to a tested commit. To pull a public package, no registry credentials are needed. If the package is private, configure Pterodactyl's registry credentials with a token that has `read:packages`; package visibility is managed under the repository owner's GitHub Packages settings. Allow at least 15 seconds for graceful shutdown.
+Import the [Arrakis Control Bot egg](pterodactyl/egg-arrakis-control-bot.json) into a Pterodactyl nest. Its installer downloads a published GitHub source archive, verifies its SHA-256 checksum, and builds the bot in `/home/container` using Node.js 24. `RELEASE_TAG` selects `latest` or a specific stable version. Supply `TOKEN`, `CONSOLE_URL`, and `CONSOLE_API_KEY` before starting. See the [Pterodactyl setup guide](guides/pterodactyl.md) for migration, optional integrations, and limitations. The release workflow no longer publishes a bot-specific Docker image.
 
 ## Production
 
@@ -135,6 +135,10 @@ The production start path was previously verified with configured live services.
 - The first command that reaches the Dune Console will expose an invalid key or missing scope through its safe API error response.
 - `CLIENT_ID` remains optional configuration; Sapphire uses the authenticated application when synchronizing registered commands.
 - Use `LOG_LEVEL=DEBUG` temporarily when diagnosing integration or interaction failures. Logs do not intentionally include tokens or authorization headers.
+
+## Poker Activity
+
+`/poker` opens Arrakis Hold'em, a play-money Texas Hold'em table for up to four players that runs as a Discord Activity inside the channel. A player without a second person can add AI opponents from the table. Chips have no value and are never Solari. The game is served by the Arrakis Control Dashboard; the bot only asks Discord to launch it, so the bot needs no new configuration or open ports. Setup is in [guides/poker.md](guides/poker.md).
 
 ## Weekly Coriolis storm panel
 
@@ -196,8 +200,13 @@ Persistent public panels require `DATABASE_URL`. The bot creates `bot_persistent
 
 Every user-facing Discord panel shares one modern visual language: an indigo accent palette and semantic status colors (`src/shared/discord/panelStyle.ts`), sentence-case headings, and gradient-and-geometry artwork from `data/images/`. Regenerate the artwork with `node scripts/generate-panel-artwork.mjs`; the files keep their names, so no code or deployment changes are needed. The shared renderer selects a typed panel-specific background, applies consistent aspect-cover cropping and text-safe shading, then layers dynamic server names, counts, statuses, release versions, member avatars, and accessibility descriptions without baking live data into the source image. Persistent panels retain their unique backgrounds, welcome and goodbye cards use member-specific avatar banners, and short-lived Components V2 responses automatically receive the `panel-temporary.png` scene when they do not already provide art. Lyrics, voice-room information, and no-cover music cards also include dedicated image attachments. High-volume audit-log records intentionally remain compact and text-first.
 
+## Stability roadmap
+
+Planned work to keep the bot fast and self-healing for one busy guild is tracked in the [single-guild stability and scale plan](guides/single-guild-scale-plan.md).
+
 ## Security notes
 
+- The bot only serves the servers in `ALLOWED_GUILD_IDS` (default `GUILD_ID`) and leaves any other server it is added to. See the [security audit](guides/security-audit.md).
 - Secrets are loaded from environment variables and excluded by `.gitignore`.
 - Privileged actions validate authorization when executed; hiding a command or button is not the security boundary.
 - Uploaded blueprint URLs are restricted to Discord CDN hosts and are size-checked before forwarding.

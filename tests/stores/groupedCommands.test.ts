@@ -28,7 +28,7 @@ it.each(GROUPED_ACTIONS.filter((action) => action.access !== "Everyone"))("enfor
   const execute = vi.spyOn(action, "execute").mockResolvedValue(undefined);
   const reply = vi.fn();
   const interaction = { options: { getSubcommand: () => action.name, getSubcommandGroup: () => action.subgroup },
-    user: { id: "user" }, guild: { members: { fetch: vi.fn().mockResolvedValue({ roles: { cache: new Map() } }) } }, reply };
+    user: { id: "user" }, inCachedGuild: () => false, guild: { members: { fetch: vi.fn().mockResolvedValue({ roles: { cache: new Map() } }) } }, reply };
   await executeGroupedCommand(action.group, interaction as unknown as ChatInputCommandInteraction);
   expect(execute).not.toHaveBeenCalled();
   expect(reply).toHaveBeenCalledOnce();
@@ -39,15 +39,38 @@ it("dispatches the authorized subcommand with the original interaction options",
   const action = GROUPED_ACTIONS.find((action) => action.legacy === "restore-backup")!;
   const execute = vi.spyOn(action, "execute").mockResolvedValue(undefined);
   const interaction = { options: { getSubcommand: () => "restore", getSubcommandGroup: () => null },
-    user: { id: "user" }, guild: { members: { fetch: vi.fn().mockResolvedValue({ roles: { cache: new Map([["owner-role", {}]]) } }) } } };
+    user: { id: "user" }, inCachedGuild: () => false, guild: { members: { fetch: vi.fn().mockResolvedValue({ roles: { cache: new Map([["owner-role", {}]]) } }) } } };
   await executeGroupedCommand("backup", interaction as unknown as ChatInputCommandInteraction);
+  expect(execute).toHaveBeenCalledWith(interaction);
+});
+
+it("authorizes from the interaction's member roles without a REST fetch in a cached guild", async () => {
+  vi.stubEnv("OWNER_ROLE_ID", "owner-role");
+  const action = GROUPED_ACTIONS.find((action) => action.legacy === "restore-backup")!;
+  const execute = vi.spyOn(action, "execute").mockResolvedValue(undefined);
+  const fetch = vi.fn();
+  const interaction = { options: { getSubcommand: () => "restore", getSubcommandGroup: () => null },
+    user: { id: "user" }, inCachedGuild: () => true, member: { roles: { cache: new Map([["owner-role", {}]]) } }, guild: { members: { fetch } } };
+  await executeGroupedCommand("backup", interaction as unknown as ChatInputCommandInteraction);
+  expect(fetch).not.toHaveBeenCalled();
   expect(execute).toHaveBeenCalledWith(interaction);
 });
 
 it("keeps public server status accessible without the owner role", async () => {
   const action = GROUPED_ACTIONS.find((action) => action.legacy === "status")!;
   const execute = vi.spyOn(action, "execute").mockResolvedValue(undefined);
-  const interaction = { options: { getSubcommand: () => "status", getSubcommandGroup: () => null } };
+  const interaction = { options: { getSubcommand: () => "status", getSubcommandGroup: () => null }, user: { id: "status-user" } };
   await executeGroupedCommand("server", interaction as unknown as ChatInputCommandInteraction);
   expect(execute).toHaveBeenCalledWith(interaction);
+});
+
+it("answers a repeated expensive command with its cooldown instead of running it", async () => {
+  const action = GROUPED_ACTIONS.find((action) => action.legacy === "status")!;
+  const execute = vi.spyOn(action, "execute").mockResolvedValue(undefined);
+  const reply = vi.fn();
+  const interaction = { options: { getSubcommand: () => "status", getSubcommandGroup: () => null }, user: { id: "cooldown-user" }, reply };
+  await executeGroupedCommand("server", interaction as unknown as ChatInputCommandInteraction);
+  await executeGroupedCommand("server", interaction as unknown as ChatInputCommandInteraction);
+  expect(execute).toHaveBeenCalledOnce();
+  expect(reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("cooling down") }));
 });

@@ -3,7 +3,8 @@ import { Command } from "@sapphire/framework";
 import { escapeMarkdown, MessageFlags, SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder, type ChatInputCommandInteraction } from "discord.js";
 import { GROUPED_ACTIONS } from "./groupedCommandCatalog";
 import { registerApplicationCommand } from "./registerApplicationCommand";
-import { hasStaffRole } from "../access/staffAccess";
+import { hasStaffRole, resolveActingMember } from "../access/staffAccess";
+import { commandCooldowns, cooldownMessage } from "./commandCooldowns";
 
 type GroupName = typeof GROUPED_ACTIONS[number]["group"];
 export function groupedCommandDefinition(group: GroupName) {
@@ -46,13 +47,18 @@ export async function executeGroupedCommand(group: GroupName, interaction: ChatI
     return;
   }
   if (action.access !== "Everyone") {
-    const member = await interaction.guild?.members.fetch({ user: interaction.user.id, force: true }).catch(() => null);
+    const member = await resolveActingMember(interaction);
     const roleId = process.env.OWNER_ROLE_ID;
     const allowed = action.access === "Owner" ? Boolean(roleId && member?.roles.cache.has(roleId)) : hasStaffRole(member);
     if (!allowed) {
       await interaction.reply({ content: action.access === "Owner" ? "Only the configured owner role can use this command." : "You need a configured staff role to use this command.", flags: MessageFlags.Ephemeral });
       return;
     }
+  }
+  const remainingMs = commandCooldowns.take(interaction.user.id, action.legacy);
+  if (remainingMs > 0) {
+    await interaction.reply({ content: cooldownMessage(remainingMs), flags: MessageFlags.Ephemeral });
+    return;
   }
   await action.execute(interaction);
 }

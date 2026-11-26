@@ -1,14 +1,15 @@
 import { PanelRepository } from "../infrastructure/database/panels/PanelRepository";
 import { ReleaseAnnouncementRepository } from "../infrastructure/database/releases/ReleaseAnnouncementRepository";
+import { DashboardChangelogClient } from "../infrastructure/http/dashboard/DashboardChangelogClient";
 import { cleanupResources } from "../shared/process/cleanupResources";
-import { GatewayIntentBits, Partials } from "discord.js";
+import { GatewayIntentBits, Options, Partials } from "discord.js";
 import { DuneApi } from "../infrastructure/http/dune-console/DuneApi";
 import { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
 import { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
 import { createLogger, createSapphireLogger } from "./logger";
 import { InMemoryRateLimitStore, RateLimiter } from "../infrastructure/rate-limit/InMemoryRateLimiter";
-import { TicketRepository } from "../infrastructure/database/tickets/TicketRepository";
+import { TicketRepository, type DatabasePoolOptions } from "../infrastructure/database/tickets/TicketRepository";
 import { ArrakisClient } from "./ArrakisClient";
 import type { ChatBridgeConfig } from "../infrastructure/config/chatBridge";
 import { DiscordGameChatBridge } from "../modules/chat/DiscordGameChatBridge";
@@ -31,6 +32,10 @@ import { MessageArchiveRepository } from "../infrastructure/database/messages/Me
 import { MessageArchiveService } from "../modules/audit/MessageArchiveService";
 import { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
 import { HoneypotRepository } from "../infrastructure/database/honeypot/HoneypotRepository";
+import { RuntimeMonitor } from "../modules/system/RuntimeMonitor";
+import { retryWithBackoff } from "../shared/async/retryWithBackoff";
+import { runMigrations, SchemaTooNewError } from "../infrastructure/database/migrations/MigrationRunner";
+import { MIGRATIONS } from "../infrastructure/database/migrations/migrations";
 import type { HoneypotConfig } from "../infrastructure/config/honeypot";
 
 export type BotClient = ArrakisClient;
@@ -49,6 +54,7 @@ interface BotConfig {
   duneConsoleUrl: string;
   discordToken: string;
   clientId?: string | null;
+  allowedGuildIds?: readonly string[];
   advinApiKey?: string | null;
   advinApiUrl: string;
   duneDiscordAdapterToken?: string | null;
@@ -67,8 +73,14 @@ interface BotConfig {
   databaseUrl?: string | null;
   databaseSsl: boolean;
   databaseSslVerify?: boolean;
+  databasePoolMax?: number;
+  databaseBackgroundPoolMax?: number;
+  databaseStatementTimeoutMs?: number;
+  messageArchiveRetentionDays?: number;
+  runtimeMetricsIntervalSeconds?: number;
+  healthFile?: string;
   versionAnnouncementIntervalMinutes?: number;
-  githubToken?: string;
+  dashboardUrl?: string;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   duneDiscordAuditChannelId?: string | null;
@@ -84,8 +96,27 @@ function createBotApplication(config: BotConfig) {
   systemLogger.header("ARRAKIS CONTROL", "Dune: Awakening Bot");
 
   const client = createClient(config.logLevel);
+  const metricsLogger = createLogger("METRICS", config.logLevel);
+  const runtimeMonitor = new RuntimeMonitor({
+    gatewayReady: () => client.isReady(),
+    gatewayPingMs: () => (client.ws.ping >= 0 ? client.ws.ping : null),
+    databasePing: config.databaseUrl ? () => client.tickets?.ping() ?? Promise.resolve() : undefined,
+    poolStats: () => client.tickets?.stats() ?? { interactive: { total: 0, idle: 0, waiting: 0 }, background: { total: 0, idle: 0, waiting: 0 } },
+    archiveBuffered: () => client.messageArchive?.bufferedCount ?? 0,
+    openCircuits: () => [...client.duneApi.openCircuits.map((area) => `dune:${area}`), ...(client.convoyApi?.openCircuits ?? []).map((area) => `convoy:${area}`)],
+    cachedMessages: () => client.channels.cache.reduce((total, channel) => total + (channel.isTextBased() ? channel.messages.cache.size : 0), 0),
+  }, {
+    intervalMs: (config.runtimeMetricsIntervalSeconds ?? 60) * 1_000,
+    healthFile: config.healthFile,
+    info: (message) => metricsLogger.info(message),
+    warn: (message) => metricsLogger.warn(message),
+  });
 
-  configureIntegrations(client, config);
+  configureIntegrations(client, config, (error, pool) => {
+    runtimeMonitor.recordDatabaseError();
+    storageLogger.warn(`A ${pool} PostgreSQL connection failed and was dropped; the next query reconnects. ${error.message}`);
+  });
+  client.rest.on("rateLimited", () => runtimeMonitor.recordRateLimit());
 
   systemLogger.info("[01] Loading commands, events and integrations.");
 
@@ -98,15 +129,26 @@ function createBotApplication(config: BotConfig) {
 
   async function start(): Promise<void> {
     storageLogger.info("[02] Preparing persistent state.");
-    if (client.tickets) {
-      await client.tickets.initialize();
-      storageLogger.debug("PostgreSQL ticket storage is ready.");
-    }
-    await client.voiceRooms?.initialize();
-    await client.music?.initialize();
-    await client.leveling?.initialize();
-    await client.staffApplications?.initialize();
-    await client.messageArchive?.initialize();
+    // Every initializer is idempotent, so an unreachable database is retried with backoff
+    // instead of crash-looping the container.
+    await retryWithBackoff(async () => {
+      if (client.tickets) {
+        await runMigrations(client.tickets.pool, MIGRATIONS, { info: (message) => storageLogger.info(message) });
+        await client.tickets.initialize();
+        storageLogger.debug("PostgreSQL ticket storage is ready.");
+      }
+      await client.voiceRooms?.initialize();
+      await client.music?.initialize();
+      await client.leveling?.initialize();
+      await client.staffApplications?.initialize();
+      await client.messageArchive?.initialize();
+    }, {
+      shouldStop: () => isShuttingDown,
+      retryIf: (error) => !(error instanceof SchemaTooNewError),
+      onRetry: (error, attempt, delayMs) => storageLogger.warn(`PostgreSQL is not ready (attempt ${attempt}); retrying in ${Math.round(delayMs / 1_000)}s. ${error instanceof Error ? error.message : String(error)}`),
+    });
+    const archiveLogger = createLogger("MESSAGE ARCHIVE", config.logLevel);
+    client.messageArchive?.start((message, error) => archiveLogger.error(message, error), config.messageArchiveRetentionDays ?? 0);
     await client.honeypot?.initialize();
 
     storageLogger.info(`${client.tickets ? "PostgreSQL initialized" : "Not configured"}.`);
@@ -114,6 +156,7 @@ function createBotApplication(config: BotConfig) {
     discordLogger.info("[03] Connecting to the gateway.");
 
     await client.login(config.discordToken);
+    runtimeMonitor.start();
 
     discordLogger.debug("Discord login request completed.");
   }
@@ -127,6 +170,7 @@ function createBotApplication(config: BotConfig) {
 
     systemLogger.debug(`Received ${signal}; starting graceful shutdown.`);
 
+    runtimeMonitor.stop();
     if (client.auditLogInterval) clearInterval(client.auditLogInterval);
     if (client.presenceInterval) clearInterval(client.presenceInterval);
     if (client.versionAnnouncementInterval) clearInterval(client.versionAnnouncementInterval);
@@ -152,6 +196,7 @@ function createBotApplication(config: BotConfig) {
           name: "voice rooms and PostgreSQL connection pool",
           run: async () => {
             try {
+              await client.messageArchive?.stop();
               await client.voiceRooms?.stop();
             } finally {
               try {
@@ -181,11 +226,20 @@ function createClient(logLevel?: string): BotClient {
   return new ArrakisClient({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates],
     partials: [Partials.Channel, Partials.Message, Partials.User],
+    // Generated and external text must never ping; intentional pings opt in per message.
+    allowedMentions: { parse: [] },
+    // Bound per-channel message caches; edit and delete history comes from the PostgreSQL archive.
+    makeCache: Options.cacheWithLimits({ ...Options.DefaultMakeCacheSettings, MessageManager: 100 }),
+    sweepers: {
+      ...Options.DefaultSweeperSettings,
+      messages: { interval: 300, lifetime: 1_800 },
+    },
     logger: { instance: createSapphireLogger("SAPPHIRE", logLevel) },
   });
 }
 
-function configureIntegrations(client: BotClient, config: BotConfig): void {
+function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseConnectionError: DatabasePoolOptions["onConnectionError"]): void {
+  client.allowedGuildIds = config.allowedGuildIds ?? [];
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   if (config.chatBridge) {
     const chatNames = new ChatPlayerNames(client.duneApi);
@@ -214,14 +268,17 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
   client.discordTicketCategoryId = config.discordTicketCategoryId ?? undefined;
   client.discordTicketTranscriptChannelId = config.discordTicketTranscriptChannelId ?? undefined;
   // Dev note: One PostgreSQL pool waters tickets, rooms, levels, and music—water discipline applies to sockets too.
-  client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl, config.databaseSslVerify ?? true) : null;
-  client.githubToken = config.githubToken;
+  client.tickets = config.databaseUrl ? new TicketRepository(config.databaseUrl, config.databaseSsl, config.databaseSslVerify ?? true, {
+    max: config.databasePoolMax, backgroundMax: config.databaseBackgroundPoolMax, statementTimeoutMs: config.databaseStatementTimeoutMs,
+    onConnectionError: onDatabaseConnectionError,
+  }) : null;
+  client.dashboardChangelog = config.dashboardUrl ? new DashboardChangelogClient(config.dashboardUrl) : undefined;
   client.panelStorage = client.tickets ? new PanelRepository(client.tickets.pool) : undefined;
   client.releaseAnnouncements = client.tickets ? new ReleaseAnnouncementRepository(client.tickets.pool) : undefined;
   client.honeypot = config.honeypot ? new HoneypotService(client, config.honeypot, client.tickets ? new HoneypotRepository(client.tickets.pool) : undefined) : undefined;
   client.voiceRooms = client.tickets ? new VoiceService(client, new VoiceRepository(client.tickets.pool), config.voicePanelPublic ?? true, config.voiceSetup) : undefined;
   const levelingLogger = createLogger("LEVELING", config.logLevel);
-  client.leveling = config.levelingEnabled && client.tickets ? new LevelingService(client, new LevelRepository(client.tickets.pool), config.levelRoles, (message, error) => levelingLogger.error(message, error)) : undefined;
+  client.leveling = config.levelingEnabled && client.tickets ? new LevelingService(client, new LevelRepository(client.tickets.backgroundPool), config.levelRoles, (message, error) => levelingLogger.error(message, error)) : undefined;
   client.staffApplications = config.staffApplications && client.tickets ? new StaffApplicationService(client, new StaffApplicationRepository(client.tickets.pool), config.staffApplications) : undefined;
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music =
@@ -234,7 +291,7 @@ function configureIntegrations(client: BotClient, config: BotConfig): void {
     store: new InMemoryRateLimitStore({ maxEntries: config.rateLimitMaxEntries }),
   });
   client.auditLogger = new DiscordAuditLogger(client, config.duneDiscordAuditChannelId ?? undefined, config.duneDiscordActivityLogChannelId ?? undefined);
-  client.messageArchive = client.tickets ? new MessageArchiveService(new MessageArchiveRepository(client.tickets.pool), client.auditLogger) : undefined;
+  client.messageArchive = client.tickets ? new MessageArchiveService(new MessageArchiveRepository(client.tickets.backgroundPool), client.auditLogger) : undefined;
 }
 
 export { createBotApplication };

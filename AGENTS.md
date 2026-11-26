@@ -40,7 +40,7 @@ src/
 ├── commands/                             Sapphire Command store
 │   ├── groups/                           Top-level grouped command adapters
 │   ├── administration/operations/
-│   ├── community/{music,voice}/
+│   ├── community/{music,poker,voice}/
 │   ├── economy/{leaderboard,market}/
 │   ├── general/{help,information}/
 │   ├── moderation/{members,messages}/
@@ -109,7 +109,6 @@ tests/                                     Mirrors the source ownership boundari
 
 guides/                                    Operator and feature setup guides
 pterodactyl/                               Importable PTDL_v2 bot egg
-docker/                                    Pterodactyl-compatible image entrypoint
 data/                                      Bundled runtime/reference data
 certificates/                              Local certificate material; never add private keys
 .github/workflows/                         CI, GHCR image publication, and automatic GitHub release automation
@@ -240,7 +239,18 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Preserve the in-game bridge display name `Arrakis Control`; its required hexadecimal RabbitMQ identity is a separate protocol field.
 - Community leveling uses a `250 × level²` cumulative curve and awards 8–25 base XP for meaningful messages using effort signals, with an atomic short anti-spam window and recent-message fingerprint protection. It awards 15 eligible voice XP per minute independently and ignores bots, webhooks, system messages, DMs, tiny messages, AFK voice, and deafened/suppressed voice members. Boosters receive 2× XP; active server events add another multiplicative 2× for 4× total. Only the highest earned milestone role is retained at levels 1, 10, 20, 30, 40, 50, 60, and 70, and all eight role IDs come from `LEVEL_ROLE_*_ID` environment settings.
 
-- GitHub Bot/Dashboard release announcements require PostgreSQL. `ReleaseAnnouncementRepository` uses the shared ticket pool, initializes its schema lazily, and locks each destination channel across checks/refreshes. Import bot-authored legacy history once before posting; subsequent deduplication uses `(channel_id, repository, version)` records. Persist each sent message before crossposting, keep records for deleted posts, and never fall back to history or memory when the database fails. Discord send/database write completion is not atomic. GitHub HTTP transport lives in `infrastructure/http/github/GitHubReleaseClient.ts`; optional `GITHUB_TOKEN` is normalized through configuration, sent only as a Bearer header to GitHub with redirects rejected, and hidden from server users in the generated egg. Never persist or print the token. Changelog posts must use `allowedMentions: { parse: [] }` and must not include the configured announcements role. An operator replay must fetch both sources successfully before resetting only the selected channel/repositories, preserve the history-import marker, and hold the channel lock through sends and receipt writes. Never reset panel IDs to replay changelogs.
+- There is no in-bot web dashboard or HTTP listener; it was removed before the V2 launch. Do not add an HTTP listener without a separate security review.
+
+- The bot serves only `ALLOWED_GUILD_IDS` (default `GUILD_ID`) and leaves other guilds on ready and `guildCreate` via `modules/administration/guildAllowlist.ts`, never when no allowed guild is present. `registerApplicationCommand` restricts every command to guild contexts and guild installs; keep it the only registration path.
+
+- Bot/Dashboard release announcements require PostgreSQL and the dashboard changelog API configured by `DASHBOARD_URL`. `ReleaseAnnouncementRepository` uses the shared pool and channel locks; preserve legacy imports, durable repository/version receipts, deleted-message records and replay safety. Only fresh, complete snapshots may send or reset receipts; replay forces a fresh fetch. Dashboard snapshots can lag publication and must be synchronized after releases. No GitHub API fallback is permitted. Changelog posts use `allowedMentions: { parse: [] }` and never ping the announcements role. All changelog handling lives in `modules/changelog/`: `changelogProjects.ts` is the only product registry (dashboard project key, display name, label, receipt repository, accent), `changelogEntries.ts` reads the dashboard API, `changelogCard.ts` renders posts and recognizes old ones, and `changelogAnnouncements.ts` sends, refreshes and replays. Every post names its product in the heading and a product line. Unknown dashboard project keys are skipped until registered. Never rename an existing project's `name` or `repository`; they key the history import and receipts. The dashboard no longer posts changelogs to Discord itself. Discord send and receipt writes are not atomic.
+
+- Interactions: a modal cannot follow a defer, so any lookup before `showModal` must run under `withDeadline(..., PRE_ACKNOWLEDGEMENT_DEADLINE_MS)` from `shared/async/withDeadline.ts` and fall back safely. Grouped-command authorization uses `resolveActingMember` (roles from the interaction payload), not a forced REST fetch. Expensive grouped actions get per-user cooldowns in `support/commands/commandCooldowns.ts`, keyed by legacy name.
+- Upstream resilience lives in `infrastructure/http/resilience.ts`: Dune Console and Convoy calls go through a per-area circuit breaker and a concurrency limiter, and Dune GETs share identical in-flight requests. Pass `cacheTtlMs` only for read-only data that may be a few seconds old. Only network errors, 429 and 5xx count as upstream failures.
+- Database: pools register an `error` listener so a PostgreSQL restart never crashes the process; startup storage setup retries with `retryWithBackoff`. Schema changes after V2 go into `infrastructure/database/migrations/migrations.ts` as a new, never-edited version; the runner holds an advisory lock and refuses a newer schema. Keep repository initializers idempotent.
+- Runtime metrics come from `modules/system/RuntimeMonitor.ts`, fed by probes wired in `BotApplication`. It logs, optionally writes `HEALTH_FILE`, and opens no port.
+- Canvas: encode dynamic cards with `encodePng` (thread pool) and cache static banners with `RenderCache` (`shared/discord/canvasEncoding.ts`).
+- Operations, backups, the restore drill and rollback are in `guides/operations.md`. Load budgets are in `tests/load/`; `npm run test:load` runs the soak.
 
 ## Testing Rules
 
@@ -266,9 +276,9 @@ Handler filenames state their role with `-button`, `-menu`, or `-modal`. Service
 - Do not use destructive Git commands (`reset --hard`, forced checkout, clean) unless the user explicitly requests them.
 - Never commit, tag, push, publish a release, or open a pull request unless the user asks.
 - Before a release, re-read the current version and changelog; do not reuse old test counts, commit IDs, tags, or release metadata.
-- `.github/workflows/ci.yml` verifies every pull request and pushes to `main`, running typecheck, lint, test, and audit on separate runners behind a single `verify` gate job. A successful push to `main` triggers `.github/workflows/release.yml`; a new stable `package.json` version and matching non-empty `CHANGELOG.md` section create the GitHub release automatically.
-- Only a new stable version release builds and smoke-checks the Docker image, then publishes `latest`, `v<version>`, and `sha-<full commit SHA>` to `ghcr.io/realxkenny/arrakis-control-bot` after successful `main` CI. The image runs from `/opt/arrakis`; a Pterodactyl egg must start it with `cd /opt/arrakis && exec node dist/src/index.js`.
-- Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The image must retain the `container` user, `/home/container` working directory, and entrypoint that executes Pterodactyl's `STARTUP` command.
+- `.github/workflows/ci.yml` verifies every pull request, merge-queue entry, and pushes to `main`, `v2`, and `release/*`, running typecheck, lint, test, audit, and actionlint behind the `verify` gate job. A successful push to `main` triggers `.github/workflows/release.yml`; an unprivileged validation job prepares the egg and checksummed source archive before a separate publishing job receives write permissions.
+- A new stable package version and matching non-empty changelog section create a GitHub release containing the egg, source archive, and SHA-256 checksum. The workflow does not build or publish a bot-specific Docker image.
+- Regenerate `pterodactyl/egg-arrakis-control-bot.json` with `node scripts/generate-pterodactyl-egg.mjs` when `.env.example` changes. The Node 24 egg installs a release into `/home/container` and starts `node dist/src/index.js`.
 - Do not create a tag manually for an automatic release: an existing `v<version>` tag intentionally causes the release workflow to skip that version.
 
 ## Definition of Done

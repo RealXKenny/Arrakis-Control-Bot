@@ -1,6 +1,6 @@
 {
   "name": "Arrakis-Control-Bot",
-  "version": "1.11.7",
+  "version": "2.0.0",
   "description": "A modular Sapphire Framework and Discord.js v14 bot.",
   "main": "src/index.ts",
   "engines": {
@@ -13,6 +13,7 @@
     "start": "node dist/src/index.js",
     "start:single": "node dist/src/client/shard.js",
     "test": "npm run build && vitest run",
+    "test:load": "vitest run tests/load --mode soak",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "audit:prod": "npm audit --omit=dev",

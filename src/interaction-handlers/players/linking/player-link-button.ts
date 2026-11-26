@@ -2,6 +2,7 @@ import { InteractionHandler, InteractionHandlerTypes, container } from "@sapphir
 import { ButtonBuilder, ButtonStyle, ContainerBuilder, LabelBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonInteraction } from "discord.js";
 
 import { createActorContext } from "../../../shared/actors/createActorContext";
+import { PRE_ACKNOWLEDGEMENT_DEADLINE_MS, withDeadline } from "../../../shared/async/withDeadline";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
 import { matchesCustomId } from "../../../support/interactions/componentCustomIds";
@@ -18,7 +19,9 @@ const handler = {
     }
 
     const actorContext = createActorContext(interaction, "player-link");
-    const linked = await discordAdapter.getCurrentPlayer(actorContext);
+    // The modal cannot be deferred, so a slow or failing lookup falls through to the form;
+    // the submit handler reports an existing link from the adapter's answer.
+    const linked = await withDeadline(discordAdapter.getCurrentPlayer(actorContext), PRE_ACKNOWLEDGEMENT_DEADLINE_MS).catch(() => null);
 
     if (linked?.linked === true) {
       const characterName = linked.characterName ?? "your Dune character";

@@ -377,7 +377,13 @@ function resolveRoute(route: string, parameters: RouteParameters = {}): string {
       throw new Error(`Missing route parameter: ${parameterName}`);
     }
 
-    return encodeURIComponent(String(value));
+    const segment = String(value);
+    // encodeURIComponent keeps "." and "..", which URL parsing would resolve into another endpoint.
+    if (segment === "" || segment === "." || segment === "..") {
+      throw new Error(`Invalid route parameter: ${parameterName}`);
+    }
+
+    return encodeURIComponent(segment);
   });
 }
 

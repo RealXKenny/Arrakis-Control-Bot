@@ -11,7 +11,7 @@ import { ensurePlayerLinkPanel } from "../../players/linking/playerLinkPanel";
 import { ensureServerInfoPanel } from "../../server/information/serverInfoPanel";
 import { ensureTicketPanel } from "../../tickets/ticketPanel";
 import { ensureStaffApplicationPanel } from "../../community/applications/staffApplicationPanel";
-import { refreshReleaseAnnouncements } from "../../releases/versionAnnouncement";
+import { refreshReleaseAnnouncements } from "../../changelog/changelogAnnouncements";
 import { readStormChannelId, refreshStormAnnouncement } from "../../world/storms/stormAnnouncement";
 
 interface PersistentPanelTask {

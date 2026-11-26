@@ -45,8 +45,125 @@ interface ArchivedMessageRow {
   deleted_at: Date | string | null;
 }
 
+interface MessageArchiveBufferOptions {
+  /** Rows per multi-row insert. */
+  batchSize?: number;
+  /** Rows held in memory before new messages are dropped from the archive. */
+  maxBuffered?: number;
+  flushIntervalMs?: number;
+}
+
+const PURGE_BATCH_ROWS = 5_000;
+const PURGE_MAX_BATCHES = 40;
+const COLUMNS_PER_ROW = 13;
+
 class MessageArchiveRepository {
-  public constructor(private readonly pool: Pool) {}
+  private readonly pending = new Map<string, MessageArchiveInput>();
+  private flushing: Promise<void> = Promise.resolve();
+  private timer?: ReturnType<typeof setInterval>;
+  private droppedCount = 0;
+  private readonly batchSize: number;
+  private readonly maxBuffered: number;
+  private readonly flushIntervalMs: number;
+
+  public constructor(private readonly pool: Pool, options: MessageArchiveBufferOptions = {}) {
+    this.batchSize = options.batchSize ?? 200;
+    this.maxBuffered = options.maxBuffered ?? 10_000;
+    this.flushIntervalMs = options.flushIntervalMs ?? 1_000;
+  }
+
+  /** Messages dropped because the buffer was full, since the last call. */
+  public takeDroppedCount(): number {
+    const dropped = this.droppedCount;
+    this.droppedCount = 0;
+    return dropped;
+  }
+
+  public get bufferedCount(): number {
+    return this.pending.size;
+  }
+
+  /** Queues a new message for the next batched insert. Returns false when the buffer is full. */
+  public enqueue(message: MessageArchiveInput): boolean {
+    if (!this.pending.has(message.messageId) && this.pending.size >= this.maxBuffered) {
+      this.droppedCount++;
+      return false;
+    }
+    this.pending.set(message.messageId, message);
+    if (this.pending.size >= this.batchSize) void this.flush().catch(() => undefined);
+    return true;
+  }
+
+  public start(onError: (error: unknown) => void): void {
+    if (this.timer) return;
+    this.timer = setInterval(() => { void this.flush().catch(onError); }, this.flushIntervalMs);
+    this.timer.unref();
+  }
+
+  /** Stops the timer and writes everything still buffered. */
+  public async stop(): Promise<void> {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = undefined;
+    await this.flush();
+  }
+
+  /** Writes buffered messages in order; concurrent callers share one sequence of writes. */
+  public flush(): Promise<void> {
+    this.flushing = this.flushing.catch(() => undefined).then(() => this.writePending());
+    return this.flushing;
+  }
+
+  private async writePending(): Promise<void> {
+    while (this.pending.size > 0) {
+      const batch = [...this.pending.values()].slice(0, this.batchSize);
+      for (const message of batch) this.pending.delete(message.messageId);
+      try {
+        const params: unknown[] = [];
+        const rows = batch.map((message) => {
+          const offset = params.length;
+          params.push(...values(message));
+          return `(${Array.from({ length: COLUMNS_PER_ROW }, (_, index) => `$${offset + index + 1}${index === 6 ? "::jsonb" : ""}`).join(",")})`;
+        });
+        await this.pool.query(`INSERT INTO bot_discord_messages
+          (message_id, guild_id, channel_id, author_id, author_tag, content, metadata, message_type, flags, is_bot, webhook_id, created_at, edited_at)
+          VALUES ${rows.join(",")}
+          ON CONFLICT (message_id) DO UPDATE SET
+            guild_id=EXCLUDED.guild_id, channel_id=EXCLUDED.channel_id, author_id=EXCLUDED.author_id,
+            author_tag=EXCLUDED.author_tag, content=EXCLUDED.content, metadata=EXCLUDED.metadata,
+            message_type=EXCLUDED.message_type, flags=EXCLUDED.flags, is_bot=EXCLUDED.is_bot,
+            webhook_id=EXCLUDED.webhook_id, edited_at=EXCLUDED.edited_at, archived_at=NOW()`, params);
+      } catch (error) {
+        // Put the batch back unless a newer copy arrived or the buffer is full, then let the caller report it.
+        for (const message of batch) {
+          if (this.pending.has(message.messageId)) continue;
+          if (this.pending.size < this.maxBuffered) this.pending.set(message.messageId, message);
+          else this.droppedCount++;
+        }
+        throw error;
+      }
+    }
+  }
+
+  /** Writes the buffered original before an edit or delete, and never lets a stale buffered copy overwrite it later. */
+  private async settle(messageId: string): Promise<void> {
+    await this.flush().catch(() => undefined);
+    this.pending.delete(messageId);
+  }
+
+  /** Removes archived messages and edit history older than the retention period, in bounded batches. Returns rows removed. */
+  public async purgeOlderThan(days: number): Promise<number> {
+    if (!Number.isInteger(days) || days < 1) throw new Error("Message archive retention must be a positive number of days.");
+    let removed = 0;
+    for (const statement of [PURGE_MESSAGES_SQL, PURGE_EDITS_SQL]) {
+      for (let batch = 0; batch < PURGE_MAX_BATCHES; batch++) {
+        const result = await this.pool.query(statement, [days, PURGE_BATCH_ROWS]);
+        const count = result.rowCount ?? 0;
+        removed += count;
+        if (count < PURGE_BATCH_ROWS) break;
+      }
+    }
+    return removed;
+  }
 
   public async initialize(): Promise<void> {
     await this.pool.query(`CREATE TABLE IF NOT EXISTS bot_discord_messages (
@@ -79,6 +196,9 @@ class MessageArchiveRepository {
       edited_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS bot_discord_message_edits_history ON bot_discord_message_edits (message_id, edited_at DESC);`);
+    // Built concurrently, one statement per call, so an existing large archive stays writable during startup.
+    await this.pool.query("CREATE INDEX CONCURRENTLY IF NOT EXISTS bot_discord_messages_created ON bot_discord_messages (created_at)");
+    await this.pool.query("CREATE INDEX CONCURRENTLY IF NOT EXISTS bot_discord_message_edits_time ON bot_discord_message_edits (edited_at)");
   }
 
   public async save(message: MessageArchiveInput): Promise<void> {
@@ -93,6 +213,7 @@ class MessageArchiveRepository {
   }
 
   public async recordEdit(before: MessageArchiveInput, after: MessageArchiveInput): Promise<ArchivedMessage | null> {
+    await this.settle(after.messageId);
     const result = await this.pool.query<ArchivedMessageRow>(`WITH previous AS (
       SELECT * FROM bot_discord_messages WHERE message_id=$1
       UNION ALL SELECT $1,$2,$3,$4,$5,$14,$15::jsonb,$8,$9,$10,$11,$12,$13,NULL,NOW()
@@ -115,6 +236,7 @@ class MessageArchiveRepository {
   }
 
   public async markDeleted(fallback: MessageArchiveInput): Promise<ArchivedMessage> {
+    await this.settle(fallback.messageId);
     // Dev note: Deleted from Discord is not deleted from history; the archivist has trust issues.
     const result = await this.pool.query<ArchivedMessageRow>(`INSERT INTO bot_discord_messages
       (message_id,guild_id,channel_id,author_id,author_tag,content,metadata,message_type,flags,is_bot,webhook_id,created_at,edited_at,deleted_at)
@@ -124,6 +246,11 @@ class MessageArchiveRepository {
     return mapRow(result.rows[0]!);
   }
 }
+
+const PURGE_MESSAGES_SQL = `DELETE FROM bot_discord_messages WHERE message_id IN (
+  SELECT message_id FROM bot_discord_messages WHERE created_at < NOW() - $1 * INTERVAL '1 day' LIMIT $2)`;
+const PURGE_EDITS_SQL = `DELETE FROM bot_discord_message_edits WHERE id IN (
+  SELECT id FROM bot_discord_message_edits WHERE edited_at < NOW() - $1 * INTERVAL '1 day' LIMIT $2)`;
 
 function values(message: MessageArchiveInput): unknown[] {
   return [message.messageId, message.guildId, message.channelId, message.authorId, message.authorTag, message.content, JSON.stringify(message.metadata), message.messageType, message.flags, message.isBot, message.webhookId, message.createdAt, message.editedAt];

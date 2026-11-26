@@ -3,6 +3,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkd
 import { RateLimitedInteractionHandler } from "../../support/interactions/RateLimitedInteractionHandler";
 import { VOICE_BUTTON_ACTIONS } from "../../modules/voice/voicePanel";
 import { runVoiceInteraction } from "../../modules/voice/voiceInteractions";
+import { VoiceUserError } from "../../modules/voice/VoiceService";
+import { DeadlineExceededError, PRE_ACKNOWLEDGEMENT_DEADLINE_MS, withDeadline } from "../../shared/async/withDeadline";
 import { voiceKickPicker } from "../../modules/voice/voiceKickPicker";
 import { createPanelBanner } from "../../shared/discord/imageFactory";
 import { PANEL_COLORS } from "../../shared/discord/panelStyle";
@@ -27,7 +29,9 @@ export class VoiceButton extends RateLimitedInteractionHandler<ButtonInteraction
       }
       const action = interaction.customId.slice(6) as typeof VOICE_BUTTON_ACTIONS[number];
       if (action === "rename" || action === "limit") {
-        const { channel } = await service.authorize(interaction.guild!, interaction.user.id, interaction.channelId, undefined, interaction.message.id);
+        // A modal cannot follow a defer, so this check runs under the acknowledgement deadline.
+        const { channel } = await withDeadline(service.authorize(interaction.guild!, interaction.user.id, interaction.channelId, undefined, interaction.message.id), PRE_ACKNOWLEDGEMENT_DEADLINE_MS)
+          .catch((error: unknown) => { throw error instanceof DeadlineExceededError ? new VoiceUserError("Voice controls are busy right now. Try again in a moment.") : error; });
         const input = new TextInputBuilder().setCustomId("value").setLabel(action === "rename" ? "Room name" : "User limit (0–99; 0 = unlimited)")
           .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(action === "rename" ? 100 : 2)
           .setValue(action === "rename" ? channel.name : String(channel.userLimit));

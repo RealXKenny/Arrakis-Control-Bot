@@ -1,5 +1,6 @@
 import type { PanelStorage } from "../infrastructure/database/panels/PanelRepository";
 import type { ReleaseAnnouncementStorage } from "../infrastructure/database/releases/ReleaseAnnouncementRepository";
+import type { DashboardChangelogClient } from "../infrastructure/http/dashboard/DashboardChangelogClient";
 import type { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
 import type { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
 import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
@@ -16,7 +17,7 @@ import type { MessageArchiveService } from "../modules/audit/MessageArchiveServi
 
 declare module "discord.js" {
   interface Client {
-    githubToken?: string;
+    dashboardChangelog?: DashboardChangelogClient;
     panelStorage?: PanelStorage;
     releaseAnnouncements?: ReleaseAnnouncementStorage;
     honeypot?: HoneypotService;
@@ -49,5 +50,6 @@ declare module "discord.js" {
     versionAnnouncementIntervalMinutes?: number;
     interactionRateLimiter: RateLimiter;
     tickets: TicketRepository | null;
+    allowedGuildIds: readonly string[];
   }
 }
