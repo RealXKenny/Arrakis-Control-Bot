@@ -47,11 +47,11 @@ export function loadedTracks(result: LavalinkResponse | undefined, requestedQuer
 
 function searchIntent(value: string): SearchIntent {
   const quoted = value.trim().match(/^["“”'‘’]\s*(.+?)\s*["“”'‘’]\s+by\s+(.+)$/i);
-  if (quoted) return createSearchIntent(quoted[1]!, quoted[2]!);
+  if (quoted) return createSearchIntent(quoted[1], quoted[2]);
 
   const cleaned = value.trim().replace(/^["“”'‘’]+|["“”'‘’]+$/g, "").trim();
   const artistTitle = cleaned.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-  if (artistTitle) return createSearchIntent(artistTitle[2]!, artistTitle[1]!);
+  if (artistTitle) return createSearchIntent(artistTitle[2], artistTitle[1]);
   return createSearchIntent(cleaned);
 }
 

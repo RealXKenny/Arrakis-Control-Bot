@@ -5,10 +5,10 @@ import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+import { PANEL_COLORS, pickPanelAccent } from "../../../shared/discord/panelStyle";
 
 // A busy channel running /server status together shares one Console round trip per area.
 const STATUS_CACHE = { cacheTtlMs: 10_000 } as const;
-import { PANEL_COLORS, PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
 
 const IMAGE_NAME = "dune-server-status.png";
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
@@ -17,8 +17,6 @@ const COLORS = {
   success: PANEL_COLORS.accent,
   error: PANEL_COLORS.danger,
 } as const;
-
-const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
 
 interface GameServer {
   map: string;
@@ -156,7 +154,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
 
     const healthy = statusData.overall === "READY" && readinessData.failed === 0;
 
-    const accentColor = healthy ? getRandomAccentColor() : COLORS.error;
+    const accentColor = healthy ? pickPanelAccent() : COLORS.error;
 
     const banner = createStatusBanner({
       serverName,
@@ -610,10 +608,6 @@ function createStatusBanner({ serverName, healthy, overall, population, region }
   });
 }
 
-function getRandomAccentColor(): number {
-  return ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)];
-}
-
 function getSection(stdout: string, regex: RegExp): string {
   return stdout.match(regex)?.[1]?.trim() ?? "";
 }
@@ -674,6 +668,5 @@ function getErrorMessage(error: unknown): string {
 }
 
 export { parseServices };
-
 
 export const groupedAction = { data, execute };

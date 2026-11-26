@@ -29,7 +29,7 @@ function sweepSessions(now = Date.now()): void {
 function createMarketSession(options: { ownerId: string; requestedBy: string; search?: string; category?: string; seller?: string; page?: number }): MarketSession {
   sweepSessions();
   while (sessions.size >= MAX_SESSIONS) {
-    const oldestId = sessions.keys().next().value as string | undefined;
+    const oldestId = sessions.keys().next().value;
     if (!oldestId) break;
     sessions.delete(oldestId);
   }

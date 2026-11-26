@@ -89,6 +89,7 @@ describe("chat configuration and game wire format", () => {
     expect(() => loadChatBridgeConfig({ ...env, RABBITMQ_URL: "https://remote.example.com" })).toThrow("RABBITMQ_URL");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_FUNCOM_ID: "" })).toThrow("CHAT_BRIDGE_FUNCOM_ID");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify([route, route]) })).toThrow("CHAT_BRIDGE_ROUTES");
+    for (const routes of [[null], ["text"], [{ ...route, guildId: 123456789012345678 }]]) expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify(routes) })).toThrow("CHAT_BRIDGE_ROUTES");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify([{ ...route, map: "#" }]) })).toThrow("CHAT_BRIDGE_ROUTES");
   });
 
@@ -106,7 +107,7 @@ describe("chat configuration and game wire format", () => {
   });
 
   it("ignores malformed, oversized, private and non-chat messages", () => {
-    for (const body of [Buffer.from("invalid"), Buffer.alloc(65537), Buffer.from("null"), Buffer.from('{"Type":"Other"}')]) expect(decodeMapChat(body)).toBeNull();
+    for (const body of [Buffer.from("invalid"), Buffer.alloc(65537), Buffer.from("null"), Buffer.from('{"Type":"Other"}'), Buffer.from("[]"), Buffer.from('{"Type":"TextChat","content":"[1]"}'), Buffer.from('{"Type":"TextChat","content":{"m_ChannelType":"Map","m_FuncomIdFrom":"Player#1","m_Id":"x","m_Message":"text"}}')]) expect(decodeMapChat(body)).toBeNull();
     const outer = JSON.parse(encodeMapChat("Player#1234", "private").body.toString());
     const payload = JSON.parse(outer.content);
     payload.m_ChannelType = "Whisper";

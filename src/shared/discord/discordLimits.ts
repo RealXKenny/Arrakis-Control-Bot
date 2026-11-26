@@ -28,7 +28,7 @@ function truncateDiscordText(value: string, maximumLength: number, suffix = DEFA
 
 function countDisplayableText(value: unknown): number {
   // Dev note: Components V2 counts every visible grain of text in the sandbox.
-  if (Array.isArray(value)) return value.reduce((total, child) => total + countDisplayableText(child), 0);
+  if (Array.isArray(value)) return (value as unknown[]).reduce<number>((total, child) => total + countDisplayableText(child), 0);
   if (!value || typeof value !== "object") return 0;
 
   const record = value as Record<string, unknown>;
@@ -42,7 +42,7 @@ function countDisplayableText(value: unknown): number {
 }
 
 function countComponents(value: unknown): number {
-  if (Array.isArray(value)) return value.reduce((total, child) => total + countComponents(child), 0);
+  if (Array.isArray(value)) return (value as unknown[]).reduce<number>((total, child) => total + countComponents(child), 0);
   if (!value || typeof value !== "object") return 0;
 
   const record = value as Record<string, unknown>;

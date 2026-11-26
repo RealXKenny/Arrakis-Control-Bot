@@ -23,7 +23,7 @@ function sweepHelpSessions(now = Date.now()): void {
 function createHelpSession(options: { ownerId: string; requestedBy: string; categoryId?: string }): HelpSession {
   sweepHelpSessions();
   while (sessions.size >= MAX_SESSIONS) {
-    const oldest = sessions.keys().next().value as string | undefined;
+    const oldest = sessions.keys().next().value;
     if (!oldest) break;
     sessions.delete(oldest);
   }

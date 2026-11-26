@@ -82,7 +82,7 @@ class MessageArchiveService {
   public async bulkDeleted(messages: ReadonlyMap<Snowflake, Message | PartialMessage>): Promise<void> {
     const archived = await Promise.all([...messages.values()].filter((message) => Boolean(message.guildId)).map((message) => this.repository.markDeleted(snapshot(message))));
     if (archived.length === 0) return;
-    const first = archived[0]!;
+    const first = archived[0];
     const samples = archived.slice(0, 8).map((message) => `• ${message.messageId} · ${safe(message.authorTag)}: ${safe(truncateDiscordText(message.content || "[No text content]", 180)).replace(/\n/g, " ")}`);
     await this.auditLogger.sendTo(this.auditLogger.activityChannelId, "Messages bulk deleted", [
       `**Channel:** <#${first.channelId}> (${first.channelId})`,

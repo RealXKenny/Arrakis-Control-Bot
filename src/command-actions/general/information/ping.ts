@@ -2,13 +2,9 @@ import { ChatInputCommandInteraction, ContainerBuilder, MediaGalleryBuilder, Med
 
 import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { createV2Response } from "../../../shared/discord/componentFactory";
-import { PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
-
-const ACCENT_COLORS = PANEL_ACCENT_ROTATION;
+import { pickPanelAccent } from "../../../shared/discord/panelStyle";
 
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
-
-const getRandomAccentColor = (): number => ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)];
 
 const formatPing = (ping: number): string => (ping >= 0 ? `${ping}ms` : "Measuring...");
 
@@ -20,7 +16,7 @@ const command = {
 
     const serverName = process.env.SERVER_NAME ?? DEFAULT_SERVER_NAME;
 
-    const accentColor = getRandomAccentColor();
+    const accentColor = pickPanelAccent();
 
     const sent = await interaction.reply({
       components: [
@@ -73,8 +69,5 @@ const command = {
     });
   },
 };
-
-
-
 
 export const groupedAction = command;

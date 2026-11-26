@@ -26,6 +26,8 @@ All notable changes to Arrakis Control Bot are documented here.
 - The Pterodactyl egg hides credential variables (`TOKEN`, `CONSOLE_API_KEY`, `ADAPTER_TOKEN`, `API_KEY`, `DATABASE_URL`, `RABBITMQ_URL`, `LAVALINK_PASSWORD`, `AUTO_UPDATE_GITHUB_TOKEN`) from the server owner and subusers; a panel administrator enters them. Reinstalling over an existing installation no longer changes any file.
 - The README follows the dashboard's layout; detailed feature documentation moved to `guides/features.md`, and `guides/README.md` lists every guide.
 - Code cleanup with no change in behaviour: removed unused exports and an unused request logger, shared the duplicated canvas, record-check and ticket text-escaping helpers, dropped the redundant `@types/amqplib` (amqplib ships its own types) and declared `@sapphire/utilities`, which the bot already imported.
+- Stricter handling of untrusted data: in-game chat messages, `CHAT_BRIDGE_ROUTES` and player directory rows are checked field by field instead of being read as untyped JSON. Route IDs written as JSON numbers are now rejected; write them as strings, because 18-digit numbers lose precision in JSON. The audit-log poller's timer no longer passes a promise where Discord.js expects a plain callback, and panels share one accent-colour helper.
+- The release workflow starts only for CI runs on `main`, so pushes to pull requests and release branches no longer create a skipped release run.
 
 ### Upgrading from 2.0.0
 

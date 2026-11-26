@@ -12,7 +12,6 @@ import {
   type TextChannel,
 } from "discord.js";
 
-import type { DiscordAdapterPlayerState } from "../../infrastructure/http/discord-adapter/DiscordAdapterClient";
 import type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord } from "../../infrastructure/database/tickets/TicketRepository";
 import { createLogger } from "../../client/logger";
 import { createV2Response } from "../../shared/discord/componentFactory";
@@ -355,7 +354,7 @@ async function loadDuneAccount(interaction: ModalSubmitInteraction): Promise<{ s
   }
 
   try {
-    const player = (await adapter.getCurrentPlayer(createActorContext(interaction, "ticket-create"))) as DiscordAdapterPlayerState | null;
+    const player = await adapter.getCurrentPlayer(createActorContext(interaction, "ticket-create"));
 
     if (player?.linked !== true) {
       return { status: "unlinked", account: null };

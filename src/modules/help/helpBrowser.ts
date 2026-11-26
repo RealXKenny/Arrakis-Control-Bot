@@ -12,7 +12,7 @@ const ACCESS_ICONS: Record<HelpAccess, string> = { Everyone: "üåê", Staff: "üõ
 type HelpInteraction = ChatInputCommandInteraction | ButtonInteraction | StringSelectMenuInteraction;
 
 function createHelpCard(session: HelpSession): ContainerBuilder {
-  const category = getHelpCategory(session.categoryId) ?? HELP_CATEGORIES[0]!;
+  const category = getHelpCategory(session.categoryId) ?? HELP_CATEGORIES[0];
   const totalPages = Math.max(1, Math.ceil(category.commands.length / PAGE_SIZE));
   session.totalPages = totalPages;
   session.page = Math.min(Math.max(1, session.page), totalPages);

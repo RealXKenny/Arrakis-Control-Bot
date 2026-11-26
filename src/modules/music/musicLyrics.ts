@@ -93,7 +93,7 @@ export class MusicLyrics {
     const queries = searchQueries(metadata.title);
     for (let index = 0; index < queries.length; index++) {
       await this.pause(SEARCH_DELAY_MS);
-      const query = queries[index]!;
+      const query = queries[index];
       const searchUrl = new URL(`${LRCLIB_API}/search`);
       searchUrl.searchParams.set("q", query.slice(0, 300));
       const response = await requestJson(searchUrl);

@@ -156,7 +156,7 @@ const command = {
 
 
 function toPlayerResponse(value: unknown): PlayerResponse {
-  return Array.isArray(value) || (value !== null && typeof value === "object") ? (value as PlayerResponse) : null;
+  return Array.isArray(value) || (value !== null && typeof value === "object") ? value : null;
 }
 
 

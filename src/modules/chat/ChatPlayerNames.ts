@@ -1,4 +1,5 @@
 import type { DuneApi } from "../../infrastructure/http/dune-console/DuneApi";
+import { isRecord } from "../../shared/validation/isRecord";
 
 const PAGE_SIZE = 200;
 const MAX_PAGES = 25;
@@ -33,8 +34,8 @@ export class ChatPlayerNames {
     for (let page = 0; page < MAX_PAGES; page++) {
       const result = await this.api.call("GET", "/api/players", { query: { page, pageSize: PAGE_SIZE, status: "all" } });
       if (!result || typeof result !== "object" || !("rows" in result) || !Array.isArray(result.rows)) throw new Error("Invalid player directory.");
-      for (const row of result.rows.slice(0, PAGE_SIZE)) {
-        if (!row || typeof row.funcom_id !== "string" || !row.funcom_id
+      for (const row of (result.rows as unknown[]).slice(0, PAGE_SIZE)) {
+        if (!isRecord(row) || typeof row.funcom_id !== "string" || !row.funcom_id
           || typeof row.character_name !== "string" || !row.character_name.trim()) continue;
         const name = row.character_name.trim();
         if (name.length > 100 || [...name].some((c) => c.charCodeAt(0) < 32)) continue;

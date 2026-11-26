@@ -191,7 +191,7 @@ class LevelRepository implements LevelStorage {
        RETURNING guild_id, starts_at, ends_at, created_by`,
       [guildId, startsAt, endsAt, createdBy],
     );
-    return mapLevelEvent(result.rows[0]!);
+    return mapLevelEvent(result.rows[0]);
   }
 
   public async upcomingEvent(guildId: string): Promise<LevelEvent | null> {
