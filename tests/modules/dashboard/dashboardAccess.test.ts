@@ -39,4 +39,11 @@ describe("dashboard request access", () => {
     sessions.revoke.mockRejectedValueOnce(new Error("offline"));
     await expect(service.logout("token")).rejects.toThrow("offline");
   });
+
+  it("identifies a session without granting guild access", async () => {
+    const { service, guild } = setup();
+    expect(await service.identify("token")).toBe(userId);
+    expect(await service.identify(undefined)).toBeNull();
+    expect(guild.members.fetch).not.toHaveBeenCalled();
+  });
 });

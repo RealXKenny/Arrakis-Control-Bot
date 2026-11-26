@@ -7,6 +7,7 @@ import { loadMusicConfig, type MusicConfig } from "./music";
 import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
 import { loadStaffApplicationConfig, type StaffApplicationConfig } from "./staffApplications";
 import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogClient";
+import { loadManagementDashboardConfig, type ManagementDashboardConfig } from "./managementDashboard";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
@@ -49,6 +50,7 @@ interface EnvironmentConfig {
   databaseSslVerify: boolean;
   versionAnnouncementIntervalMinutes: number;
   dashboardUrl?: string;
+  managementDashboard?: ManagementDashboardConfig;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   logLevel: string;
@@ -224,6 +226,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     databaseSslVerify,
     versionAnnouncementIntervalMinutes,
     dashboardUrl,
+    managementDashboard: loadManagementDashboardConfig(process.env),
     interactionCooldownMs,
     rateLimitMaxEntries,
     logLevel,

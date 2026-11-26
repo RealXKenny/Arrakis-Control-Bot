@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { Pool } from "pg";
 
-export type DashboardRateScope = "global" | "oauth" | "access" | "logout";
+export type DashboardRateScope = "global" | "oauth" | "access" | "logout" | "write";
 
 /** Atomic, shared fixed-window limits. The database never stores raw client addresses. */
 export class DashboardRateLimitRepository {
@@ -24,7 +24,7 @@ export class DashboardRateLimitRepository {
   }
 
   public async consume(scope: DashboardRateScope, subject: string, limit: number, windowSeconds: number): Promise<boolean> {
-    if (!["global", "oauth", "access", "logout"].includes(scope) || !subject || subject.length > 256 ||
+    if (!["global", "oauth", "access", "logout", "write"].includes(scope) || !subject || subject.length > 256 ||
         !Number.isInteger(limit) || limit < 1 || limit > 1000 ||
         !Number.isInteger(windowSeconds) || windowSeconds < 1 || windowSeconds > 86400) {
       throw new Error("Invalid dashboard rate limit");

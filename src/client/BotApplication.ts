@@ -33,6 +33,9 @@ import { MessageArchiveService } from "../modules/audit/MessageArchiveService";
 import { HoneypotService } from "../modules/moderation/honeypot/HoneypotService";
 import { HoneypotRepository } from "../infrastructure/database/honeypot/HoneypotRepository";
 import type { HoneypotConfig } from "../infrastructure/config/honeypot";
+import type { ManagementDashboardConfig } from "../infrastructure/config/managementDashboard";
+import { isPrimaryShard } from "../shared/process/shardIdentity";
+import { createManagementDashboard, type ManagementDashboard } from "./managementDashboard";
 
 export type BotClient = ArrakisClient;
 
@@ -70,6 +73,7 @@ interface BotConfig {
   databaseSslVerify?: boolean;
   versionAnnouncementIntervalMinutes?: number;
   dashboardUrl?: string;
+  managementDashboard?: ManagementDashboardConfig;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   duneDiscordAuditChannelId?: string | null;
@@ -96,6 +100,10 @@ function createBotApplication(config: BotConfig) {
   configLogger.info(client.honeypot ? `Honeypot enabled: action=${client.honeypot.config.action}, channel=${client.honeypot.config.channelId}.` : "Honeypot disabled: configure HONEYPOT_CHANNEL_ID and HONEYPOT_LOG_CHANNEL_ID to enable the panel.");
 
   let isShuttingDown = false;
+  // Dev note: One shard hosts the dashboard; the rest are busy riding worms.
+  const managementDashboard: ManagementDashboard | undefined = config.managementDashboard && client.tickets && isPrimaryShard()
+    ? createManagementDashboard(client, client.tickets.pool, config.managementDashboard, createLogger("DASHBOARD", config.logLevel))
+    : undefined;
 
   async function start(): Promise<void> {
     storageLogger.info("[02] Preparing persistent state.");
@@ -117,6 +125,8 @@ function createBotApplication(config: BotConfig) {
     await client.login(config.discordToken);
 
     discordLogger.debug("Discord login request completed.");
+
+    await managementDashboard?.start();
   }
 
   async function shutdown(signal: string, exitCode = 0): Promise<void> {
@@ -153,6 +163,7 @@ function createBotApplication(config: BotConfig) {
           name: "voice rooms and PostgreSQL connection pool",
           run: async () => {
             try {
+              await managementDashboard?.stop();
               await client.voiceRooms?.stop();
             } finally {
               try {

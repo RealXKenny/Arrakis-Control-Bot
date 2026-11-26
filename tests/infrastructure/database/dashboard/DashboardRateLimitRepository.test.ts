@@ -24,6 +24,7 @@ describe("dashboard shared rate limits", () => {
     expect(() => new DashboardRateLimitRepository({} as Pool, "short")).toThrow();
     const { query, limiter } = setup();
     await expect(limiter.consume("oauth", "", 1, 60)).rejects.toThrow("Invalid dashboard rate limit");
+    await expect(limiter.consume("other" as "oauth", "subject", 1, 60)).rejects.toThrow("Invalid dashboard rate limit");
     expect(query).not.toHaveBeenCalled();
     query.mockRejectedValueOnce(new Error("offline"));
     await expect(limiter.consume("oauth", "subject", 1, 60)).rejects.toThrow("offline");

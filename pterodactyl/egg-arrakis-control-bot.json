@@ -1037,6 +1037,56 @@
       "user_editable": true,
       "rules": "nullable|string",
       "field_type": "text"
+    },
+    {
+      "name": "Management Dashboard HTTPS Origin",
+      "description": "Optional beta. Public HTTPS origin of the management dashboard behind a TLS reverse proxy; empty disables it. Requires CLIENT_ID and DATABASE_URL.",
+      "env_variable": "MANAGEMENT_DASHBOARD_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Management Dashboard Host",
+      "description": "Optional bot setting (MANAGEMENT_DASHBOARD_HOST). See .env.example in the repository.",
+      "env_variable": "MANAGEMENT_DASHBOARD_HOST",
+      "default_value": "0.0.0.0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Management Dashboard Port",
+      "description": "Port the management dashboard listens on inside the container; use an allocated port when exposing it.",
+      "env_variable": "MANAGEMENT_DASHBOARD_PORT",
+      "default_value": "3001",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Discord OAuth Client Secret",
+      "description": "Discord application OAuth2 client secret for dashboard sign-in. Treat as a secret.",
+      "env_variable": "MANAGEMENT_DASHBOARD_CLIENT_SECRET",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Dashboard Rate-Limit Secret",
+      "description": "At least 32 random characters used to hash client addresses for rate limits. Treat as a secret.",
+      "env_variable": "MANAGEMENT_DASHBOARD_RATE_LIMIT_SECRET",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
     }
   ]
 }

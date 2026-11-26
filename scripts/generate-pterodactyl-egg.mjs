@@ -114,6 +114,9 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     RABBITMQ_CA_FILE: "RabbitMQ CA File",
     LAVALINK_URL: "Lavalink URL",
     LAVALINK_PASSWORD: "Lavalink Password",
+    MANAGEMENT_DASHBOARD_URL: "Management Dashboard HTTPS Origin",
+    MANAGEMENT_DASHBOARD_CLIENT_SECRET: "Discord OAuth Client Secret",
+    MANAGEMENT_DASHBOARD_RATE_LIMIT_SECRET: "Dashboard Rate-Limit Secret",
   };
   const details = {
     TOKEN: "Required. Discord bot token. Treat as a secret.",
@@ -126,6 +129,10 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     CHAT_BRIDGE_ROUTES: "JSON array of {guildId, channelId, map} routes; required when RabbitMQ chat is enabled.",
     VOICE_GUILD_ID: "Optional Discord server ID override for voice rooms; otherwise GUILD_ID is used.",
     MUSIC_GUILD_ID: "Optional Discord server ID override for music; otherwise GUILD_ID is used.",
+    MANAGEMENT_DASHBOARD_URL: "Optional beta. Public HTTPS origin of the management dashboard behind a TLS reverse proxy; empty disables it. Requires CLIENT_ID and DATABASE_URL.",
+    MANAGEMENT_DASHBOARD_PORT: "Port the management dashboard listens on inside the container; use an allocated port when exposing it.",
+    MANAGEMENT_DASHBOARD_CLIENT_SECRET: "Discord application OAuth2 client secret for dashboard sign-in. Treat as a secret.",
+    MANAGEMENT_DASHBOARD_RATE_LIMIT_SECRET: "At least 32 random characters used to hash client addresses for rate limits. Treat as a secret.",
   };
   const name = labels[key] ?? key.split("_").map((word) => word === "ID" ? "ID" : word[0] + word.slice(1).toLowerCase()).join(" ");
   return {

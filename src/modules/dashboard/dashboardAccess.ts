@@ -26,6 +26,11 @@ export class DashboardAccessService {
     }
   }
 
+  /** Resolves a session to its user without a guild check; never use it to authorize guild data. */
+  public async identify(token: string | undefined): Promise<string | null> {
+    return token ? this.sessions.getUserId(token) : null;
+  }
+
   public async logout(token: string | undefined): Promise<void> {
     if (token) await this.sessions.revoke(token);
   }
