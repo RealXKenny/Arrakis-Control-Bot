@@ -40,7 +40,7 @@ src/
 ├── commands/                             Sapphire Command store
 │   ├── groups/                           Top-level grouped command adapters
 │   ├── administration/operations/
-│   ├── community/{music,voice}/
+│   ├── community/{music,poker,voice}/
 │   ├── economy/{leaderboard,market}/
 │   ├── general/{help,information}/
 │   ├── moderation/{members,messages}/

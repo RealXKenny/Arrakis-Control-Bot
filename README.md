@@ -136,6 +136,10 @@ The production start path was previously verified with configured live services.
 - `CLIENT_ID` remains optional configuration; Sapphire uses the authenticated application when synchronizing registered commands.
 - Use `LOG_LEVEL=DEBUG` temporarily when diagnosing integration or interaction failures. Logs do not intentionally include tokens or authorization headers.
 
+## Poker Activity
+
+`/poker` opens Arrakis Hold'em, a play-money Texas Hold'em table for up to four players that runs as a Discord Activity inside the channel. A player without a second person can add AI opponents from the table. Chips have no value and are never Solari. The game is served by the Arrakis Control Dashboard; the bot only asks Discord to launch it, so the bot needs no new configuration or open ports. Setup is in [guides/poker.md](guides/poker.md).
+
 ## Weekly Coriolis storm panel
 
 Set `STORM_CHANNEL_ID` in `.env` to enable one persistent Coriolis storm panel with a modern banner, clear status, start/end dates, and live Discord countdowns. Every minute, the bot reads `coriolisNextCycleAt` from `GET /api/map/markers`, uses it as the storm end, and calculates the start as exactly 24 hours earlier. It edits the same message when the cycle or storm phase changes, and recreates the panel if deleted.
