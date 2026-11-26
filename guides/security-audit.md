@@ -20,7 +20,7 @@ Scope: the whole `v2` branch before the December 1, 2026 launch. That covers com
 ## Reviewed with no change needed
 
 - SQL is parameterized everywhere. The only interpolated values are code constants.
-- Grouped commands check Owner or Staff roles at execution time with a forced member fetch. Ticket close, claim and review, help, market and leaderboard sessions, voice rooms, staff application reviews and bot control all check the acting user.
+- Grouped commands check Owner or Staff roles at execution time, using the member roles Discord sends with each interaction (no REST round trip before acknowledging). Ticket close, claim and review, help, market and leaderboard sessions, voice rooms, staff application reviews and bot control all check the acting user.
 - Backup imports and blueprint uploads accept only Discord-hosted HTTPS attachments with size limits.
 - The logger redacts keys that look like tokens, passwords, secrets, cookies or sessions. No secrets were found in git history; the tracked `certificates/*.pem` files are public certificates only.
 - CI runs with `contents: read`, actions are pinned by commit, and only the release publish job gets `contents: write`.
