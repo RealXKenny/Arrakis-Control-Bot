@@ -3,7 +3,7 @@ import { MessageFlags, type Client, type Message, type SendableChannels } from "
 import { createLogger } from "../../client/logger";
 import type { ReleaseAnnouncementChannel } from "../../infrastructure/database/releases/ReleaseAnnouncementRepository";
 import { isPrimaryShard } from "../../shared/process/shardIdentity";
-import { parseReleaseMarker, releasePayload } from "./changelogCard";
+import { parseReleaseMarker, releaseMessages, releasePayload } from "./changelogCard";
 import { loadChangelogEntries, type ChangelogEntry } from "./changelogEntries";
 import { CHANGELOG_PROJECTS } from "./changelogProjects";
 
@@ -81,9 +81,10 @@ async function sendUnannouncedReleases(channel: SendableChannels, stored: Releas
   for (const entry of entries) {
     const key = receiptKey(entry.project.repository, entry.version);
     if (announced.has(key)) continue;
+    const [first, ...continuations] = releaseMessages(entry);
     let message: Message;
     try {
-      message = await channel.send({ ...releasePayload(entry), flags: MessageFlags.IsComponentsV2 });
+      message = await channel.send({ ...first, flags: MessageFlags.IsComponentsV2 });
     } catch (error) {
       failures.push(error);
       continue;
@@ -92,13 +93,27 @@ async function sendUnannouncedReleases(channel: SendableChannels, stored: Releas
     // A failed database write aborts this batch instead of sending more untracked posts.
     await stored.record({ repository: entry.project.repository, version: entry.version, messageId: message.id });
     announced.add(key);
-    if (message.crosspostable) {
-      await message.crosspost().catch((error: unknown) => {
-        logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
-      });
+    await publish(message);
+    // The rest of a long release follows in order. The receipt covers the release, so a failed
+    // continuation is reported and never causes the first message to be posted again.
+    for (const continuation of continuations) {
+      try {
+        await publish(await channel.send({ ...continuation, flags: MessageFlags.IsComponentsV2 }));
+      } catch (error) {
+        logger.warn(`Release ${entry.project.name} v${entry.version} was announced, but a continuation message could not be sent: ${error instanceof Error ? error.message : String(error)}`);
+        failures.push(error);
+        break;
+      }
     }
   }
   if (failures.length) throw new AggregateError(failures, `${failures.length} release check operation(s) failed.`);
+}
+
+async function publish(message: Message): Promise<void> {
+  if (!message.crosspostable) return;
+  await message.crosspost().catch((error: unknown) => {
+    logger.warn(`Release announcement was sent but could not be published: ${error instanceof Error ? error.message : String(error)}`);
+  });
 }
 
 function receiptKey(repository: string, version: string): string { return `${repository}:${version}`; }

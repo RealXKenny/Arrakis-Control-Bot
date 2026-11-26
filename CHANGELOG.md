@@ -2,7 +2,7 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
-## [2.0.0] - 2026-12-01
+## [2.0.0] - 2026-11-25
 
 ### Highlights
 
@@ -15,20 +15,20 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Upgrading from 1.11.7
 
-- Back up the PostgreSQL database and the server's `.env` first ([guides/operations.md](guides/operations.md)).
+- Back up the PostgreSQL database and the server's `.env` first ([guides/operations.md](https://github.com/RealXKenny/Arrakis-Control-Bot/blob/main/guides/operations.md)).
 - Import the new Pterodactyl egg, set `RELEASE_TAG` to `v2.0.0` or `latest`, and reinstall. The GHCR image is no longer published, so image-based servers must move their configuration to the new egg.
 - Set `DASHBOARD_URL` to the HTTPS origin of a dashboard that serves `/api/v2/changelog`. Release announcements still require PostgreSQL.
 - Optional settings: `ALLOWED_GUILD_IDS` (defaults to `GUILD_ID`), `DATABASE_POOL_MAX`, `DATABASE_BACKGROUND_POOL_MAX`, `DATABASE_STATEMENT_TIMEOUT_MS`, `RUNTIME_METRICS_INTERVAL_SECONDS`, `HEALTH_FILE` and `MESSAGE_ARCHIVE_RETENTION_DAYS` (off by default; deletions are permanent). See `.env.example`.
-- For `/poker`, enable Activities on the bot's Discord application, map the root URL to the dashboard host, and set `POKER_ACTIVITY_ENABLED=true` on the dashboard ([guides/poker.md](guides/poker.md)).
+- For `/poker`, enable Activities on the bot's Discord application, map the root URL to the dashboard host, and set `POKER_ACTIVITY_ENABLED=true` on the dashboard ([guides/poker.md](https://github.com/RealXKenny/Arrakis-Control-Bot/blob/main/guides/poker.md)).
 - On first start, migrations run once under an advisory lock and the bot refuses to start against a newer schema. Check that the `METRICS` log line reports `ready=yes`. To roll back, follow the runbook and restore the pre-upgrade backup.
 
 ### Added
 
 - Runtime metrics: a one-line health summary every `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60) with event-loop delay, memory, gateway ping, database reachability and pool pressure, archive buffer depth, Discord rate limits and open upstream circuits, plus warnings. Set `HEALTH_FILE` to also write it as JSON for container health checks. The bot still opens no port.
 - Versioned database migrations: a `schema_migrations` table, ordered migrations applied once under an advisory lock, and a refusal to start against a schema from a newer release.
-- Load and soak tests with latency budgets (`npm run test:load`, also run in CI), weekly grouped Dependabot updates, and an [operations runbook](guides/operations.md) with backups, a restore drill, health signals and rollback steps.
-- Add `/poker`, which opens Arrakis Hold'em, a play-money Texas Hold'em Discord Activity hosted by the Arrakis Control Dashboard, for up to four players with optional AI opponents. Chips are never Solari. The bot only launches the Activity; if Discord refuses, the member gets a private notice. Requires Activities and a URL mapping on the bot's application and `POKER_ACTIVITY_ENABLED=true` on the dashboard. See [guides/poker.md](guides/poker.md).
-- Add a deterministic export of dated bot release history for the dashboard (`scripts/sync-dashboard-changelog.mjs`), with format validation and protection against overwriting unrelated files. It is manual by design so a person reviews public notes; see [guides/changelog-synchronization.md](guides/changelog-synchronization.md).
+- Load and soak tests with latency budgets (`npm run test:load`, also run in CI), weekly grouped Dependabot updates, and an [operations runbook](https://github.com/RealXKenny/Arrakis-Control-Bot/blob/main/guides/operations.md) with backups, a restore drill, health signals and rollback steps.
+- Add `/poker`, which opens Arrakis Hold'em, a play-money Texas Hold'em Discord Activity hosted by the Arrakis Control Dashboard, for up to four players with optional AI opponents. Chips are never Solari. The bot only launches the Activity; if Discord refuses, the member gets a private notice. Requires Activities and a URL mapping on the bot's application and `POKER_ACTIVITY_ENABLED=true` on the dashboard. See [guides/poker.md](https://github.com/RealXKenny/Arrakis-Control-Bot/blob/main/guides/poker.md).
+- Add a deterministic export of dated bot release history for the dashboard (`scripts/sync-dashboard-changelog.mjs`), with format validation and protection against overwriting unrelated files. It is manual by design so a person reviews public notes; see [guides/changelog-synchronization.md](https://github.com/RealXKenny/Arrakis-Control-Bot/blob/main/guides/changelog-synchronization.md).
 - Add `/leaderboard`, a public, paginated Solari leaderboard. It ranks players from the Dune Console player directory and per-player `solaris-coin` totals, keeps balances as decimal strings, caches the ranking for five minutes, and binds First/Previous/Next/Last controls to the requester for 15 minutes. It is listed in `/help` under Community & World.
 
 ### Changed
@@ -39,7 +39,7 @@ All notable changes to Arrakis Control Bot are documented here.
 - Per-user cooldowns for commands that call slow services: 10 seconds for `/server status`, `/server vps`, `/player list`, `/player profile` and `/backup list`; 30 seconds for update checks; 60 seconds for backup create, import and download.
 - Level, leaderboard, achievement and member cards encode their PNGs on a worker thread, and static panel banners are cached, so image work no longer blocks the gateway.
 - PostgreSQL outages no longer stop the bot. Startup waits and retries with backoff, and a dropped connection during runtime is logged and replaced on the next query.
-- Release announcements use a fixed order for releases on the same day (product, then version), so every run posts in the same sequence.
+- Release announcements always post every new bot release before the dashboard, each product oldest to newest, so the newest release sits at the bottom of the channel and every run posts in the same order. Notes too long for one Discord message continue in up to four follow-up messages ("part 2 of 3") instead of being cut off; one receipt still covers the whole release, so nothing is reposted.
 - Stability for one busy guild: separate interactive and background PostgreSQL pools with configurable sizes and statement timeouts (`DATABASE_POOL_MAX`, `DATABASE_BACKGROUND_POOL_MAX`, `DATABASE_STATEMENT_TIMEOUT_MS`); batch message-archive inserts with a bounded buffer that is flushed before edits, deletes and shutdown; skip XP database work inside the per-member cooldown; bound Discord message caches with a sweeper; and add optional archive retention (`MESSAGE_ARCHIVE_RETENTION_DAYS`, off by default).
 - Align CI and release security with the dashboard: pin actions, verify merge-queue and V2 pushes, and validate checksummed source artifacts before granting the separate publish job write permissions.
 - Replace the bot-specific GHCR image release and egg with a checksummed source archive and Node.js 24 Pterodactyl installer. Existing image-based installations must import the new egg and reinstall or migrate their configuration.
@@ -53,7 +53,7 @@ All notable changes to Arrakis Control Bot are documented here.
 ### Fixed
 
 - Security: the bot now leaves any guild outside `ALLOWED_GUILD_IDS` (default `GUILD_ID`), but never leaves anything if none of the allowed guilds is present. Slash commands are registered for guild installs and guild contexts only.
-- Security: reject `.` and `..` Dune Console route parameters, refuse redirects on credentialed and attachment requests, bound Dune Console, Discord Adapter and Convoy response sizes, restrict blueprint audit downloads to Discord's CDN, fail the `StaffOnly` precondition closed outside guilds, and default the client to `allowedMentions: { parse: [] }`. See [guides/security-audit.md](guides/security-audit.md).
+- Security: reject `.` and `..` Dune Console route parameters, refuse redirects on credentialed and attachment requests, bound Dune Console, Discord Adapter and Convoy response sizes, restrict blueprint audit downloads to Discord's CDN, fail the `StaffOnly` precondition closed outside guilds, and default the client to `allowedMentions: { parse: [] }`. See [guides/security-audit.md](https://github.com/RealXKenny/Arrakis-Control-Bot/blob/main/guides/security-audit.md).
 - Stop already-running shard processes when a later shard fails during manager startup.
 - Bound the one-time release-announcement history import to 10,000 messages. If the limit is reached, stop without marking the import complete or posting announcements, rather than risking duplicates from an incomplete scan.
 
@@ -64,7 +64,7 @@ All notable changes to Arrakis Control Bot are documented here.
 ### Verification
 
 - Build, lint, typecheck, the full test suite, the load and soak tests, and the production dependency audit pass in CI on Node.js 24.
-- Live Discord, PostgreSQL, Dune Console, the Pterodactyl install on Node.js 24, the poker Activity launch, and release publication were not verified before release.
+- Live Discord (including split release posts), PostgreSQL, Dune Console, the Pterodactyl install on Node.js 24, the poker Activity launch, and release publication were not verified before release.
 
 ## [1.11.7] - 2026-11-05
 

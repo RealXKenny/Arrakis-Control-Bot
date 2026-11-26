@@ -122,16 +122,16 @@ describe("version announcements", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
-  it("announces the newest release first with project links", async () => {
+  it("announces the bot release before the dashboard even when the dashboard release is newer", async () => {
     const { client, send, fetchMock } = setup();
     await announceCurrentVersion(client, "announcements");
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledTimes(2);
     const cards = send.mock.calls.map(([payload]) => JSON.stringify(payload.components[0].toJSON()));
-    expect(cards[0]).toContain("## Arrakis Control Dashboard v1.0.0");
-    expect(cards[0]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Dashboard"');
-    expect(cards[1]).toContain("## Arrakis Control Bot v1.0.0");
-    expect(cards[1]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot"');
+    expect(cards[0]).toContain("## Arrakis Control Bot v1.0.0");
+    expect(cards[0]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot"');
+    expect(cards[1]).toContain("## Arrakis Control Dashboard v1.0.0");
+    expect(cards[1]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Dashboard"');
   });
 
   it("does not announce when a project is missing", async () => {
@@ -148,7 +148,7 @@ describe("version announcements", () => {
     await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("1 release check operation");
 
     expect(send).toHaveBeenCalledTimes(2);
-    expect(JSON.stringify(send.mock.calls[1][0].components[0].toJSON())).toContain("## Arrakis Control Bot v1.0.0");
+    expect(JSON.stringify(send.mock.calls[1][0].components[0].toJSON())).toContain("## Arrakis Control Dashboard v1.0.0");
   });
 
   it("reports a failed check when dashboard release information is unavailable", async () => {
@@ -174,7 +174,7 @@ describe("version announcements", () => {
   it("saves each sent message before crossposting and skips it after a restart without reading history", async () => {
     const { client, send, channel, stored, crosspost } = setup();
     await announceCurrentVersion(client, "announcements");
-    expect(stored.record).toHaveBeenCalledWith({ repository: "RealXKenny/Arrakis-Control-Dashboard", version: "1.0.0", messageId: "sent-1" });
+    expect(stored.record).toHaveBeenCalledWith({ repository: "RealXKenny/Arrakis-Control-Bot", version: "1.0.0", messageId: "sent-1" });
     expect(vi.mocked(stored.record).mock.invocationCallOrder[0]).toBeLessThan(crosspost.mock.invocationCallOrder[0]);
     channel.messages.fetch.mockClear();
     await announceCurrentVersion({ ...client } as Client, "announcements");
@@ -259,18 +259,42 @@ describe("version announcements", () => {
     expect(crosspost).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps large release announcements below Discord's displayable text limit", async () => {
-    const { client, send } = setup([], "A very large release note. ".repeat(500));
+  it("splits a long release into ordered messages, bot first, each under Discord's displayable text limit", async () => {
+    const { client, send, stored, crosspost } = setup([], "A very large release note. ".repeat(500));
 
     await announceCurrentVersion(client, "announcements");
 
-    const card = send.mock.calls.map(([payload]) => payload.components[0].toJSON())
-      .find((candidate) => JSON.stringify(candidate).includes("## Arrakis Control Bot v1.0.0"))!;
-    const displayableText = collectDisplayableText(card);
+    const cards = send.mock.calls.map(([payload]) => payload.components[0].toJSON());
+    const texts = cards.map(collectDisplayableText);
+    expect(cards.length).toBeGreaterThan(2);
+    for (const card of cards) expect(countDisplayableText(card)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
+    const dashboardStart = texts.findIndex((text) => text.includes("## Arrakis Control Dashboard v1.0.0"));
+    expect(texts[0]).toContain("## Arrakis Control Bot v1.0.0");
+    expect(dashboardStart).toBeGreaterThan(1);
+    for (const text of texts.slice(1, dashboardStart)) {
+      expect(text).toMatch(/^-# Bot v1\.0\.0 release notes, part \d of \d/);
+      expect(text).not.toContain("## Arrakis Control");
+    }
+    expect(texts.join("")).not.toContain("Release notes shortened for Discord");
+    // The one oversized bullet is broken on word boundaries, so every word survives.
+    expect(texts.slice(0, dashboardStart).join(" ").match(/\blarge\b/g)).toHaveLength(500);
+    // One receipt per release, pointing at its first message; every message is published.
+    expect(stored.record).toHaveBeenCalledTimes(2);
+    expect(stored.record).toHaveBeenNthCalledWith(1, { repository: "RealXKenny/Arrakis-Control-Bot", version: "1.0.0", messageId: "sent-1" });
+    expect(crosspost).toHaveBeenCalledTimes(cards.length);
+  });
 
-    expect(countDisplayableText(card)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
-    expect(displayableText).toContain("Release notes shortened for Discord");
-    expect(displayableText).toContain("## Arrakis Control Bot v1.0.0");
+  it("reports a failed continuation without reposting the release", async () => {
+    const { client, send, stored } = setup([], "A very large release note. ".repeat(500));
+    let calls = 0;
+    const original = send.getMockImplementation()!;
+    send.mockImplementation((payload: unknown) => (++calls === 2 ? Promise.reject(new Error("continuation rejected")) : original(payload)));
+
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("1 release check operation");
+    expect(stored.record).toHaveBeenCalledTimes(2);
+    const sentBefore = send.mock.calls.length;
+    await announceCurrentVersion(client, "announcements");
+    expect(send).toHaveBeenCalledTimes(sentBefore);
   });
 });
 

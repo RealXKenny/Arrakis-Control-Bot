@@ -12,11 +12,11 @@ describe("changelog entries", () => {
   it("tags each entry with its product and links to that product's history", async () => {
     const entries = await loadChangelogEntries(source([release("bot", "1.0.0", "2026-01-01"), release("dashboard", "2.0.0", "2026-02-01")]));
     expect(entries.map((entry) => [entry.project.key, entry.project.repository, entry.version])).toEqual([
-      ["dashboard", "RealXKenny/Arrakis-Control-Dashboard", "2.0.0"],
       ["bot", "RealXKenny/Arrakis-Control-Bot", "1.0.0"],
+      ["dashboard", "RealXKenny/Arrakis-Control-Dashboard", "2.0.0"],
     ]);
-    expect(entries[1].url).toBe("https://dashboard.example/changelog?project=bot&show=all#v1.0.0");
-    expect(entries[1].body).toBe("### Fixed\n- A fix");
+    expect(entries[0].url).toBe("https://dashboard.example/changelog?project=bot&show=all#v1.0.0");
+    expect(entries[0].body).toBe("### Fixed\n- A fix");
   });
 
   it("skips products the bot does not know yet", async () => {
@@ -36,12 +36,15 @@ describe("changelog entries", () => {
     expect(dashboard.getReleases).toHaveBeenCalledWith(true);
   });
 
-  it("orders same-day releases the same way regardless of API order", async () => {
-    const releases = [release("dashboard", "1.2.0", "2026-03-01"), release("bot", "1.10.0", "2026-03-01"), release("bot", "1.9.0", "2026-03-01"), release("bot", "1.0.0", null)];
+  it("posts every bot release before the dashboard, each product oldest to newest, regardless of API order", async () => {
+    const releases = [
+      release("dashboard", "1.2.0", "2026-03-01"), release("dashboard", "2.0.0", "2026-02-01"), release("bot", "1.10.0", "2026-03-01"),
+      release("bot", "1.9.0", "2026-03-01"), release("bot", "1.0.0", null), release("bot", "2.0.0", "2026-04-01"),
+    ];
     const forward = await loadChangelogEntries(source(releases));
     const backward = await loadChangelogEntries(source([...releases].reverse()));
     const order = (entries: typeof forward) => entries.map((entry) => `${entry.project.key}@${entry.version}`);
-    expect(order(forward)).toEqual(["bot@1.10.0", "bot@1.9.0", "dashboard@1.2.0", "bot@1.0.0"]);
+    expect(order(forward)).toEqual(["bot@1.0.0", "bot@1.9.0", "bot@1.10.0", "bot@2.0.0", "dashboard@2.0.0", "dashboard@1.2.0"]);
     expect(order(backward)).toEqual(order(forward));
   });
 });
