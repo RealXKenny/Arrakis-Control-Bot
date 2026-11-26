@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConvoyClient } from "../../../src/infrastructure/http/convoy/ConvoyClient";
 import { DuneConsoleClient } from "../../../src/infrastructure/http/dune-console/DuneConsoleClient";
 import { DiscordAdapterClient } from "../../../src/infrastructure/http/discord-adapter/DiscordAdapterClient";
-import { ENDPOINT_CATALOG, loadEndpointCatalog } from "../../../src/infrastructure/http/dune-console/endpointCatalog";
+import { ENDPOINT_CATALOG, loadEndpointCatalog, resolveRoute } from "../../../src/infrastructure/http/dune-console/endpointCatalog";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -184,6 +184,19 @@ describe("external API clients", () => {
     expect(headers.get("authorization")).toBe("Bearer scoped-key");
     expect(headers.has("cookie")).toBe(false);
     expect(headers.has("x-csrf-token")).toBe(false);
+    expect(request.redirect).toBe("error");
+  });
+
+  it("refuses route parameters that would resolve to a different Console endpoint", () => {
+    expect(resolveRoute("/api/players/{playerId}/solaris-coin", { playerId: "a/b" })).toBe("/api/players/a%2Fb/solaris-coin");
+    for (const playerId of ["..", ".", ""]) {
+      expect(() => resolveRoute("/api/players/{playerId}/solaris-coin", { playerId })).toThrow("Invalid route parameter");
+    }
+  });
+
+  it("bounds Console and Discord Adapter response bodies", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("x".repeat(21 * 1024 * 1024), { headers: { "content-type": "text/plain" } })));
+    await expect(new DuneConsoleClient("https://console.example.com", "scoped-key").request("GET", "/api/server/status")).rejects.toThrow("too large");
   });
 
   it("uses bearer authentication for multipart Console uploads", async () => {

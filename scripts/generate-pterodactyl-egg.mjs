@@ -129,6 +129,7 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     CHAT_BRIDGE_ROUTES: "JSON array of {guildId, channelId, map} routes; required when RabbitMQ chat is enabled.",
     VOICE_GUILD_ID: "Optional Discord server ID override for voice rooms; otherwise GUILD_ID is used.",
     MUSIC_GUILD_ID: "Optional Discord server ID override for music; otherwise GUILD_ID is used.",
+    ALLOWED_GUILD_IDS: "Comma-separated Discord server IDs the bot may stay in. Defaults to GUILD_ID; the bot leaves any other server.",
     MANAGEMENT_DASHBOARD_URL: "Optional beta. Public HTTPS origin of the management dashboard behind a TLS reverse proxy; empty disables it. Requires CLIENT_ID and DATABASE_URL.",
     MANAGEMENT_DASHBOARD_PORT: "Port the management dashboard listens on inside the container; use an allocated port when exposing it.",
     MANAGEMENT_DASHBOARD_CLIENT_SECRET: "Discord application OAuth2 client secret for dashboard sign-in. Treat as a secret.",

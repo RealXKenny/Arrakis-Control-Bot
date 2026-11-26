@@ -8,6 +8,8 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Fixed
 
+- Security: the bot now leaves any guild outside `ALLOWED_GUILD_IDS` (default `GUILD_ID`), but never leaves anything if none of the allowed guilds is present. Slash commands are registered for guild installs and guild contexts only.
+- Security: reject `.` and `..` Dune Console route parameters, refuse redirects on credentialed and attachment requests, bound Dune Console, Discord Adapter and Convoy response sizes, restrict blueprint audit downloads to Discord's CDN, fail the `StaffOnly` precondition closed outside guilds, and default the client to `allowedMentions: { parse: [] }`. See [guides/security-audit.md](guides/security-audit.md).
 - Stop already-running shard processes when a later shard fails during manager startup.
 - Bound the one-time release-announcement history import to 10,000 messages. If the limit is reached, stop without marking the import complete or posting announcements, rather than risking duplicates from an incomplete scan.
 

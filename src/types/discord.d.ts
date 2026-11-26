@@ -50,5 +50,6 @@ declare module "discord.js" {
     versionAnnouncementIntervalMinutes?: number;
     interactionRateLimiter: RateLimiter;
     tickets: TicketRepository | null;
+    allowedGuildIds: readonly string[];
   }
 }

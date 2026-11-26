@@ -8,6 +8,7 @@ import { startStormAnnouncements } from "../../modules/world/storms/stormAnnounc
 import { scopedLogger } from "../../client/logger";
 import { discordValidationIssues } from "../../shared/discord/discordValidation";
 import { ensureHoneypotPanel } from "../../modules/moderation/honeypot/honeypotPanel";
+import { leaveUnauthorizedGuilds } from "../../modules/administration/guildAllowlist";
 
 const PRESENCE_INTERVAL_MS = 30_000;
 const DEFAULT_SERVER_NAME = "Dune: Awakening Community Server";
@@ -58,6 +59,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
     }
 
     const botUser = client.user;
+    await runReadyTask("leave guilds outside the allowlist", () => leaveUnauthorizedGuilds(client, client.allowedGuildIds, scopedLogger(this.container.logger, "SECURITY")));
     // Dev note: Start the caravans only after Discord confirms the gate is open.
     client.chatBridge?.start();
     client.music?.start();

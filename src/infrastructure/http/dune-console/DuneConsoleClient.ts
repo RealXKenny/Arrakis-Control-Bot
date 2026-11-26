@@ -1,5 +1,8 @@
 import { URL } from "node:url";
 import { readBoundedBody } from "../readBoundedBody";
+
+// Generous for player directories, but bounded so one bad response cannot exhaust memory.
+const MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
 import { createLogger } from "../../../client/logger";
 import { MAX_BLUEPRINT_BYTES, validateBlueprintUpload } from "../../../modules/players/blueprints/blueprintValidator";
 
@@ -71,6 +74,7 @@ class DuneConsoleClient {
 
     const attachmentUrl = validateDiscordAttachmentUrl(attachment.url);
     const fileResponse = await fetch(attachmentUrl, {
+      redirect: "error",
       signal: AbortSignal.timeout(60_000),
     });
 
@@ -141,6 +145,8 @@ class DuneConsoleClient {
           method,
           headers,
           body: body === undefined ? undefined : JSON.stringify(body),
+          // Never follow a redirect with the Console API key attached.
+          redirect: "error",
           signal: AbortSignal.timeout(30_000),
         });
 
@@ -203,6 +209,7 @@ class DuneConsoleClient {
         method,
         headers,
         body: form,
+        redirect: "error",
         signal: AbortSignal.timeout(60_000),
       });
     } catch (error: unknown) {
@@ -233,6 +240,7 @@ class DuneConsoleClient {
     const response = await fetch(url, {
       method,
       headers: { Accept: "application/octet-stream", Authorization: `Bearer ${this.apiKey}` },
+      redirect: "error",
       signal: AbortSignal.timeout(60_000),
     });
 
@@ -260,13 +268,14 @@ class DuneConsoleClient {
     }
 
     const contentType = response.headers.get("content-type") ?? "";
+    const text = (await readBoundedBody(response, MAX_RESPONSE_BYTES, "Console API response is too large.")).toString("utf8");
 
     if (!contentType.includes("application/json")) {
-      return response.text();
+      return text;
     }
 
     try {
-      return await response.json();
+      return JSON.parse(text) as unknown;
     } catch {
       throw new DuneConsoleApiError(`Console API returned invalid JSON with HTTP ${response.status}.`, response.status);
     }

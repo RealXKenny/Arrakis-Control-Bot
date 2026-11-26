@@ -60,6 +60,7 @@ class ArrakisClient extends SapphireClient {
   public presenceInterval?: NodeJS.Timeout;
   public interactionRateLimiter!: RateLimiter;
   public tickets: TicketRepository | null = null;
+  public allowedGuildIds: readonly string[] = [];
 
   public constructor(options: ArrakisClientOptions) {
     const { baseUserDirectory = PIECES_DIRECTORY, ...clientOptions } = options;

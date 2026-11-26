@@ -25,6 +25,7 @@ interface EnvironmentConfig {
   discordToken: string;
   clientId?: string;
   guildId?: string;
+  allowedGuildIds: readonly string[];
   totalShards: number | "auto";
   duneConsoleUrl: string;
   advinApiKey?: string;
@@ -201,6 +202,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     discordToken,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,
+    allowedGuildIds: parseAllowedGuildIds(process.env.ALLOWED_GUILD_IDS, process.env.GUILD_ID),
     totalShards,
     duneConsoleUrl,
     advinApiKey: process.env.API_KEY,
@@ -231,6 +233,15 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     rateLimitMaxEntries,
     logLevel,
   });
+}
+
+/** Guilds the bot may serve. Defaults to GUILD_ID; empty means any guild. */
+function parseAllowedGuildIds(value: string | undefined, guildId: string | undefined): readonly string[] {
+  const ids = (value?.trim() ? value : guildId ?? "").split(",").map((id) => id.trim()).filter(Boolean);
+  for (const id of ids) {
+    if (!/^\d{17,20}$/.test(id)) throw new Error("ALLOWED_GUILD_IDS must be a comma-separated list of Discord server IDs.");
+  }
+  return Object.freeze([...new Set(ids)]);
 }
 
 function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {

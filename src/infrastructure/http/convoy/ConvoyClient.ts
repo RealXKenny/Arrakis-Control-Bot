@@ -1,5 +1,9 @@
 import { URL } from "node:url";
 import { createLogger } from "../../../client/logger";
+import { readBoundedBody } from "../readBoundedBody";
+
+const MAX_JSON_BYTES = 5 * 1024 * 1024;
+const MAX_BINARY_BYTES = 25 * 1024 * 1024;
 
 const logger = createLogger("CONVOY API");
 
@@ -81,17 +85,19 @@ class ConvoyClient {
 
     if (binary) {
       if (!response.ok) {
-        throw new ConvoyApiError(`Convoy request failed with HTTP ${response.status}`, response.status, await response.text());
+        throw new ConvoyApiError(`Convoy request failed with HTTP ${response.status}`, response.status,
+          (await readBoundedBody(response, MAX_JSON_BYTES, "Convoy API response is too large.")).toString("utf8"));
       }
 
-      return Buffer.from(await response.arrayBuffer());
+      return readBoundedBody(response, MAX_BINARY_BYTES, "Convoy graph is too large.");
     }
 
     let data: unknown;
 
     try {
-      data = await response.json();
-    } catch {
+      data = JSON.parse((await readBoundedBody(response, MAX_JSON_BYTES, "Convoy API response is too large.")).toString("utf8")) as unknown;
+    } catch (error) {
+      if (error instanceof Error && error.message === "Convoy API response is too large.") throw error;
       throw new ConvoyApiError(`Convoy API returned invalid JSON with HTTP ${response.status}.`, response.status, null);
     }
 

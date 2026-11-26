@@ -248,6 +248,8 @@ function formatDuration(milliseconds: number): string {
   return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` : `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+const DISCORD_ATTACHMENT_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net"]);
+
 async function downloadBlueprintAttachment(attachment?: AuditAttachment | null): Promise<AuditFile | null> {
   if (!attachment?.url || !attachment.name) {
     return null;
@@ -259,7 +261,11 @@ async function downloadBlueprintAttachment(attachment?: AuditAttachment | null):
   }
 
   try {
-    const response = await fetch(attachment.url);
+    const url = new URL(attachment.url);
+    if (url.protocol !== "https:" || !DISCORD_ATTACHMENT_HOSTS.has(url.hostname.toLowerCase())) {
+      throw new Error("Blueprint audit attachments must be hosted by Discord.");
+    }
+    const response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(30_000) });
 
     if (!response.ok) {
       throw new Error(`Discord upload download returned HTTP ${response.status}.`);

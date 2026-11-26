@@ -1,5 +1,6 @@
 import { URL } from "node:url";
 import { createLogger } from "../../../client/logger";
+import { readBoundedBody } from "../readBoundedBody";
 
 const logger = createLogger("DISCORD ADAPTER");
 
@@ -106,6 +107,7 @@ class DiscordAdapterClient {
           Authorization: `Bearer ${this.token}`,
         },
         body: JSON.stringify(body),
+        redirect: "error",
         signal: AbortSignal.timeout(30_000),
       });
     } catch (error: unknown) {
@@ -134,19 +136,22 @@ class DiscordAdapterClient {
   }
 }
 
+const MAX_RESPONSE_BYTES = 1024 * 1024;
+
 async function readResponse(response: Response): Promise<unknown> {
   if (response.status === 204) {
     return null;
   }
 
   const contentType = response.headers.get("content-type") ?? "";
+  const text = (await readBoundedBody(response, MAX_RESPONSE_BYTES, "Discord Adapter response is too large.")).toString("utf8");
 
   if (!contentType.includes("application/json")) {
-    return response.text();
+    return text;
   }
 
   try {
-    return await response.json();
+    return JSON.parse(text) as unknown;
   } catch {
     throw new DiscordAdapterError(`Discord Adapter returned invalid JSON with HTTP ${response.status}.`, response.status, null);
   }

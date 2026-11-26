@@ -204,6 +204,7 @@ Planned work to keep the bot fast and self-healing for one busy guild is tracked
 
 ## Security notes
 
+- The bot only serves the servers in `ALLOWED_GUILD_IDS` (default `GUILD_ID`) and leaves any other server it is added to. See the [security audit](guides/security-audit.md).
 - Secrets are loaded from environment variables and excluded by `.gitignore`.
 - Privileged actions validate authorization when executed; hiding a command or button is not the security boundary.
 - Uploaded blueprint URLs are restricted to Discord CDN hosts and are size-checked before forwarding.

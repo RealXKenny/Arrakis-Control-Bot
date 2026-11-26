@@ -79,6 +79,16 @@
       "field_type": "text"
     },
     {
+      "name": "Allowed Guild Ids",
+      "description": "Comma-separated Discord server IDs the bot may stay in. Defaults to GUILD_ID; the bot leaves any other server.",
+      "env_variable": "ALLOWED_GUILD_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
       "name": "Total Shards",
       "description": "Optional bot setting (TOTAL_SHARDS). See .env.example in the repository.",
       "env_variable": "TOTAL_SHARDS",

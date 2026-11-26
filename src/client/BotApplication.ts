@@ -53,6 +53,7 @@ interface BotConfig {
   duneConsoleUrl: string;
   discordToken: string;
   clientId?: string | null;
+  allowedGuildIds?: readonly string[];
   advinApiKey?: string | null;
   advinApiUrl: string;
   duneDiscordAdapterToken?: string | null;
@@ -193,11 +194,14 @@ function createClient(logLevel?: string): BotClient {
   return new ArrakisClient({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates],
     partials: [Partials.Channel, Partials.Message, Partials.User],
+    // Generated and external text must never ping; intentional pings opt in per message.
+    allowedMentions: { parse: [] },
     logger: { instance: createSapphireLogger("SAPPHIRE", logLevel) },
   });
 }
 
 function configureIntegrations(client: BotClient, config: BotConfig): void {
+  client.allowedGuildIds = config.allowedGuildIds ?? [];
   client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
   if (config.chatBridge) {
     const chatNames = new ChatPlayerNames(client.duneApi);
