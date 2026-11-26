@@ -5,6 +5,9 @@ import { scopedLogger } from "../../../client/logger";
 import { createV2Response } from "../../../shared/discord/componentFactory";
 import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
+
+// A busy channel running /server status together shares one Console round trip per area.
+const STATUS_CACHE = { cacheTtlMs: 10_000 } as const;
 import { PANEL_COLORS, PANEL_ACCENT_ROTATION } from "../../../shared/discord/panelStyle";
 
 const IMAGE_NAME = "dune-server-status.png";
@@ -134,11 +137,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   try {
     const [status, performance, readiness, ports, services] = await Promise.all([
-      client.duneApi.call("GET", "/api/server/status"),
-      client.duneApi.call("GET", "/api/server/performance"),
-      client.duneApi.call("GET", "/api/server/readiness"),
-      client.duneApi.call("GET", "/api/server/ports"),
-      client.duneApi.call("GET", "/api/server/services"),
+      client.duneApi.call("GET", "/api/server/status", STATUS_CACHE),
+      client.duneApi.call("GET", "/api/server/performance", STATUS_CACHE),
+      client.duneApi.call("GET", "/api/server/readiness", STATUS_CACHE),
+      client.duneApi.call("GET", "/api/server/ports", STATUS_CACHE),
+      client.duneApi.call("GET", "/api/server/services", STATUS_CACHE),
     ]);
 
     const statusData = parseServerStatus(toStringValue((status as DuneApiResponse).stdout));

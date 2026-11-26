@@ -13,6 +13,7 @@
     "start": "node dist/src/index.js",
     "start:single": "node dist/src/client/shard.js",
     "test": "npm run build && vitest run",
+    "test:load": "vitest run tests/load --mode soak",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "audit:prod": "npm audit --omit=dev",

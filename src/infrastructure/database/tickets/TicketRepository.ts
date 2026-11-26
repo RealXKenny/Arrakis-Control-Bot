@@ -130,6 +130,18 @@ interface DatabasePoolOptions {
   backgroundMax?: number;
   /** Server-side statement limit and client-side query limit, in milliseconds. */
   statementTimeoutMs?: number;
+  /**
+   * Called when an idle connection breaks, for example when PostgreSQL restarts. Without a
+   * listener, `pg` raises an unhandled error that would stop the process; with one, the broken
+   * connection is dropped and the next query opens a new one.
+   */
+  onConnectionError?: (error: Error, pool: "interactive" | "background") => void;
+}
+
+interface PoolStats {
+  total: number;
+  idle: number;
+  waiting: number;
 }
 
 class TicketRepository {
@@ -153,6 +165,20 @@ class TicketRepository {
     // Dev note: Two wells, so the spice harvest never drinks the ticket queue dry.
     this.pool = new Pool(config(options.max ?? 10, "arrakis-control"));
     this.backgroundPool = new Pool(config(options.backgroundMax ?? 5, "arrakis-control-background"));
+    const report = options.onConnectionError ?? (() => undefined);
+    this.pool.on("error", (error) => report(error, "interactive"));
+    this.backgroundPool.on("error", (error) => report(error, "background"));
+  }
+
+  /** Connection counts for runtime metrics; `waiting` above zero means the pool is saturated. */
+  stats(): { interactive: PoolStats; background: PoolStats } {
+    const read = (pool: Pool): PoolStats => ({ total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount });
+    return { interactive: read(this.pool), background: read(this.backgroundPool) };
+  }
+
+  /** Cheap reachability probe on the interactive pool. */
+  async ping(): Promise<void> {
+    await this.pool.query("SELECT 1");
   }
 
   async initialize(): Promise<void> {
@@ -466,7 +492,7 @@ function mapTicket(row: TicketRow): TicketRecord {
   };
 }
 
-export type { DatabasePoolOptions };
+export type { DatabasePoolOptions, PoolStats };
 export { TicketRepository };
 
 export type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord, TicketReviewInput, TicketStatus };

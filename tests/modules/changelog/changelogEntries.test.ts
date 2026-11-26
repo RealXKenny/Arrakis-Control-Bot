@@ -35,4 +35,13 @@ describe("changelog entries", () => {
     await loadChangelogEntries(dashboard, true);
     expect(dashboard.getReleases).toHaveBeenCalledWith(true);
   });
+
+  it("orders same-day releases the same way regardless of API order", async () => {
+    const releases = [release("dashboard", "1.2.0", "2026-03-01"), release("bot", "1.10.0", "2026-03-01"), release("bot", "1.9.0", "2026-03-01"), release("bot", "1.0.0", null)];
+    const forward = await loadChangelogEntries(source(releases));
+    const backward = await loadChangelogEntries(source([...releases].reverse()));
+    const order = (entries: typeof forward) => entries.map((entry) => `${entry.project.key}@${entry.version}`);
+    expect(order(forward)).toEqual(["bot@1.10.0", "bot@1.9.0", "dashboard@1.2.0", "bot@1.0.0"]);
+    expect(order(backward)).toEqual(order(forward));
+  });
 });

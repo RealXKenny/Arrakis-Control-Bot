@@ -52,6 +52,8 @@ interface EnvironmentConfig {
   databaseBackgroundPoolMax: number;
   databaseStatementTimeoutMs: number;
   messageArchiveRetentionDays: number;
+  runtimeMetricsIntervalSeconds: number;
+  healthFile?: string;
   versionAnnouncementIntervalMinutes: number;
   dashboardUrl?: string;
   interactionCooldownMs: number;
@@ -232,6 +234,8 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     databaseBackgroundPoolMax: parsePositiveInteger(process.env.DATABASE_BACKGROUND_POOL_MAX, 5, "DATABASE_BACKGROUND_POOL_MAX"),
     databaseStatementTimeoutMs: parsePositiveInteger(process.env.DATABASE_STATEMENT_TIMEOUT_MS, 15_000, "DATABASE_STATEMENT_TIMEOUT_MS"),
     messageArchiveRetentionDays: parseRetentionDays(process.env.MESSAGE_ARCHIVE_RETENTION_DAYS),
+    runtimeMetricsIntervalSeconds: parseMetricsInterval(process.env.RUNTIME_METRICS_INTERVAL_SECONDS),
+    healthFile: process.env.HEALTH_FILE?.trim() || undefined,
     versionAnnouncementIntervalMinutes,
     dashboardUrl,
     interactionCooldownMs,
@@ -250,6 +254,13 @@ function parseAllowedGuildIds(value: string | undefined, guildId: string | undef
 }
 
 /** 0 or empty keeps archived messages forever. */
+function parseMetricsInterval(value: string | undefined): number {
+  if (!value?.trim()) return 60;
+  const seconds = Number(value);
+  if (!Number.isInteger(seconds) || seconds < 0 || seconds > 3600) throw new Error("RUNTIME_METRICS_INTERVAL_SECONDS must be a whole number from 0 to 3600.");
+  return seconds;
+}
+
 function parseRetentionDays(value: string | undefined): number {
   if (!value?.trim()) return 0;
   const days = Number(value);
@@ -273,9 +284,9 @@ function parseBoolean(value: string | undefined, fallback: boolean, name: string
 function parseShardCount(value: string | undefined): number | "auto" {
   const normalized = value?.trim().toLowerCase();
 
-  if (!normalized || normalized === "auto") {
-    return "auto";
-  }
+  // One guild always lands on one shard, so a second shard only adds a gateway connection.
+  if (!normalized) return 1;
+  if (normalized === "auto") return "auto";
 
   return parsePositiveInteger(normalized, 0, "TOTAL_SHARDS");
 }

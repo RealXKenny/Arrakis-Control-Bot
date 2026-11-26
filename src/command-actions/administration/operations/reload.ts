@@ -19,6 +19,7 @@ const command = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     const area = interaction.options.getString("area", true);
+    await interaction.deferReply();
 
     const results: ReloadResults = {
       commands: 0,
@@ -37,7 +38,7 @@ const command = {
 
     const infoCard = new ContainerBuilder().setAccentColor(accentColor).addTextDisplayComponents((text) => text.setContent(`Reloaded ${results.commands} commands and ` + `${results.components} component handlers.`));
 
-    await interaction.reply(createV2Response([infoCard]));
+    await interaction.editReply(createV2Response([infoCard]));
   },
 };
 

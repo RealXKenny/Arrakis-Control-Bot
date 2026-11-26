@@ -56,7 +56,7 @@ describe("API-backed Coriolis storm announcements", () => {
     const announce = createStormAnnouncer(client, channelId);
     await announce(start - 60_000);
     await announce(start - 30_000);
-    expect(call).toHaveBeenCalledWith("GET", "/api/map/markers", { query: { static: 0 } });
+    expect(call).toHaveBeenCalledWith("GET", "/api/map/markers", { query: { static: 0 }, cacheTtlMs: 15_000 });
     expect(send).toHaveBeenCalledTimes(1);
   });
 

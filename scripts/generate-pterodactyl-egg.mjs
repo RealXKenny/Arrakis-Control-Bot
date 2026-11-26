@@ -127,6 +127,13 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     VOICE_GUILD_ID: "Optional Discord server ID override for voice rooms; otherwise GUILD_ID is used.",
     MUSIC_GUILD_ID: "Optional Discord server ID override for music; otherwise GUILD_ID is used.",
     ALLOWED_GUILD_IDS: "Comma-separated Discord server IDs the bot may stay in. Defaults to GUILD_ID; the bot leaves any other server.",
+    TOTAL_SHARDS: "Number of Discord shards. Keep 1 for a single server; use auto only for very large multi-server installs.",
+    DATABASE_POOL_MAX: "PostgreSQL connections for commands, panels and tickets. Default 10.",
+    DATABASE_BACKGROUND_POOL_MAX: "PostgreSQL connections for the message archive and XP. Default 5.",
+    DATABASE_STATEMENT_TIMEOUT_MS: "Longest a single database statement may run, in milliseconds. Default 15000.",
+    MESSAGE_ARCHIVE_RETENTION_DAYS: "Delete archived messages older than this many days. 0 keeps everything. Deletion cannot be undone.",
+    RUNTIME_METRICS_INTERVAL_SECONDS: "Seconds between runtime health summaries in the console. 0 turns them off. Default 60.",
+    HEALTH_FILE: "Optional path the bot rewrites with its latest health snapshot, such as /home/container/health.json.",
   };
   const name = labels[key] ?? key.split("_").map((word) => word === "ID" ? "ID" : word[0] + word.slice(1).toLowerCase()).join(" ");
   return {

@@ -19,6 +19,13 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Changed
 
+- Run as one shard by default (`TOTAL_SHARDS=1`); `auto` is still accepted. One server is always served by one shard.
+- Interactions are acknowledged before slow work. Grouped-command role checks read the roles Discord sends with the interaction instead of a REST fetch, `/bot reload` defers first, and lookups that must run before a form opens (ticket, ticket review, player link, voice rename and limit) have a 2-second limit.
+- Dune Console and hosting panel calls use a circuit breaker per API area (5 failures open it for 30 seconds), a concurrency limit with a bounded queue, and sharing of identical in-flight reads. `/server status` and storm map reads are cached for 10 to 15 seconds.
+- Per-user cooldowns for commands that call slow services: 10 seconds for `/server status`, `/server vps`, `/player list`, `/player profile` and `/backup list`; 30 seconds for update checks; 60 seconds for backup create, import and download.
+- Level, leaderboard, achievement and member cards encode their PNGs on a worker thread, and static panel banners are cached, so image work no longer blocks the gateway.
+- PostgreSQL outages no longer stop the bot. Startup waits and retries with backoff, and a dropped connection during runtime is logged and replaced on the next query.
+- Release announcements use a fixed order for releases on the same day (product, then version), so every run posts in the same sequence.
 - Stability for one busy guild: separate interactive and background PostgreSQL pools with configurable sizes and statement timeouts (`DATABASE_POOL_MAX`, `DATABASE_BACKGROUND_POOL_MAX`, `DATABASE_STATEMENT_TIMEOUT_MS`); batch message-archive inserts with a bounded buffer that is flushed before edits, deletes and shutdown; skip XP database work inside the per-member cooldown; bound Discord message caches with a sweeper; and add optional archive retention (`MESSAGE_ARCHIVE_RETENTION_DAYS`, off by default).
 - Align CI and release security with the dashboard: pin actions, verify merge-queue and V2 pushes, and validate checksummed source artifacts before granting the separate publish job write permissions.
 - Replace the bot-specific GHCR image release and egg with a checksummed source archive and Node.js 24 Pterodactyl installer. Existing image-based installations must import the new egg and reinstall or migrate their configuration.
@@ -30,6 +37,10 @@ All notable changes to Arrakis Control Bot are documented here.
 - Level role tier and achievement names are unchanged because they mirror existing server roles.
 
 ### Added
+
+- Runtime metrics: a one-line health summary every `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60) with event-loop delay, memory, gateway ping, database reachability and pool pressure, archive buffer depth, Discord rate limits and open upstream circuits, plus warnings. Set `HEALTH_FILE` to also write it as JSON for container health checks. The bot still opens no port.
+- Versioned database migrations: a `schema_migrations` table, ordered migrations applied once under an advisory lock, and a refusal to start against a schema from a newer release.
+- Load and soak tests with latency budgets (`npm run test:load`, also run in CI), weekly grouped Dependabot updates, and an [operations runbook](guides/operations.md) with backups, a restore drill, health signals and rollback steps.
 
 - Add a deterministic manual export of dated bot release history for the dashboard, with format validation and protection against overwriting unrelated files. Automated cross-repository synchronization is not yet complete.
 - Add `/leaderboard`, a public, paginated Solari leaderboard. It ranks players from the Dune Console player directory and per-player `solaris-coin` totals, keeps balances as decimal strings, caches the ranking for five minutes, and binds First/Previous/Next/Last controls to the requester for 15 minutes. It is listed in `/help` under Community & World.

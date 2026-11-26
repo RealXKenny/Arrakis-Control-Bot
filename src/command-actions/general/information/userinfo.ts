@@ -16,7 +16,9 @@ const command = {
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     const user = interaction.options.getUser("user") ?? interaction.user;
 
-    const member = interaction.guild ? await interaction.guild.members.fetch(user.id).catch(() => null) : null;
+    // The interaction already carries the selected member, so no REST call runs before the reply.
+    const resolved = interaction.options.getUser("user") ? interaction.options.getMember("user") : interaction.member;
+    const member = resolved && "joinedAt" in resolved ? resolved : interaction.guild?.members.cache.get(user.id) ?? null;
 
     const createdAt = formatDiscordTimestamp(user.createdAt);
     const joinedAt = formatDiscordTimestamp(member?.joinedAt);

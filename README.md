@@ -74,9 +74,11 @@ npm run dev
 
 Use `npm run env:migrate -- --check` to preview whether a production `.env` needs the current boxed layout, then run `npm run env:migrate` to apply it. The script creates a timestamped backup, preserves existing values without printing them, carries forward unknown custom keys, and adds new template settings safely.
 
-`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FATAL`. `TOTAL_SHARDS` accepts `auto` or a positive integer. `INTERACTION_COOLDOWN_MS` and `RATE_LIMIT_MAX_ENTRIES` configure the bounded process-local limiter. In production, integration URLs must use HTTPS.
+`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FATAL`. `TOTAL_SHARDS` accepts `auto` or a positive integer and defaults to `1`, because one server is always served by one shard. `INTERACTION_COOLDOWN_MS` and `RATE_LIMIT_MAX_ENTRIES` configure the bounded process-local limiter. In production, integration URLs must use HTTPS.
 
-Before starting a release, run the same checks used by CI/deployment:
+For one busy server, the database settings are `DATABASE_POOL_MAX` (default 10 connections for commands, panels and tickets), `DATABASE_BACKGROUND_POOL_MAX` (default 5 for the message archive and XP) and `DATABASE_STATEMENT_TIMEOUT_MS` (default 15000). `MESSAGE_ARCHIVE_RETENTION_DAYS` deletes archived messages older than that many days; 0 (the default) keeps everything. `RUNTIME_METRICS_INTERVAL_SECONDS` (default 60, 0 to turn off) prints a health summary, and `HEALTH_FILE` writes it as JSON. See the [operations runbook](guides/operations.md) for what each signal means, backups, upgrades and rollbacks.
+
+Before starting a release, run the same checks used by CI/deployment (CI also runs `npm run test:load`, a 30-second soak with latency budgets):
 
 ```powershell
 npm run build

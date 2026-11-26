@@ -1,10 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ query: vi.fn(), end: vi.fn(), Pool: vi.fn() }));
+const mocks = vi.hoisted(() => ({ query: vi.fn(), end: vi.fn(), Pool: vi.fn(), listeners: [] as Array<(error: Error) => void> }));
 vi.mock("pg", () => ({
   Pool: class MockPool {
     query = mocks.query;
     end = mocks.end;
+    totalCount = 3;
+    idleCount = 1;
+    waitingCount = 2;
+    on(event: string, listener: (error: Error) => void) {
+      if (event === "error") mocks.listeners.push(listener);
+      return this;
+    }
 
     constructor(config: unknown) {
       mocks.Pool(config);
@@ -29,6 +36,25 @@ describe("TicketRepository", () => {
     mocks.query.mockReset();
     mocks.end.mockReset();
     mocks.Pool.mockClear();
+  });
+
+  it("survives broken idle connections and reports which pool lost one", () => {
+    mocks.listeners.length = 0;
+    const onConnectionError = vi.fn();
+    new TicketRepository("postgres://db", false, true, { onConnectionError });
+    expect(mocks.listeners).toHaveLength(2);
+    const failure = new Error("terminating connection due to administrator command");
+    mocks.listeners[0]!(failure);
+    mocks.listeners[1]!(failure);
+    expect(onConnectionError.mock.calls).toEqual([[failure, "interactive"], [failure, "background"]]);
+  });
+
+  it("reports pool pressure and pings the database", async () => {
+    const repository = new TicketRepository("postgres://db");
+    expect(repository.stats()).toEqual({ interactive: { total: 3, idle: 1, waiting: 2 }, background: { total: 3, idle: 1, waiting: 2 } });
+    mocks.query.mockResolvedValueOnce({ rows: [] });
+    await repository.ping();
+    expect(mocks.query).toHaveBeenCalledWith("SELECT 1");
   });
 
   it("configures a bounded PostgreSQL pool with optional TLS", () => {

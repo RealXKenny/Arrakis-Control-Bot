@@ -2,7 +2,7 @@
 
 The bot serves one large Discord guild with heavy traffic. Sharding does not spread one guild's load: every event for that guild arrives on one shard process. This plan lists what to change so that process stays responsive under load, recovers on its own, and stays maintainable. Items are ordered by risk. Each item names the code involved and how we know it is done.
 
-Status: items 1, 2, 4 and 5 are implemented (archive retention is off by default). Everything else is planned; the [V2 checklist](v2-implementation-checklist.md) tracks status.
+Status (2026-11-26): every item is implemented in code, with these differences from the plan. XP writes are not buffered; the in-memory cooldown skips the database instead. Health uses a log line and an optional `HEALTH_FILE` instead of HTTP endpoints, because the bot opens no port. Canvas cards encode on the thread pool and static banners are cached, but drawing still runs on the main thread. Migrations start from a recorded V2 baseline, and repository initializers stay idempotent. Load tests use simulated PostgreSQL latency, not a real database. Live verification on the production host is still open; the [V2 checklist](v2-implementation-checklist.md) tracks status.
 
 ## P0: protect the hot path
 

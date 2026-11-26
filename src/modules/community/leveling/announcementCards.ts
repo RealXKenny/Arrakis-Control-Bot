@@ -3,6 +3,7 @@ import { AttachmentBuilder, type User } from "discord.js";
 import { createCanvas, loadImage, type CanvasRenderingContext2D, type Image } from "canvas";
 import type { LevelProfile } from "../../../infrastructure/database/leveling/LevelRepository";
 import { canvasDisplayName } from "../../../shared/discord/canvasText";
+import { encodePng } from "../../../shared/discord/canvasEncoding";
 import { achievementProgressLabel, type AchievementKind, type LevelAchievement } from "./achievements";
 
 const LEVEL_UP_CARD_FILENAME = "arrakis-level-up.png";
@@ -49,7 +50,7 @@ async function createLevelUpCard(options: LevelUpCardOptions): Promise<Attachmen
   context.font = "22px sans-serif";
   context.fillText(`${options.profile.xp.toLocaleString()} TOTAL XP  •  THE JOURNEY CONTINUES`, 414, 292);
   drawSeal(context, "▲", "ASCENDED", "#8f9bff");
-  return attachment(canvas.toBuffer("image/png"), LEVEL_UP_CARD_FILENAME, `${name} reached community level ${options.level}`);
+  return attachment(await encodePng(canvas), LEVEL_UP_CARD_FILENAME, `${name} reached community level ${options.level}`);
 }
 
 async function createAchievementCard(options: AchievementCardOptions): Promise<AttachmentBuilder> {
@@ -70,7 +71,7 @@ async function createAchievementCard(options: AchievementCardOptions): Promise<A
   context.font = "18px sans-serif";
   context.fillText(options.achievement.description, 414, 318);
   drawSeal(context, theme.icon, options.achievement.tier.toUpperCase(), theme.accent);
-  return attachment(canvas.toBuffer("image/png"), ACHIEVEMENT_CARD_FILENAMES[options.achievement.kind], `${name} unlocked ${options.achievement.name} (${options.achievement.tier})`);
+  return attachment(await encodePng(canvas), ACHIEVEMENT_CARD_FILENAMES[options.achievement.kind], `${name} unlocked ${options.achievement.name} (${options.achievement.tier})`);
 }
 
 async function createBaseCanvas(accent: string, backgroundPath: string): Promise<ReturnType<typeof createCanvas>> {

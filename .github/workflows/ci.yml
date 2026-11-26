@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         # One runner per check so a slow task cannot starve the others.
-        task: [typecheck, lint, test, audit]
+        task: [typecheck, lint, test, test:load, audit]
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

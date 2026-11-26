@@ -55,7 +55,7 @@ export function createStormAnnouncer(client: Client, channelId: string, forceRef
     if (busy || !client.user || !isPrimaryShard()) return;
     busy = true;
     try {
-      const response = await client.duneApi.call("GET", "/api/map/markers", { query: { static: 0 } });
+      const response = await client.duneApi.call("GET", "/api/map/markers", { query: { static: 0 }, cacheTtlMs: 15_000 });
       const window = stormWindowFromEnd(parseCoriolisEnd(response));
       const channel = await client.channels.fetch(channelId);
       if (!channel?.isSendable()) throw new Error(`Storm announcement channel ${channelId} is not sendable.`);

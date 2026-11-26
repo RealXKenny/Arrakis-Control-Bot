@@ -8,6 +8,11 @@ class MessageArchiveService {
 
   private retentionTimer?: ReturnType<typeof setInterval>;
 
+  /** Archive rows waiting to be written, for runtime metrics. */
+  public get bufferedCount(): number {
+    return this.repository.bufferedCount;
+  }
+
   public initialize(): Promise<void> {
     return this.repository.initialize();
   }

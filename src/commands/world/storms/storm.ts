@@ -11,7 +11,7 @@ export const data = new SlashCommandBuilder().setName("storm").setDescription("S
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
   try {
-    const response = await container.client.duneApi.call("GET", "/api/map/markers", { query: { static: 0 } });
+    const response = await container.client.duneApi.call("GET", "/api/map/markers", { query: { static: 0 }, cacheTtlMs: 15_000 });
     const window = stormWindowFromEnd(parseCoriolisEnd(response));
     if (window.end <= Date.now()) throw new Error("The Console API has not published the next Coriolis cycle yet.");
     const panel = buildStormPanel(window.start, window.end);

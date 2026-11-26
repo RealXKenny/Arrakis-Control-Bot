@@ -3,6 +3,7 @@ import { LabelBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputSt
 
 import { parseTicketId } from "../../../modules/tickets/ticketReview";
 import { RateLimitedInteractionHandler } from "../../../support/interactions/RateLimitedInteractionHandler";
+import { DeadlineExceededError, PRE_ACKNOWLEDGEMENT_DEADLINE_MS, withDeadline } from "../../../shared/async/withDeadline";
 import { matchesCustomId } from "../../../support/interactions/componentCustomIds";
 
 const handler = {
@@ -18,7 +19,16 @@ const handler = {
       return;
     }
 
-    const ticket = await repository.findById(ticketId);
+    // A modal cannot follow a defer, so the lookup has to beat Discord's acknowledgement window.
+    const ticket = await withDeadline(repository.findById(ticketId), PRE_ACKNOWLEDGEMENT_DEADLINE_MS).catch((error: unknown) => {
+      if (error instanceof DeadlineExceededError) return undefined;
+      throw error;
+    });
+
+    if (ticket === undefined) {
+      await interaction.reply({ content: "Ticket reviews are busy right now. Try again in a moment.", flags: MessageFlags.Ephemeral });
+      return;
+    }
 
     if (!ticket || ticket.openerId !== interaction.user.id || ticket.status !== "closed") {
       await interaction.reply({ content: "Only the creator of this closed ticket can review it.", flags: MessageFlags.Ephemeral });

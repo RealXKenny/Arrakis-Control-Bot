@@ -43,7 +43,19 @@ async function loadChangelogEntries(source: ChangelogSource | undefined, force =
       url: `${source.origin}/changelog?project=${encodeURIComponent(project.key)}&show=all#v${encodeURIComponent(release.version)}`,
     });
   }
-  return entries.sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0));
+  return entries.sort(compareNewestFirst);
+}
+
+/**
+ * Total order so every run, shard and restart sees the same sequence: date, then product,
+ * then version (numeric-aware), all newest first. Undated releases sort as oldest.
+ */
+function compareNewestFirst(a: ChangelogEntry, b: ChangelogEntry): number {
+  const byDate = (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0);
+  if (byDate !== 0) return byDate;
+  const byProject = a.project.key.localeCompare(b.project.key);
+  if (byProject !== 0) return byProject;
+  return b.version.localeCompare(a.version, "en", { numeric: true });
 }
 
 export { loadChangelogEntries };
