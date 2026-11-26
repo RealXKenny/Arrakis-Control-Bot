@@ -2,6 +2,12 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- The release workflow's publish job names the repository for `gh release create`. It has no checkout, so the 2.0.0 release failed with "not a git repository" after a successful build.
+
 ## [2.0.0] - 2026-11-25
 
 ### Highlights
