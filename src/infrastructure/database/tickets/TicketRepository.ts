@@ -123,22 +123,36 @@ const TICKET_COLUMNS = `
   archive_message_id
 `;
 
+interface DatabasePoolOptions {
+  /** Connections for interactive work: commands, panels and tickets. */
+  max?: number;
+  /** Connections for high-volume background writes: the message archive and XP. */
+  backgroundMax?: number;
+  /** Server-side statement limit and client-side query limit, in milliseconds. */
+  statementTimeoutMs?: number;
+}
+
 class TicketRepository {
   readonly pool: Pool;
+  /** Separate pool so message bursts cannot starve interaction replies. */
+  readonly backgroundPool: Pool;
 
-  constructor(connectionString: string, ssl = false, sslVerify = true) {
-    const config: PoolConfig = {
+  constructor(connectionString: string, ssl = false, sslVerify = true, options: DatabasePoolOptions = {}) {
+    const statementTimeoutMs = options.statementTimeoutMs ?? 15_000;
+    const config = (max: number, applicationName: string): PoolConfig => ({
       connectionString,
-      max: 10,
+      max,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
-    };
+      statement_timeout: statementTimeoutMs,
+      query_timeout: statementTimeoutMs + 5_000,
+      application_name: applicationName,
+      ...(ssl ? { ssl: { rejectUnauthorized: sslVerify } } : {}),
+    });
 
-    if (ssl) {
-      config.ssl = { rejectUnauthorized: sslVerify };
-    }
-
-    this.pool = new Pool(config);
+    // Dev note: Two wells, so the spice harvest never drinks the ticket queue dry.
+    this.pool = new Pool(config(options.max ?? 10, "arrakis-control"));
+    this.backgroundPool = new Pool(config(options.backgroundMax ?? 5, "arrakis-control-background"));
   }
 
   async initialize(): Promise<void> {
@@ -407,7 +421,9 @@ class TicketRepository {
   }
 
   async close(): Promise<void> {
-    await this.pool.end();
+    const results = await Promise.allSettled([this.pool.end(), this.backgroundPool.end()]);
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failure) throw failure.reason;
   }
 }
 
@@ -450,6 +466,7 @@ function mapTicket(row: TicketRow): TicketRecord {
   };
 }
 
+export type { DatabasePoolOptions };
 export { TicketRepository };
 
 export type { TicketDuneAccount, TicketDuneLookupStatus, TicketIntake, TicketRecord, TicketReviewInput, TicketStatus };

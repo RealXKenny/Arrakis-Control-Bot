@@ -19,6 +19,8 @@ import { LEVEL_ROLE_TIERS, roleTierForLevel } from "./levelRoles";
 import { MESSAGE_REPEAT_WINDOW_MS, MESSAGE_XP_COOLDOWN_MS, VOICE_XP_COOLDOWN_MS, XP_PER_VOICE_MINUTE, levelForXp, messageXp } from "./levelProgress";
 import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
 
+const RECENT_AWARD_LIMIT = 50_000;
+
 const EVENT_CACHE_MS = 15_000;
 const VOICE_TICK_MS = 60_000;
 
@@ -26,6 +28,8 @@ class LevelingService {
   private voiceTimer?: ReturnType<typeof setInterval>;
   private voiceTickRunning = false;
   private readonly eventCache = new Map<string, { event: LevelEvent | null; expiresAt: number }>();
+  /** Last successful message award per guild member; skips database work inside the cooldown. The database stays authoritative. */
+  private readonly recentAwards = new Map<string, number>();
   private readonly invalidAnnouncementChannelWarnings = new Set<string>();
 
   public constructor(
@@ -103,6 +107,10 @@ class LevelingService {
     // Dev note: Bots farming bot XP would be efficient, unsettling, and terrible for morale.
     if (!message.guildId || !message.guild || !message.member || message.author.bot || message.webhookId || message.system || message.content.trim().length < 3) return;
 
+    const awardKey = `${message.guildId}:${message.author.id}`;
+    const now = Date.now();
+    if (now - (this.recentAwards.get(awardKey) ?? 0) < MESSAGE_XP_COOLDOWN_MS) return;
+
     const event = await this.eventForGuild(message.guildId);
     const multiplier = activityMultiplier(message.member, event, Date.now());
     const baseXp = messageXp(message.content, message.attachments.size, Boolean(message.reference));
@@ -117,6 +125,7 @@ class LevelingService {
       MESSAGE_REPEAT_WINDOW_MS,
     );
     if (!profile) return;
+    this.rememberAward(awardKey, now);
 
     const newLevel = levelForXp(profile.xp);
     const previousLevel = levelForXp(Math.max(0, profile.xp - awardedXp));
@@ -244,6 +253,14 @@ class LevelingService {
       if (!target.editable) throw new Error(`Level role ${target.name} is above the bot's highest role.`);
       await member.roles.add(target, `Reached community level ${level}`);
     }
+  }
+
+  private rememberAward(key: string, at: number): void {
+    if (this.recentAwards.size >= RECENT_AWARD_LIMIT) {
+      for (const [entry, awardedAt] of this.recentAwards) if (at - awardedAt >= MESSAGE_XP_COOLDOWN_MS) this.recentAwards.delete(entry);
+      if (this.recentAwards.size >= RECENT_AWARD_LIMIT) this.recentAwards.clear();
+    }
+    this.recentAwards.set(key, at);
   }
 
   private async eventForGuild(guildId: string, fresh = false): Promise<LevelEvent | null> {

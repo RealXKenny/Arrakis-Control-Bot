@@ -36,6 +36,13 @@ describe("TicketRepository", () => {
     expect(mocks.Pool).toHaveBeenCalledWith(expect.objectContaining({ connectionString: "postgres://db", max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000, ssl: { rejectUnauthorized: true } }));
   });
 
+  it("creates separate interactive and background pools with statement timeouts", () => {
+    new TicketRepository("postgres://db", false, true, { max: 20, backgroundMax: 4, statementTimeoutMs: 5_000 });
+    expect(mocks.Pool).toHaveBeenCalledWith(expect.objectContaining({ max: 20, statement_timeout: 5_000, query_timeout: 10_000, application_name: "arrakis-control" }));
+    expect(mocks.Pool).toHaveBeenCalledWith(expect.objectContaining({ max: 4, statement_timeout: 5_000, application_name: "arrakis-control-background" }));
+    expect(mocks.Pool.mock.calls[0]?.[0]).not.toHaveProperty("ssl");
+  });
+
   it("only skips certificate verification when explicitly requested", () => {
     new TicketRepository("postgres://db", true, false);
     expect(mocks.Pool).toHaveBeenCalledWith(expect.objectContaining({ ssl: { rejectUnauthorized: false } }));
@@ -72,6 +79,7 @@ describe("TicketRepository", () => {
     await expect(repository.activate(7, "channel", "message")).rejects.toThrow("Ticket 7 could not be activated");
     await expect(repository.updateTranscript(7, "transcript", 2)).rejects.toThrow("Ticket 7 transcript could not be finalized");
     await repository.close();
-    expect(mocks.end).toHaveBeenCalledOnce();
+    // Both the interactive and background pools are closed.
+    expect(mocks.end).toHaveBeenCalledTimes(2);
   });
 });

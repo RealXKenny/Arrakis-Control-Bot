@@ -2,14 +2,14 @@
 
 The bot serves one large Discord guild with heavy traffic. Sharding does not spread one guild's load: every event for that guild arrives on one shard process. This plan lists what to change so that process stays responsive under load, recovers on its own, and stays maintainable. Items are ordered by risk. Each item names the code involved and how we know it is done.
 
-Status: planned. Nothing in this document is implemented yet unless it is checked in the [V2 checklist](v2-implementation-checklist.md).
+Status: items 1, 2, 4 and 5 are implemented (archive retention is off by default). Everything else is planned; the [V2 checklist](v2-implementation-checklist.md) tracks status.
 
 ## P0: protect the hot path
 
 These issues can make the bot slow or unresponsive during a busy hour.
 
-1. **Separate database work by priority.** One `pg` pool of 10 connections (`TicketRepository`) is shared by tickets, panels, leveling, the message archive, music, voice, honeypot statistics and the dashboard. Every guild message causes an archive insert and a leveling update, and `pg` queues waiting queries without a limit. A message burst can delay `/ticket`, panels and interaction replies until Discord's 3-second acknowledgement window expires.
-   - Give interactive work (commands, panels, tickets, dashboard) its own pool, separate from background writes (archive, XP, statistics).
+1. **Separate database work by priority.** One `pg` pool of 10 connections (`TicketRepository`) is shared by tickets, panels, leveling, the message archive, music, voice and honeypot statistics. Every guild message causes an archive insert and a leveling update, and `pg` queues waiting queries without a limit. A message burst can delay `/ticket`, panels and interaction replies until Discord's 3-second acknowledgement window expires.
+   - Give interactive work (commands, panels, tickets) its own pool, separate from background writes (archive, XP, statistics).
    - Make both pool sizes configurable (`DATABASE_POOL_MAX`, `DATABASE_BACKGROUND_POOL_MAX`) and set `statement_timeout` and `query_timeout`.
    - Done when a load test with sustained message traffic keeps interaction acknowledgement under 1 second at p99.
 2. **Batch per-message writes.** `MessageArchiveService.created` and `LevelingService.handleMessage` each make their own round trips per message.
@@ -26,8 +26,8 @@ These issues can make the bot slow or unresponsive during a busy hour.
 
 ## P1: stay up and recover on its own
 
-6. **Run as one shard by default.** `TOTAL_SHARDS=auto` still spawns a child process and routes dashboard checks through `broadcastEval`. For one guild, default to `TOTAL_SHARDS=1` and document when to change it. Keep the cross-shard code paths for safety.
-7. **Health and readiness.** Add an internal `/healthz` (liveness) and `/readyz` (gateway connected, database reachable, recent heartbeat) on the dashboard listener or a separate port. Point the Pterodactyl or Docker health checks and any external monitor at it.
+6. **Run as one shard by default.** `TOTAL_SHARDS=auto` still spawns a child process . For one guild, default to `TOTAL_SHARDS=1` and document when to change it. Keep the cross-shard code paths for safety.
+7. **Health and readiness.** Add an internal `/healthz` (liveness) and `/readyz` (gateway connected, database reachable, recent heartbeat), bound to localhost or a private port only, since the bot otherwise has no HTTP listener. Point the Pterodactyl or Docker health checks and any external monitor at it.
 8. **Metrics.** Track event-loop lag, interaction acknowledgement latency, pool wait time and size, write-buffer depth and drops, Discord REST 429s, Dune API latency and errors, and cache sizes. Log a short summary every minute, and optionally expose Prometheus text on the internal port.
 9. **Event-loop protection.** Panel artwork rendering uses `canvas` on the main thread. Move heavy rendering to a worker pool, or cache rendered banners by input hash, so image work cannot stall the gateway heartbeat.
 10. **Upstream resilience.** The Dune Console client has timeouts but no circuit breaker or shared cache.
@@ -41,7 +41,7 @@ These issues can make the bot slow or unresponsive during a busy hour.
 
 13. **Versioned migrations.** Tables are created with scattered `CREATE TABLE IF NOT EXISTS` in each repository's `initialize`. Move to ordered, numbered migrations with a `schema_migrations` table, run once at startup under an advisory lock, and add a check that refuses to start on an unknown newer schema.
 14. **Load and soak tests.** Add a reproducible load harness, using a mocked gateway and REST boundary against a real PostgreSQL in CI, that replays N messages per second plus interactions. Fail CI when p99 acknowledgement or pool wait time regresses past a budget.
-15. **Dependency hygiene.** Pin Node 24 in CI (already done) and in the egg. Add Dependabot or Renovate with grouped weekly updates. Track the Discord-Dashboard beta and the `happy-dom` override until upstream releases a stable version.
+15. **Dependency hygiene.** Pin Node 24 in CI (already done) and in the egg. Add Dependabot or Renovate with grouped weekly updates.
 16. **Backups and restore drills.** Document `pg_dump` scheduling for the bot database and run a restore drill before each major release.
 17. **Runbook.** Add `guides/operations.md` covering restart order, what each health signal means, how to drain the write buffer, and how to roll back a release with the source-archive installer.
 

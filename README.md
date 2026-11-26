@@ -194,10 +194,6 @@ Persistent public panels require `DATABASE_URL`. The bot creates `bot_persistent
 
 Every user-facing Discord panel shares one modern visual language: an indigo accent palette and semantic status colors (`src/shared/discord/panelStyle.ts`), sentence-case headings, and gradient-and-geometry artwork from `data/images/`. Regenerate the artwork with `node scripts/generate-panel-artwork.mjs`; the files keep their names, so no code or deployment changes are needed. The shared renderer selects a typed panel-specific background, applies consistent aspect-cover cropping and text-safe shading, then layers dynamic server names, counts, statuses, release versions, member avatars, and accessibility descriptions without baking live data into the source image. Persistent panels retain their unique backgrounds, welcome and goodbye cards use member-specific avatar banners, and short-lived Components V2 responses automatically receive the `panel-temporary.png` scene when they do not already provide art. Lyrics, voice-room information, and no-cover music cards also include dedicated image attachments. High-volume audit-log records intentionally remain compact and text-first.
 
-## Management dashboard (beta)
-
-An optional web dashboard can run inside the bot on shard 0. It uses Discord sign-in, PostgreSQL sessions, and a fresh Manage Server check for every guild request. Set the `MANAGEMENT_DASHBOARD_*` variables, `CLIENT_ID`, and `DATABASE_URL`, and serve it through an HTTPS reverse proxy. It is a beta and has no settings yet. See the [management dashboard guide](guides/management-dashboard.md).
-
 ## Stability roadmap
 
 Planned work to keep the bot fast and self-healing for one busy guild is tracked in the [single-guild stability and scale plan](guides/single-guild-scale-plan.md).

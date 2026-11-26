@@ -13,32 +13,19 @@ This checklist records work against the V2 request. An unchecked item is not com
 - [ ] Complete dashboard synchronization integration and validate its publication policy.
 - [ ] Audit every bot subsystem, command, integration, security boundary, deployment path, and test suite.
 - [ ] Rebuild and verify bot services, Discord interactions, persistence, lifecycle, and integrations as needed.
-- [ ] Build and verify the authorized Discord management dashboard and its security model.
+- [x] Remove the in-bot management dashboard before launch (decision 2026-11-26); revisit after launch with a separate security review.
 - [x] Evaluate Discord-Dashboard V3 beta's existing-client, persistence, and sharding constraints.
 - [x] Stop partially spawned shard sets when manager startup fails.
-- [x] Add a fail-closed, fresh Discord guild permission check routed to the owning shard.
-- [x] Add a PostgreSQL-backed dashboard session repository with hashed bearer tokens and bounded expiry.
-- [x] Combine session lookup with a fresh shard-routed authorization check for each application-layer access decision.
-- [x] Add one-time PostgreSQL OAuth transaction storage, PKCE coordination, and a bounded Discord identity transport.
-- [x] Exercise the OAuth, session, authorization, permission-revocation and logout components together against mocked external boundaries.
-- [x] Add framework-neutral OAuth, logout, and guild-access HTTP handlers with secure cookies and origin validation; they are not yet mounted.
-- [x] Add shared PostgreSQL request limits, expiry cleanup, and a composition factory for dashboard security services; they are not yet running in the bot.
-- [x] Add a request-scoped bridge for framework session reads, with fresh authorization and concurrent-request isolation; it is not yet mounted.
-- [x] Add an allowlisted, read-only framework gateway that excludes OAuth query strings and credentials from framework dispatch; it is not yet mounted.
-- [x] Mount the V3 beta framework in memory behind the allowlisted gateway and an opt-in listener on shard 0, with PostgreSQL sessions and settings, fresh shard-routed authorization per request, single-request framework grants, origin-checked writes, durable audit history, shared limits, scheduled cleanup and redacted request logs; exercised end to end against mocked Discord and PostgreSQL.
-- [x] Add cross-shard guild selection and channel/role pickers for the dashboard.
-- [ ] Integrate the authorization and session repositories with the dashboard framework and verify end-to-end OAuth.
-- [ ] Mount and verify secure HTTP cookies, CSRF/origin enforcement, request limits, scheduled expiry cleanup, and framework integration before exposing OAuth.
 - [ ] Design and implement deterministic bot changelog synchronization without changing dashboard release parsing.
 - [x] Implement the dashboard read-only versioned changelog API and unified release presentation.
 - [x] Add and test a bounded dashboard changelog HTTP client.
 - [x] Replace bot GitHub changelog retrieval with validated dashboard API access, bounded caching, and explicit stale/outage handling.
 - [ ] Single-guild stability and scale, per [the plan](single-guild-scale-plan.md):
-  - [ ] Split interactive and background PostgreSQL pools with configurable sizes and query timeouts.
-  - [ ] Batch message-archive and XP writes with a bounded buffer that is flushed on shutdown.
+  - [x] Split interactive and background PostgreSQL pools with configurable sizes and query timeouts.
+  - [x] Batch message-archive writes with a bounded buffer flushed before edits, deletes and shutdown; skip XP database work inside the cooldown.
   - [ ] Verify every interaction is acknowledged before slow I/O.
-  - [ ] Bound Discord message caches with sweepers.
-  - [ ] Add message-archive retention and purge.
+  - [x] Bound Discord message caches with sweepers.
+  - [x] Add optional message-archive retention and batched purge (off by default).
   - [ ] Default to one shard for a single guild.
   - [ ] Add health and readiness endpoints and runtime metrics.
   - [ ] Keep canvas rendering off the gateway event loop.
@@ -54,4 +41,4 @@ This checklist records work against the V2 request. An unchecked item is not com
 
 Baseline: the dashboard `v2` checkout contained unrelated uncommitted changes, including `CHANGELOG.md`. Its existing release workflow parses dashboard headings from that file. The bot announcement ledger uses a channel lock and PostgreSQL receipts; keep these protections during the API migration. The original V2 requirements were subsequently restated in the conversation.
 
-Dashboard framework evaluation: `@acstane/dashboard@3.1.0-beta.2` accepts an existing client and a custom settings store, but its lite mode is tied to one process's client and offers only memory or SQLite session backends. The bot has multiple shard processes and uses PostgreSQL. An isolated install produced six high-severity production advisory paths through `@puckeditor/core` and `happy-dom`; the unused package was removed and the production audit returned zero advisories. A separate isolated installation overriding `happy-dom` to 21.0.4 reports zero advisories and passes framework import, DOM, and mocked OAuth/settings smoke tests, but that override exceeds the upstream dependency range and needs full compatibility and security verification before use. The upstream session interface is synchronous, its authorization uses guild access captured at login, and its default request logger logs callback query parameters. Follow-up: the framework is now mounted only behind the gateway (see `guides/management-dashboard.md`). The earlier async-context bridge did not survive framework dispatch and was replaced by single-request grants. The framework's request logger is limited to warnings and only sees allowlisted paths; its in-process rate limit is raised because shared PostgreSQL limits run in front. Live OAuth, PostgreSQL, reverse-proxy, and web-app behavior still need staged verification, and the settings definition is empty until bot features read dashboard settings.
+Dashboard framework evaluation: `@acstane/dashboard@3.1.0-beta.2` was evaluated and briefly mounted behind an allowlisted gateway, then removed with all in-bot OAuth, session and rate-limit code before launch to reduce the attack surface. Notes for a future attempt: the framework's in-process dispatch loses async context, its sessions are synchronous with guild access captured at login, its default request logger logs callback query strings, and clearing its production advisories needed a `happy-dom` override outside the upstream range. The removed code is in git history (commit 0cc1458 and earlier).

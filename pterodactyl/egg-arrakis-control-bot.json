@@ -329,6 +329,46 @@
       "field_type": "text"
     },
     {
+      "name": "Database Pool Max",
+      "description": "Optional bot setting (DATABASE_POOL_MAX). See .env.example in the repository.",
+      "env_variable": "DATABASE_POOL_MAX",
+      "default_value": "10",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Database Background Pool Max",
+      "description": "Optional bot setting (DATABASE_BACKGROUND_POOL_MAX). See .env.example in the repository.",
+      "env_variable": "DATABASE_BACKGROUND_POOL_MAX",
+      "default_value": "5",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Database Statement Timeout Ms",
+      "description": "Optional bot setting (DATABASE_STATEMENT_TIMEOUT_MS). See .env.example in the repository.",
+      "env_variable": "DATABASE_STATEMENT_TIMEOUT_MS",
+      "default_value": "15000",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Message Archive Retention Days",
+      "description": "Optional bot setting (MESSAGE_ARCHIVE_RETENTION_DAYS). See .env.example in the repository.",
+      "env_variable": "MESSAGE_ARCHIVE_RETENTION_DAYS",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
       "name": "Leveling Enabled",
       "description": "Optional bot setting (LEVELING_ENABLED). See .env.example in the repository.",
       "env_variable": "LEVELING_ENABLED",
@@ -1043,56 +1083,6 @@
       "description": "Optional bot setting (HONEYPOT_TIMEOUT_MINUTES). See .env.example in the repository.",
       "env_variable": "HONEYPOT_TIMEOUT_MINUTES",
       "default_value": "1440",
-      "user_viewable": true,
-      "user_editable": true,
-      "rules": "nullable|string",
-      "field_type": "text"
-    },
-    {
-      "name": "Management Dashboard HTTPS Origin",
-      "description": "Optional beta. Public HTTPS origin of the management dashboard behind a TLS reverse proxy; empty disables it. Requires CLIENT_ID and DATABASE_URL.",
-      "env_variable": "MANAGEMENT_DASHBOARD_URL",
-      "default_value": "",
-      "user_viewable": true,
-      "user_editable": true,
-      "rules": "nullable|string",
-      "field_type": "text"
-    },
-    {
-      "name": "Management Dashboard Host",
-      "description": "Optional bot setting (MANAGEMENT_DASHBOARD_HOST). See .env.example in the repository.",
-      "env_variable": "MANAGEMENT_DASHBOARD_HOST",
-      "default_value": "0.0.0.0",
-      "user_viewable": true,
-      "user_editable": true,
-      "rules": "nullable|string",
-      "field_type": "text"
-    },
-    {
-      "name": "Management Dashboard Port",
-      "description": "Port the management dashboard listens on inside the container; use an allocated port when exposing it.",
-      "env_variable": "MANAGEMENT_DASHBOARD_PORT",
-      "default_value": "3001",
-      "user_viewable": true,
-      "user_editable": true,
-      "rules": "nullable|string",
-      "field_type": "text"
-    },
-    {
-      "name": "Discord OAuth Client Secret",
-      "description": "Discord application OAuth2 client secret for dashboard sign-in. Treat as a secret.",
-      "env_variable": "MANAGEMENT_DASHBOARD_CLIENT_SECRET",
-      "default_value": "",
-      "user_viewable": true,
-      "user_editable": true,
-      "rules": "nullable|string",
-      "field_type": "text"
-    },
-    {
-      "name": "Dashboard Rate-Limit Secret",
-      "description": "At least 32 random characters used to hash client addresses for rate limits. Treat as a secret.",
-      "env_variable": "MANAGEMENT_DASHBOARD_RATE_LIMIT_SECRET",
-      "default_value": "",
       "user_viewable": true,
       "user_editable": true,
       "rules": "nullable|string",

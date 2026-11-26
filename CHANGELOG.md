@@ -6,6 +6,10 @@ All notable changes to Arrakis Control Bot are documented here.
 
 **Target version: 2.0.0.** This release is in development; the package version remains 1.11.7 until V2 is ready for release.
 
+### Removed
+
+- Remove the in-bot management dashboard work (OAuth, sessions, rate limits, framework bridge and gateway) before launch to reduce the attack surface. The bot no longer listens on any HTTP port and no longer depends on the Discord-Dashboard beta. The code remains in git history for a future, separately reviewed release. Release announcements still read the dashboard's public changelog API through `DASHBOARD_URL`.
+
 ### Fixed
 
 - Security: the bot now leaves any guild outside `ALLOWED_GUILD_IDS` (default `GUILD_ID`), but never leaves anything if none of the allowed guilds is present. Slash commands are registered for guild installs and guild contexts only.
@@ -15,11 +19,9 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Changed
 
+- Stability for one busy guild: separate interactive and background PostgreSQL pools with configurable sizes and statement timeouts (`DATABASE_POOL_MAX`, `DATABASE_BACKGROUND_POOL_MAX`, `DATABASE_STATEMENT_TIMEOUT_MS`); batch message-archive inserts with a bounded buffer that is flushed before edits, deletes and shutdown; skip XP database work inside the per-member cooldown; bound Discord message caches with a sweeper; and add optional archive retention (`MESSAGE_ARCHIVE_RETENTION_DAYS`, off by default).
 - Align CI and release security with the dashboard: pin actions, verify merge-queue and V2 pushes, and validate checksummed source artifacts before granting the separate publish job write permissions.
 - Replace the bot-specific GHCR image release and egg with a checksummed source archive and Node.js 24 Pterodactyl installer. Existing image-based installations must import the new egg and reinstall or migrate their configuration.
-- Add internal dashboard OAuth and access services for one-time PKCE transactions, Discord identity, PostgreSQL sessions with hashed tokens, shared request limits, expiry cleanup, and fresh guild authorization routed to the owning shard. Framework-neutral handlers use secure cookies and validate logout origins. These services are not yet mounted or publicly accessible.
-- Add an opt-in management dashboard (beta) built on Discord-Dashboard V3 beta. Shard 0 serves it through a hardened HTTP listener and an allowlisted gateway: PostgreSQL sessions, a fresh shard-routed Manage Server check on every guild request, single-request framework grants, origin-checked JSON writes, PostgreSQL settings with durable audit history, shared rate limits, scheduled expiry cleanup, and redacted request logs. Configure the `MANAGEMENT_DASHBOARD_*` variables and see [guides/management-dashboard.md](guides/management-dashboard.md). It has not been verified against live Discord OAuth or a production proxy.
-- Replace the async-context framework session bridge with request-scoped grants; the framework's in-process dispatch did not preserve async context, so the previous bridge never authorized framework requests.
 - Read release announcements from the dashboard's public changelog API instead of GitHub. Configure `DASHBOARD_URL` and deploy a dashboard with the API; stale, incomplete, or unavailable data pauses posting and replay. Existing PostgreSQL receipts remain in use.
 - Move all changelog handling into `modules/changelog/` with one product registry. Each Discord post now states its product (Discord bot or Web dashboard) under the heading and uses a product-specific accent color, and the bot is the only Discord publisher for both products. Existing headings, receipts and history import are unchanged, so nothing is reposted. Release cards refresh to the new layout on the next panel refresh.
 - Validate and bound dashboard release responses, apply HTTP timeouts and bounded caching, and label last-known-good data as stale. Preserve channel locks, durable announcement receipts, deleted-message records, and replay protections; there is no GitHub changelog fallback.
@@ -40,7 +42,6 @@ All notable changes to Arrakis Control Bot are documented here.
 ### Verification
 
 - Unit tests cover parsing, BigInt-safe sorting, formatting, pagination, caching, failure paths, limits, and store/routing discovery. Live Console behavior was not verified.
-- Dashboard security tests cover OAuth and session handling, permission revocation, request isolation, rate-limit failures, and gateway validation with mocked external boundaries. An isolated smoke test exercised the read-only gateway against the framework. Live Discord, PostgreSQL, dashboard deployment, and Pterodactyl installation have not been verified.
 
 ## [1.11.7] - 2026-11-05
 

@@ -1,6 +1,6 @@
 # Security audit (V2, November 2026)
 
-Scope: the whole `v2` branch before the December 1, 2026 launch. That covers command and component authorization, Discord output, SQL, outbound HTTP clients, attachment handling, secrets and logging, the management dashboard, CI and release workflows, and dependencies. The review was done by reading the code and running the test suite against mocked external boundaries. Live Discord, PostgreSQL, Dune Console and Pterodactyl were not tested.
+Scope: the whole `v2` branch before the December 1, 2026 launch. That covers command and component authorization, Discord output, SQL, outbound HTTP clients, attachment handling, secrets and logging, the (since removed) management dashboard, CI and release workflows, and dependencies. The review was done by reading the code and running the test suite against mocked external boundaries. Live Discord, PostgreSQL, Dune Console and Pterodactyl were not tested.
 
 ## Fixed
 
@@ -15,7 +15,7 @@ Scope: the whole `v2` branch before the December 1, 2026 launch. That covers com
 | 7 | Low | The `StaffOnly` precondition allowed every user outside a guild (it is not currently attached to a command). | It now fails closed in DMs. |
 | 8 | Low | Mentions in generated text depended on each call site setting `allowedMentions`. | The client default is `allowedMentions: { parse: [] }`. Call sites that need to ping opt in, as tickets and welcome messages already do. |
 | 9 | Low | Development-only advisory in `minimatch` through `typescript-eslint`. | Fixed with `npm audit fix`; `npm audit` reports 0. |
-| 10 | High | The original dashboard session bridge did not authorize framework requests (it lost the session during dispatch). | Fixed earlier on this branch with single-request grants; see `guides/management-dashboard.md`. |
+| 10 | High (removed) | The in-bot management dashboard added an internet-facing HTTP listener, OAuth, sessions and a beta framework that needed a dependency override. | Removed before launch. The bot no longer listens on any port. |
 
 ## Reviewed with no change needed
 
@@ -24,11 +24,9 @@ Scope: the whole `v2` branch before the December 1, 2026 launch. That covers com
 - Backup imports and blueprint uploads accept only Discord-hosted HTTPS attachments with size limits.
 - The logger redacts keys that look like tokens, passwords, secrets, cookies or sessions. No secrets were found in git history; the tracked `certificates/*.pem` files are public certificates only.
 - CI runs with `contents: read`, actions are pinned by commit, and only the release publish job gets `contents: write`.
-- The dashboard listener ignores `Host` and forwarded headers, redacts request logs, limits bodies, checks origins on writes and rechecks guild permissions on every request.
 
 ## Open items before or soon after launch
 
-- Live verification of the dashboard OAuth flow behind the real HTTPS proxy.
 - Player-link verification codes are checked by the Discord Adapter service. Confirm on that service that codes are single-use, expire, and have an attempt limit. The bot only adds its per-user interaction cooldown.
 - Set the Discord application to private ("Public Bot" off) in the developer portal as an extra layer on top of the guild allowlist.
 - Rotate the bot token, Dune Console key and database password before launch if they were ever shared outside the deployment secrets.

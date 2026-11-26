@@ -39,4 +39,25 @@ describe("MessageArchiveService", () => {
     await new MessageArchiveService(repository as never, { activityChannelId: "log", sendTo } as never).deleted(fakeMessage(""));
     expect(sendTo).toHaveBeenCalledWith("log", "Message deleted", expect.arrayContaining([expect.stringContaining("saved content")]));
   });
+
+  it("queues new messages instead of writing each one and flushes on stop", async () => {
+    const repository = { enqueue: vi.fn(), start: vi.fn(), stop: vi.fn().mockResolvedValue(undefined), takeDroppedCount: vi.fn().mockReturnValue(3), purgeOlderThan: vi.fn().mockResolvedValue(0), bufferedCount: 0 };
+    const service = new MessageArchiveService(repository as never, { activityChannelId: "log", sendTo: vi.fn() } as never);
+    await service.created(fakeMessage("hello"));
+    expect(repository.enqueue).toHaveBeenCalledWith(expect.objectContaining({ messageId: "message", content: "hello" }));
+    const onError = vi.fn();
+    service.start(onError, 30);
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining("Dropped 3 message"));
+    expect(repository.purgeOlderThan).toHaveBeenCalledWith(30);
+    await service.stop();
+    expect(repository.stop).toHaveBeenCalledOnce();
+  });
+
+  it("never purges when retention is off", () => {
+    const repository = { enqueue: vi.fn(), start: vi.fn(), stop: vi.fn(), takeDroppedCount: vi.fn().mockReturnValue(0), purgeOlderThan: vi.fn(), bufferedCount: 0 };
+    const service = new MessageArchiveService(repository as never, { activityChannelId: "log", sendTo: vi.fn() } as never);
+    service.start(vi.fn(), 0);
+    expect(repository.purgeOlderThan).not.toHaveBeenCalled();
+    void service.stop();
+  });
 });

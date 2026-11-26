@@ -7,7 +7,6 @@ import { loadMusicConfig, type MusicConfig } from "./music";
 import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
 import { loadStaffApplicationConfig, type StaffApplicationConfig } from "./staffApplications";
 import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogClient";
-import { loadManagementDashboardConfig, type ManagementDashboardConfig } from "./managementDashboard";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
@@ -49,9 +48,12 @@ interface EnvironmentConfig {
   databaseUrl?: string;
   databaseSsl: boolean;
   databaseSslVerify: boolean;
+  databasePoolMax: number;
+  databaseBackgroundPoolMax: number;
+  databaseStatementTimeoutMs: number;
+  messageArchiveRetentionDays: number;
   versionAnnouncementIntervalMinutes: number;
   dashboardUrl?: string;
-  managementDashboard?: ManagementDashboardConfig;
   interactionCooldownMs: number;
   rateLimitMaxEntries: number;
   logLevel: string;
@@ -226,9 +228,12 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     databaseUrl: process.env.DATABASE_URL,
     databaseSsl,
     databaseSslVerify,
+    databasePoolMax: parsePositiveInteger(process.env.DATABASE_POOL_MAX, 10, "DATABASE_POOL_MAX"),
+    databaseBackgroundPoolMax: parsePositiveInteger(process.env.DATABASE_BACKGROUND_POOL_MAX, 5, "DATABASE_BACKGROUND_POOL_MAX"),
+    databaseStatementTimeoutMs: parsePositiveInteger(process.env.DATABASE_STATEMENT_TIMEOUT_MS, 15_000, "DATABASE_STATEMENT_TIMEOUT_MS"),
+    messageArchiveRetentionDays: parseRetentionDays(process.env.MESSAGE_ARCHIVE_RETENTION_DAYS),
     versionAnnouncementIntervalMinutes,
     dashboardUrl,
-    managementDashboard: loadManagementDashboardConfig(process.env),
     interactionCooldownMs,
     rateLimitMaxEntries,
     logLevel,
@@ -242,6 +247,14 @@ function parseAllowedGuildIds(value: string | undefined, guildId: string | undef
     if (!/^\d{17,20}$/.test(id)) throw new Error("ALLOWED_GUILD_IDS must be a comma-separated list of Discord server IDs.");
   }
   return Object.freeze([...new Set(ids)]);
+}
+
+/** 0 or empty keeps archived messages forever. */
+function parseRetentionDays(value: string | undefined): number {
+  if (!value?.trim()) return 0;
+  const days = Number(value);
+  if (!Number.isInteger(days) || days < 0 || days > 3650) throw new Error("MESSAGE_ARCHIVE_RETENTION_DAYS must be a whole number of days from 0 to 3650.");
+  return days;
 }
 
 function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {
