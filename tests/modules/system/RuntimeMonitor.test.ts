@@ -53,6 +53,27 @@ describe("RuntimeMonitor", () => {
     expect(warnings.join("\n")).toMatch(/dune:api\/server/);
   });
 
+  it("prints quiet samples only every summary interval but reports changes and warnings at once", async () => {
+    let databaseUp = true;
+    const monitor = new RuntimeMonitor(probes({ poolStats: () => ({ ...pools, interactive: { total: 10, idle: 9, waiting: 0 } }), databasePing: () => (databaseUp ? Promise.resolve() : Promise.reject(new Error("down"))) }), { ...options, intervalMs: 60_000, summaryIntervalMs: 300_000 });
+    const at = (minute: number) => new Date(Date.UTC(2026, 10, 26, 0, minute));
+    const sample = async (minute: number) => {
+      const snapshot = await monitor.snapshot(at(minute));
+      return monitor.shouldLog(snapshot, snapshotWarnings(snapshot, 200).length > 0);
+    };
+    expect(await sample(0)).toBe(true);
+    expect(await sample(1)).toBe(false);
+    expect(await sample(4)).toBe(false);
+    expect(await sample(5)).toBe(true);
+    databaseUp = false;
+    expect(await sample(6)).toBe(true);
+    databaseUp = true;
+    expect(await sample(7)).toBe(true);
+    expect(await sample(8)).toBe(false);
+    monitor.recordRateLimit();
+    expect(await sample(9)).toBe(true);
+  });
+
   it("writes the health file on each interval and stops cleanly", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "arrakis-health-"));
     const healthFile = path.join(directory, "health.json");

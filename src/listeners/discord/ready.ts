@@ -1,3 +1,4 @@
+import { guildListLabel } from "../../shared/discord/logLabels";
 import { Events, Listener, container } from "@sapphire/framework";
 import { ActivityType } from "discord.js";
 
@@ -89,7 +90,7 @@ class Ready extends Listener<typeof Events.ClientReady> {
 
     client.presenceInterval = setInterval(updatePresence, PRESENCE_INTERVAL_MS);
 
-    gatewayLogger.info(`Connected as ${botUser.tag} | ${client.guilds.cache.size} server(s).`);
+    gatewayLogger.info(`Connected as ${botUser.tag} | ${guildListLabel(client.guilds.cache.values())}.`);
     communityLogger.info("[04] Restoring voice rooms and synchronizing panels.");
 
     client.auditLogInterval = startAuditLogForwarder(client);

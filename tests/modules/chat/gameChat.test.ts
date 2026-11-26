@@ -168,6 +168,24 @@ describe("RabbitMQ lifecycle", () => {
     expect(connect).toHaveBeenCalledTimes(3);
   });
 
+  it("warns once per distinct connection failure and reports the recovery", async () => {
+    vi.useFakeTimers();
+    connect.mockRejectedValue(Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" }));
+    const warn = vi.fn();
+    const info = vi.fn();
+    const transport = new GameChatConnection(config, vi.fn(), warn, info);
+    transport.start();
+    await vi.advanceTimersByTimeAsync(3_100);
+    expect(connect).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toMatch(/^RabbitMQ chat unavailable while connecting\/authenticating: .*Retrying automatically/u);
+    mockBroker();
+    await vi.advanceTimersByTimeAsync(4_000);
+    await vi.waitFor(() => expect(info).toHaveBeenCalledWith(expect.stringMatching(/ready after 3 failed attempt\(s\)/u)));
+    expect(warn).toHaveBeenCalledTimes(1);
+    await transport.stop();
+  });
+
   it("reconnects after channel closure and rejects a pending publish on disconnect", async () => {
     vi.useFakeTimers();
     const { channel, connection } = mockBroker();

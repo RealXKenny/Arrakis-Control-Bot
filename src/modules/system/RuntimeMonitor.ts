@@ -36,9 +36,15 @@ interface RuntimeMonitorOptions {
   warn(message: string): void;
   /** Event-loop p99 above this is reported as a warning. */
   eventLoopWarnMs?: number;
+  /**
+   * Quiet samples are printed at most this often (default five minutes). A sample with warnings,
+   * rate limits or a changed health state is printed at once. The health file is still rewritten every interval.
+   */
+  summaryIntervalMs?: number;
 }
 
 const DATABASE_PING_TIMEOUT_MS = 2_000;
+const DEFAULT_SUMMARY_INTERVAL_MS = 300_000;
 
 /**
  * Samples runtime health without opening a network port: event-loop delay, memory,
@@ -50,6 +56,8 @@ class RuntimeMonitor {
   private timer?: ReturnType<typeof setInterval>;
   private restRateLimits = 0;
   private databaseHealthy: boolean | null = null;
+  private lastLoggedAt: number | null = null;
+  private lastHealthState: string | null = null;
 
   public constructor(private readonly probes: RuntimeProbes, private readonly options: RuntimeMonitorOptions) {}
 
@@ -109,13 +117,33 @@ class RuntimeMonitor {
       const snapshot = await this.snapshot();
       this.histogram.reset();
       this.restRateLimits = 0;
-      this.options.info(formatSnapshot(snapshot));
-      for (const warning of snapshotWarnings(snapshot, this.options.eventLoopWarnMs ?? 200)) this.options.warn(warning);
+      const warnings = snapshotWarnings(snapshot, this.options.eventLoopWarnMs ?? 200);
+      if (this.shouldLog(snapshot, warnings.length > 0)) this.options.info(formatSnapshot(snapshot));
+      for (const warning of warnings) this.options.warn(warning);
       if (this.options.healthFile) await writeHealthFile(this.options.healthFile, snapshot);
     } catch (error) {
       this.options.warn(`Runtime metrics sample failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+
+  /** Decides whether a sample is worth a console line; quiet, unchanged samples wait for the summary interval. */
+  public shouldLog(snapshot: RuntimeSnapshot, hasWarnings: boolean): boolean {
+    // Dev note: A metrics line that says "still fine" sixty times an hour is the log's version of "are we there yet?".
+    const now = Date.parse(snapshot.at);
+    const state = healthState(snapshot);
+    const summaryIntervalMs = Math.max(this.options.summaryIntervalMs ?? DEFAULT_SUMMARY_INTERVAL_MS, this.options.intervalMs);
+    const due = this.lastLoggedAt === null || now - this.lastLoggedAt >= summaryIntervalMs;
+    const changed = this.lastHealthState !== null && state !== this.lastHealthState;
+    this.lastHealthState = state;
+    if (!due && !changed && !hasWarnings && snapshot.restRateLimits === 0) return false;
+    this.lastLoggedAt = now;
+    return true;
+  }
+}
+
+/** The parts of a snapshot whose change is news on its own; ping, memory and buffers drift every sample. */
+function healthState(snapshot: RuntimeSnapshot): string {
+  return [snapshot.ready, snapshot.gateway.ready, snapshot.database.healthy, snapshot.openCircuits.join(",")].join("|");
 }
 
 async function pingWithin(ping: () => Promise<void>, timeoutMs: number): Promise<boolean> {

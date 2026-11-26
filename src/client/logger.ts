@@ -99,20 +99,32 @@ const DEFAULT_PRODUCTION_COLUMNS = 120;
 const ANSI_ESCAPE = String.fromCharCode(27);
 const ANSI_COLOR_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, "g");
 
+const OPERATIONAL_ERROR_NAMES = ["DuneConsoleApiError", "DiscordAdapterApiError", "DiscordAPIError", "HTTPError"];
+
+/** Errors whose messages come from a remote API and are safe and useful to show in production. */
+function isOperationalError(error: Error): boolean {
+  return OPERATIONAL_ERROR_NAMES.some((name) => error.name === name || error.name.startsWith(`${name}[`));
+}
+
+function errorCode(error: Error): string | undefined {
+  const code = (error as Error & { code?: unknown }).code;
+  return (typeof code === "string" || typeof code === "number") && !error.name.includes(String(code)) ? String(code) : undefined;
+}
+
+/** One readable line for an error: `Name: message`, plus its code when the name does not already carry it. Stacks are never part of it. */
+function describeError(error: Error): string {
+  const production = process.env.NODE_ENV === "production";
+  const message = production && !isOperationalError(error) ? "Internal error" : error.message;
+  const code = errorCode(error);
+  return `${error.name}: ${message}${code ? ` (code ${code})` : ""}`;
+}
+
 function redact(value: unknown, key = ""): unknown {
   // Dev note: Secrets enter the witness protection program here.
   if (secretKeyPattern.test(key)) return "[REDACTED]";
 
-  if (value instanceof Error) {
-    const operationalError = ["DuneConsoleApiError", "DiscordAdapterApiError"].includes(value.name);
-    const production = process.env.NODE_ENV === "production";
-
-    return {
-      name: value.name,
-      message: production && !operationalError ? "Internal error" : value.message,
-      stack: production || operationalError ? undefined : value.stack,
-    };
-  }
+  // Stacks are printed separately at DEBUG, so a single failure never turns into a wall of JSON.
+  if (value instanceof Error) return describeError(value);
 
   if (Array.isArray(value)) return value.map((item) => redact(item));
 
@@ -121,6 +133,21 @@ function redact(value: unknown, key = ""): unknown {
   }
 
   return value;
+}
+
+/** Stack frames shown at DEBUG, skipping the first line because the log line already names the error. */
+function stackLines(error: Error): string[] {
+  if (process.env.NODE_ENV === "production" && !isOperationalError(error)) return [];
+  return (error.stack ?? "").split("\n").slice(1).map((line) => line.trim()).filter(Boolean);
+}
+
+function findError(details: unknown): Error | undefined {
+  if (details instanceof Error) return details;
+  if (details && typeof details === "object" && !Array.isArray(details)) {
+    const nested = (details as { error?: unknown }).error;
+    if (nested instanceof Error) return nested;
+  }
+  return undefined;
 }
 
 function formatDetails(details: unknown): string {
@@ -239,6 +266,15 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
     console.info(fittedOutput);
   }
 
+  function writeStack(details: unknown): void {
+    if (LEVELS.DEBUG < threshold) return;
+    const error = findError(details);
+    if (!error) return;
+    const columns = terminalColumns("DEBUG");
+    // Dev note: The stack trace waits in the DEBUG lounge until someone actually asks for directions.
+    for (const frame of stackLines(error)) console.debug(fitConsoleLine(`${paint(COLORS.dim, `    ${frame}`)}`, columns));
+  }
+
   return Object.freeze({
     header(title: string, subtitle = "Dune: Awakening Bot"): void {
       if (LEVELS.INFO < threshold) {
@@ -259,11 +295,20 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
 
     info: (message: string, details?: unknown) => write("INFO", message, details),
 
-    warn: (message: string, details?: unknown) => write("WARN", message, details),
+    warn: (message: string, details?: unknown) => {
+      write("WARN", message, details);
+      writeStack(details);
+    },
 
-    error: (message: string, error?: unknown) => write("ERROR", message, error),
+    error: (message: string, error?: unknown) => {
+      write("ERROR", message, error);
+      writeStack(error);
+    },
 
-    fatal: (message: string, error?: unknown) => write("FATAL", message, error),
+    fatal: (message: string, error?: unknown) => {
+      write("FATAL", message, error);
+      writeStack(error);
+    },
   });
 }
 
@@ -400,6 +445,6 @@ function formatTimestamp(date: Date): string {
   return `${values.month}/${values.day}/${values.year} ` + `${values.hour}:${values.minute}:${values.second} ` + `${values.dayPeriod}`;
 }
 
-export { compactSapphireMessage, createLogger, createRequestLogger, createSapphireLogger, fitConsoleLine, formatTimestamp, scopedLogger };
+export { compactSapphireMessage, createLogger, describeError, createRequestLogger, createSapphireLogger, fitConsoleLine, formatTimestamp, scopedLogger };
 
 export type { LogContext, LogLevel, Logger, ScopedSapphireLogger };
