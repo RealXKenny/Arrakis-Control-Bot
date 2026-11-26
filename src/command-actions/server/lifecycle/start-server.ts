@@ -5,7 +5,7 @@ import { SERVER_ACTIONS, executeServerAction } from "../../../modules/server/ope
 const data = new SlashCommandBuilder().setName("start-server").setDescription(SERVER_ACTIONS["start-server"].description);
 const execute = (interaction: ChatInputCommandInteraction): Promise<void> => executeServerAction(interaction, "start-server");
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

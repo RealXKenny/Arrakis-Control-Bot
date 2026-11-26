@@ -371,5 +371,3 @@ function validateDatabaseUrl(value: string): void {
 }
 
 export { loadEnvironment };
-
-export type { EnvironmentConfig };

@@ -1,5 +1,6 @@
 import { DuneConsoleClient, type BinaryResponse, type DuneConsoleClientOptions, type HttpMethod, type RequestOptions } from "./DuneConsoleClient";
 import { loadEndpointCatalog, resolveRoute, type EndpointDefinition } from "./endpointCatalog";
+import { isRecord } from "../../../shared/validation/isRecord";
 
 interface BlueprintImportResult {
   message?: string;
@@ -54,10 +55,6 @@ class DuneApi extends DuneConsoleClient {
     const route = resolveRoute("/api/backups/{backup}/download", { backup });
     return this.requestBinary("GET", route, maximumBytes);
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 export { DuneApi };

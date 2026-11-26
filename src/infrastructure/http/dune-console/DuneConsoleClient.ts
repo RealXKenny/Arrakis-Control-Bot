@@ -465,5 +465,5 @@ function getErrorCause(error: unknown): string {
   return error instanceof Error ? error.name : "UnknownError";
 }
 
-export { DuneConsoleClient, DuneConsoleApiError, RequestOptions, HttpMethod };
-export type { BinaryResponse, BlueprintAttachment, DuneConsoleClientOptions };
+export { DuneConsoleClient, RequestOptions, HttpMethod };
+export type { BinaryResponse, DuneConsoleClientOptions };

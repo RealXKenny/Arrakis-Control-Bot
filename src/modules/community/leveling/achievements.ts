@@ -55,4 +55,4 @@ function achievementProgressLabel(achievement: LevelAchievement): string {
 }
 
 export { ACHIEVEMENTS, achievementProgressLabel, achievementsByIds, eligibleAchievements, highestAchievementPerKind };
-export type { AchievementKind, AchievementTier, LevelAchievement };
+export type { AchievementKind, LevelAchievement };

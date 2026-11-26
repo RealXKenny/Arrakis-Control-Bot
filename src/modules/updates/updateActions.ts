@@ -70,4 +70,3 @@ async function executeUpdateAction(interaction: ChatInputCommandInteraction, act
 }
 
 export { UPDATE_ACTIONS, executeUpdateAction, formatUpdateResponse, getUpdateAction };
-export type { UpdateActionName };

@@ -130,6 +130,4 @@ function formatMarketRows(rows: MarketItemRow[], buybackPercent: number | null =
   return rows.length ? rows.map((row) => formatMarketRow(row, buybackPercent)).join("\n\n") : "No active sell orders matched those filters.";
 }
 
-export { calculateBuybackPrice, formatMarketNumber, formatMarketRow, formatMarketRows, parseBuybackPercent, parseMarketPage };
-
-export type { MarketItemRow, MarketPage };
+export { calculateBuybackPrice, formatMarketNumber, formatMarketRows, parseBuybackPercent, parseMarketPage };

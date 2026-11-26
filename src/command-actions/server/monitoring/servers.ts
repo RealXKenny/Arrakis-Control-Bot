@@ -6,6 +6,7 @@ import { createV2Response } from "../../../shared/discord/componentFactory";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { createPanelBanner } from "../../../shared/discord/imageFactory";
 import { PANEL_COLORS } from "../../../shared/discord/panelStyle";
+import { isRecord } from "../../../shared/validation/isRecord";
 
 const IMAGE_NAME = "dune-vps-servers.png";
 const ACCENT_COLOR = PANEL_COLORS.accent;
@@ -44,10 +45,6 @@ interface ServerRecord {
 interface ErrorDetails {
   message: string;
   status: number | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function getString(...values: unknown[]): string {
@@ -237,6 +234,5 @@ const command = {
 };
 
 export { formatServer };
-
 
 export const groupedAction = command;

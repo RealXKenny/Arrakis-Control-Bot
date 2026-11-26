@@ -122,9 +122,9 @@ interface DuneApiResponse {
   uptime?: unknown;
 }
 
-export const data = new SlashCommandBuilder().setName("status").setDescription("Show the current Dune server status.");
+const data = new SlashCommandBuilder().setName("status").setDescription("Show the current Dune server status.");
 
-export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
   const { client } = container;

@@ -117,4 +117,3 @@ function retryAfterMs(header: string | null, now = Date.now()): number | null {
 }
 
 export { ConsoleOutageLog, retryAfterMs, retryDelayMs, routeLabel };
-export type { ConsoleFailure, OutageLogger };

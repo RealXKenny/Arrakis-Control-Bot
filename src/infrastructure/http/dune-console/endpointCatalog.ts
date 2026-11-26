@@ -389,4 +389,4 @@ function resolveRoute(route: string, parameters: RouteParameters = {}): string {
 
 export { ENDPOINT_CATALOG, loadEndpointCatalog, resolveRoute };
 
-export type { EndpointDefinition, HttpMethod, RouteParameters };
+export type { EndpointDefinition };

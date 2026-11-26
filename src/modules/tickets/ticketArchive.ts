@@ -180,4 +180,4 @@ function escapeDiscordText(value: string): string {
   return value.replace(/([\\*_~`>|])/g, "\\$1").replace(/@/g, "@\u200b");
 }
 
-export { buildTicketArchiveContainer, buildTicketJson, publishTicketArchive, updateTicketArchive };
+export { buildTicketArchiveContainer, buildTicketJson, escapeDiscordText, publishTicketArchive, updateTicketArchive };

@@ -43,5 +43,4 @@ class ShardReconnectTracker {
   }
 }
 
-export { RECONNECT_WARNING_THRESHOLD, ShardReconnectTracker };
-export type { ReconnectAttempt, ReconnectRecovery };
+export { ShardReconnectTracker };

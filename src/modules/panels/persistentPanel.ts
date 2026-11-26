@@ -74,4 +74,3 @@ async function publishPersistentPanel(client: Client, channel: SendableChannels,
 }
 
 export { publishPersistentPanel };
-export type { PanelOptions };

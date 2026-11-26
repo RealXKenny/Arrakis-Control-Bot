@@ -68,4 +68,4 @@ function getMarketSession(id: string): MarketSession | null {
 }
 
 export { createMarketSession, getMarketSession };
-export type { MarketSeller, MarketSession };
+export type { MarketSession };

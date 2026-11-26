@@ -85,14 +85,6 @@ const SCOPE_COLORS: Record<string, string> = Object.freeze({
   default: COLORS.white,
 });
 
-type LogContext = {
-  requestId?: string;
-  route?: string;
-  method?: string;
-  statusCode?: number;
-  [key: string]: unknown;
-};
-
 const secretKeyPattern = /(password|token|secret|cookie|authorization|session|api[-_]?key|access[-_]?token)/i;
 const CLEAR_TERMINAL = "\u001B[2J\u001B[3J\u001B[H";
 const DEFAULT_PRODUCTION_COLUMNS = 120;
@@ -316,22 +308,6 @@ interface ScopedSapphireLogger extends ILogger {
   scope(scope: string): Logger;
 }
 
-function createRequestLogger(context: LogContext, scope = "REQUEST"): Logger {
-  const requestLogger = createLogger(scope);
-  const mergeDetails = (details: unknown): LogContext => (details && typeof details === "object" && !Array.isArray(details) ? { ...context, ...(details as LogContext) } : { ...context, details });
-
-  const logger: Logger = {
-    header: requestLogger.header,
-    debug: (message, details) => requestLogger.debug(message, mergeDetails(details)),
-    info: (message, details) => requestLogger.info(message, mergeDetails(details)),
-    warn: (message, details) => requestLogger.warn(message, mergeDetails(details)),
-    error: (message, error) => requestLogger.error(message, { ...context, error }),
-    fatal: (message, error) => requestLogger.fatal(message, { ...context, error }),
-  };
-
-  return Object.freeze(logger);
-}
-
 function createSapphireLogger(scope: string, minimumLevel: string = process.env.LOG_LEVEL ?? "INFO"): ScopedSapphireLogger {
   const logger = createLogger(scope, minimumLevel);
   const childLoggers = new Map<string, Logger>();
@@ -445,6 +421,6 @@ function formatTimestamp(date: Date): string {
   return `${values.month}/${values.day}/${values.year} ` + `${values.hour}:${values.minute}:${values.second} ` + `${values.dayPeriod}`;
 }
 
-export { compactSapphireMessage, createLogger, describeError, createRequestLogger, createSapphireLogger, fitConsoleLine, formatTimestamp, scopedLogger };
+export { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, scopedLogger };
 
-export type { LogContext, LogLevel, Logger, ScopedSapphireLogger };
+export type { Logger };

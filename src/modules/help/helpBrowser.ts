@@ -56,4 +56,4 @@ async function renderHelpBrowser(interaction: HelpInteraction, session: HelpSess
   });
 }
 
-export { PAGE_SIZE, createHelpCard, renderHelpBrowser };
+export { createHelpCard, renderHelpBrowser };

@@ -14,7 +14,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     await interaction.editReply({ content: `Downloaded \`${filename}\`.`, files: [new AttachmentBuilder(response.data, { name: filename })], allowedMentions: { parse: [] } });
   } catch (error: unknown) { await replyBackupError(interaction, "download-backup", error); }
 }
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

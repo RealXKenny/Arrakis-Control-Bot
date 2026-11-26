@@ -6,6 +6,7 @@ import { canvasDisplayName } from "../../../shared/discord/canvasText";
 import { levelForXp, xpForLevel } from "./levelProgress";
 import { encodePng } from "../../../shared/discord/canvasEncoding";
 import { nextRoleTier, roleTierForLevel } from "./levelRoles";
+import { roundedRect, setFittedFont } from "../../../shared/discord/canvasDrawing";
 
 const LEVEL_CARD_FILENAME = "arrakis-community-level.png";
 const LEVEL_CARD_BACKGROUND = path.resolve(process.cwd(), "data", "images", "community-level-background.png");
@@ -170,14 +171,6 @@ function drawStat(context: CanvasRenderingContext2D, x: number, y: number, width
   context.fillText(value, x + 18, y + 68);
 }
 
-function setFittedFont(context: CanvasRenderingContext2D, text: string, start: number, minimum: number, width: number, weight: string): void {
-  let size = start;
-  do {
-    context.font = `${weight} ${size}px sans-serif`;
-    size -= 1;
-  } while (size >= minimum && context.measureText(text).width > width);
-}
-
 function initials(value: string): string {
   const parts = value.trim().split(/\s+/).filter(Boolean);
   return (parts.length > 1 ? parts.slice(0, 2).map((part) => Array.from(part)[0]).join("") : Array.from(value).slice(0, 2).join("")).toUpperCase() || "AC";
@@ -187,20 +180,4 @@ function formatCount(value: number, singular: string): string {
   return `${value.toLocaleString()} ${value === 1 ? singular : `${singular}s`}`;
 }
 
-function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
-  const bounded = Math.min(radius, width / 2, height / 2);
-  context.beginPath();
-  context.moveTo(x + bounded, y);
-  context.lineTo(x + width - bounded, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + bounded);
-  context.lineTo(x + width, y + height - bounded);
-  context.quadraticCurveTo(x + width, y + height, x + width - bounded, y + height);
-  context.lineTo(x + bounded, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - bounded);
-  context.lineTo(x, y + bounded);
-  context.quadraticCurveTo(x, y, x + bounded, y);
-  context.closePath();
-}
-
 export { LEVEL_CARD_FILENAME, createLevelRankCard };
-export type { LevelCardOptions };

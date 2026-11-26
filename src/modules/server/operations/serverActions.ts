@@ -113,4 +113,3 @@ async function executeServerAction(interaction: ChatInputCommandInteraction, act
 }
 
 export { SERVER_ACTIONS, executeServerAction, getResponseMessage, getServerAction };
-export type { ServerActionName };

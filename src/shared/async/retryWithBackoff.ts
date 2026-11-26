@@ -30,4 +30,3 @@ async function retryWithBackoff<T>(work: () => Promise<T>, options: RetryOptions
 }
 
 export { retryWithBackoff };
-export type { RetryOptions };

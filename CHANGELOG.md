@@ -25,6 +25,7 @@ All notable changes to Arrakis Control Bot are documented here.
 - Console reads retry with jittered exponential backoff and honour a short `Retry-After`.
 - The Pterodactyl egg hides credential variables (`TOKEN`, `CONSOLE_API_KEY`, `ADAPTER_TOKEN`, `API_KEY`, `DATABASE_URL`, `RABBITMQ_URL`, `LAVALINK_PASSWORD`, `AUTO_UPDATE_GITHUB_TOKEN`) from the server owner and subusers; a panel administrator enters them. Reinstalling over an existing installation no longer changes any file.
 - The README follows the dashboard's layout; detailed feature documentation moved to `guides/features.md`, and `guides/README.md` lists every guide.
+- Code cleanup with no change in behaviour: removed unused exports and an unused request logger, shared the duplicated canvas, record-check and ticket text-escaping helpers, dropped the redundant `@types/amqplib` (amqplib ships its own types) and declared `@sapphire/utilities`, which the bot already imported.
 
 ### Upgrading from 2.0.0
 

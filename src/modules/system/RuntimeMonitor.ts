@@ -191,4 +191,4 @@ async function writeHealthFile(path: string, snapshot: RuntimeSnapshot): Promise
 }
 
 export { formatSnapshot, RuntimeMonitor, snapshotWarnings };
-export type { RuntimeProbes, RuntimeSnapshot };
+export type { RuntimeProbes };

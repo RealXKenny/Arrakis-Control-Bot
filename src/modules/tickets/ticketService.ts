@@ -19,7 +19,7 @@ import { createV2Response } from "../../shared/discord/componentFactory";
 import { createActorContext } from "../../shared/actors/createActorContext";
 import { getConfiguredStaffRoleIds, hasStaffRole } from "../../support/access/staffAccess";
 import { truncateDiscordText } from "../../shared/discord/discordLimits";
-import { publishTicketArchive } from "./ticketArchive";
+import { escapeDiscordText, publishTicketArchive } from "./ticketArchive";
 import { PANEL_COLORS } from "../../shared/discord/panelStyle";
 
 const logger = createLogger("TICKETS");
@@ -408,10 +408,6 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "member";
-}
-
-function escapeDiscordText(value: string): string {
-  return value.replace(/([\\*_~`>|])/g, "\\$1").replace(/@/g, "@\u200b");
 }
 
 class TicketPermissionError extends Error {

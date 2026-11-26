@@ -69,4 +69,4 @@ function sanitizeAttachmentName(value: string | null | undefined, fallback = "at
   return `${Array.from(stem).slice(0, stemLimit).join("")}${extension}`;
 }
 
-export { DEFAULT_TRUNCATION_SUFFIX, DISCORD_LIMITS, countComponents, countDisplayableText, sanitizeAttachmentName, truncateDiscordText };
+export { DISCORD_LIMITS, countComponents, countDisplayableText, sanitizeAttachmentName, truncateDiscordText };

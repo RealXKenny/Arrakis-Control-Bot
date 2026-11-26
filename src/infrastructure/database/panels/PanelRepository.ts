@@ -66,4 +66,4 @@ class PanelRepository implements PanelStorage {
 }
 
 export { PanelRepository };
-export type { PanelStorage, PanelSession, StoredPanel };
+export type { PanelStorage, StoredPanel };

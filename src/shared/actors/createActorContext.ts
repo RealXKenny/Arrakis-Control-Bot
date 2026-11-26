@@ -25,5 +25,3 @@ function createActorContext(interaction: Interaction, commandName: string): Acto
 }
 
 export { createActorContext };
-
-export type { ActorContext };

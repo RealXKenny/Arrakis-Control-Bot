@@ -83,4 +83,4 @@ async function ensureBotControlPanel(client: Client, channelId?: string | null):
   });
 }
 
-export { PANEL_MARKER, buildBotControlPanel, ensureBotControlPanel };
+export { buildBotControlPanel, ensureBotControlPanel };

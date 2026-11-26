@@ -20,7 +20,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   await executeServerAction(interaction, "restart-service", { service }, { restartQueue: immediate ? "immediate" : undefined });
 }
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

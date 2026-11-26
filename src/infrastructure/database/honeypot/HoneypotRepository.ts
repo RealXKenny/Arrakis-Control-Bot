@@ -52,4 +52,4 @@ class InMemoryHoneypotStorage implements HoneypotStorage {
 }
 
 export { HoneypotRepository, InMemoryHoneypotStorage };
-export type { HoneypotOutcome, HoneypotIncident, HoneypotStats, HoneypotStorage };
+export type { HoneypotOutcome, HoneypotStats, HoneypotStorage };

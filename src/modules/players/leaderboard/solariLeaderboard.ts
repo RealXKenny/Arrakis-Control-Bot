@@ -21,7 +21,6 @@ type DuneCaller = Pick<DuneApi, "call">;
 
 const PLAYER_PAGE_SIZE = 100;
 const MAX_PLAYER_PAGES = 20;
-const MAX_PLAYERS = PLAYER_PAGE_SIZE * MAX_PLAYER_PAGES;
 const BALANCE_CONCURRENCY = 8;
 const CACHE_TTL_MS = 5 * 60 * 1_000;
 const MAX_NAME_LENGTH = 32;
@@ -174,5 +173,5 @@ function resetSolariSnapshotCache(): void {
   pending = null;
 }
 
-export { BALANCE_CONCURRENCY, CACHE_TTL_MS, MAX_PLAYERS, compareBalances, countPages, fetchSolariSnapshot, formatEntryName, formatLeaderboardPage, formatSolari, getSolariSnapshot, parseBalance, parseSolariTotal, resetSolariSnapshotCache, sortEntries };
-export type { SolariEntry, SolariSnapshot };
+export { CACHE_TTL_MS, compareBalances, countPages, fetchSolariSnapshot, formatEntryName, formatLeaderboardPage, formatSolari, getSolariSnapshot, parseBalance, parseSolariTotal, resetSolariSnapshotCache, sortEntries };
+export type { SolariSnapshot };

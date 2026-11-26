@@ -59,4 +59,4 @@ function preserveEntryPointCommand(manager: ApplicationCommandManager): void {
   manager.set = guardedSet as GlobalCommandSet;
 }
 
-export { entryPointData, preserveEntryPointCommand };
+export { preserveEntryPointCommand };

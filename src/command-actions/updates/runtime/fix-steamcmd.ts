@@ -4,7 +4,7 @@ import { UPDATE_ACTIONS, executeUpdateAction } from "../../../modules/updates/up
 const data = new SlashCommandBuilder().setName("fix-steamcmd").setDescription(UPDATE_ACTIONS["fix-steamcmd"].description);
 const execute = (interaction: ChatInputCommandInteraction): Promise<void> => executeUpdateAction(interaction, "fix-steamcmd");
 
-export { data, execute };
+export { data };
 
 
 export const groupedAction = { data, execute };

@@ -1,4 +1,4 @@
-export interface RateLimitStore {
+interface RateLimitStore {
   get(key: string): number | undefined;
   set(key: string, expiresAt: number): void;
   delete(key: string): void;
@@ -6,7 +6,7 @@ export interface RateLimitStore {
   readonly size: number;
 }
 
-export interface InMemoryRateLimitStoreOptions {
+interface InMemoryRateLimitStoreOptions {
   maxEntries: number;
 }
 
@@ -56,7 +56,7 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   }
 }
 
-export interface RateLimiterOptions {
+interface RateLimiterOptions {
   durationMs: number;
   store: RateLimitStore;
 }

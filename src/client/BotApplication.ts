@@ -38,7 +38,7 @@ import { runMigrations, SchemaTooNewError } from "../infrastructure/database/mig
 import { MIGRATIONS } from "../infrastructure/database/migrations/migrations";
 import type { HoneypotConfig } from "../infrastructure/config/honeypot";
 
-export type BotClient = ArrakisClient;
+type BotClient = ArrakisClient;
 
 interface BotConfig {
   honeypot?: HoneypotConfig;
