@@ -5,6 +5,14 @@ import process from "node:process";
 const installationScript = `#!/bin/bash
 set -euo pipefail
 
+# Reinstalling over an existing installation must never overwrite, reset or re-permission the operator's files
+# (.env, certificates, custom folders). Existing installs are updated by the automatic updater at startup, which checks
+# every file for local changes first. To start over, empty the server's files deliberately first.
+if [ -e /mnt/server/package.json ]; then
+  echo "An existing installation was found in /home/container. Nothing was changed: the automatic updater installs new releases at startup without touching custom files."
+  exit 0
+fi
+
 apt-get update
 apt-get install --yes --no-install-recommends ca-certificates curl jq tar coreutils findutils python3 make g++ pkg-config libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 rm -rf /var/lib/apt/lists/*
@@ -96,6 +104,33 @@ chown -R 1000:1000 /mnt/server
 su -s /bin/bash node -c 'cd /mnt/server && npm ci --no-audit --no-fund && npm run build && npm prune --omit=dev --no-audit --no-fund && node -e "require(process.argv[1])" canvas'
 `;
 
+/**
+ * Credentials. Pterodactyl hides a non-viewable variable from the server owner and subusers in the Startup tab; only
+ * panel administrators can read or change it. That is panel access control, not encryption.
+ */
+const SECRET_VARIABLES = new Set([
+  "TOKEN",
+  "CONSOLE_API_KEY",
+  "ADAPTER_TOKEN",
+  "API_KEY",
+  "DATABASE_URL",
+  "RABBITMQ_URL",
+  "LAVALINK_PASSWORD",
+  "AUTO_UPDATE_GITHUB_TOKEN",
+]);
+
+/** Validation for settings with a fixed shape; everything else stays a free string validated by the bot at startup. */
+const RULES = {
+  CONSOLE_TIMEOUT_MS: "required|integer|min:1000|max:120000",
+  AUTO_UPDATE_ENABLED: "required|string|in:true,false",
+  AUTO_UPDATE_ON_STARTUP: "required|string|in:true,false",
+  AUTO_UPDATE_CHANNEL: "required|string|in:stable,prerelease",
+  AUTO_UPDATE_INTERVAL_HOURS: "required|integer|min:1|max:168",
+  AUTO_UPDATE_WINDOW_UTC: "nullable|string|regex:/^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$/",
+  AUTO_UPDATE_HEALTH_SECONDS: "required|integer|min:30|max:900",
+  AUTO_UPDATE_GITHUB_TOKEN: "nullable|string|max:255",
+};
+
 const root = path.resolve(import.meta.dirname, "..");
 const template = fs.readFileSync(path.join(root, ".env.example"), "utf8");
 const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, key, rawDefault]) => {
@@ -134,6 +169,13 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     MESSAGE_ARCHIVE_RETENTION_DAYS: "Delete archived messages older than this many days. 0 keeps everything. Deletion cannot be undone.",
     RUNTIME_METRICS_INTERVAL_SECONDS: "Seconds between runtime health summaries in the console. 0 turns them off. Default 60.",
     HEALTH_FILE: "Optional path the bot rewrites with its latest health snapshot, such as /home/container/health.json.",
+    AUTO_UPDATE_ENABLED: "Check GitHub for verified releases and install them safely. Custom files are never overwritten.",
+    AUTO_UPDATE_ON_STARTUP: "Check for an update each time the server starts.",
+    AUTO_UPDATE_CHANNEL: "stable installs normal releases only; prerelease also installs release candidates.",
+    AUTO_UPDATE_INTERVAL_HOURS: "Hours between background update checks (1-168).",
+    AUTO_UPDATE_WINDOW_UTC: "Optional HH:MM-HH:MM UTC window for background installs, for example 03:00-05:00. Empty allows any time.",
+    AUTO_UPDATE_HEALTH_SECONDS: "Seconds a new version must stay up after starting before it is kept (30-900).",
+    AUTO_UPDATE_GITHUB_TOKEN: "Optional read-only GitHub token for release downloads. Never needs write access.",
   };
   const name = labels[key] ?? key.split("_").map((word) => word === "ID" ? "ID" : word[0] + word.slice(1).toLowerCase()).join(" ");
   return {
@@ -141,15 +183,15 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     description: details[key] ?? `${required ? "Required" : "Optional"} bot setting (${key}). See .env.example in the repository.`,
     env_variable: key,
     default_value: defaultValue,
-    user_viewable: true,
-    user_editable: true,
-    rules: required ? "required|string" : "nullable|string",
+    user_viewable: !SECRET_VARIABLES.has(key),
+    user_editable: !SECRET_VARIABLES.has(key),
+    rules: RULES[key] ?? (required ? "required|string" : "nullable|string"),
     field_type: "text",
   };
 });
 
 variables.unshift(
-  { name: "Release Tag", description: "Version to install, such as v2.0.0, or latest.", env_variable: "RELEASE_TAG", default_value: "latest", user_viewable: true, user_editable: true, rules: "required|string|max:16", field_type: "text" },
+  { name: "Release Tag", description: "Version to install and stay on, such as v2.1.0, or latest to follow the update channel.", env_variable: "RELEASE_TAG", default_value: "latest", user_viewable: true, user_editable: true, rules: "required|string|max:16", field_type: "text" },
   { name: "Allow Unverified Release", description: "Allow an older release without a checksum; leave false for normal installations.", env_variable: "ALLOW_UNVERIFIED_RELEASE", default_value: "false", user_viewable: true, user_editable: true, rules: "required|string|in:true,false", field_type: "text" },
 );
 
@@ -166,7 +208,7 @@ const egg = {
   features: null,
   docker_images: { "Node.js 24": "ghcr.io/ptero-eggs/yolks:nodejs_24" },
   file_denylist: [],
-  startup: "cd /home/container && exec node dist/src/index.js",
+  startup: "cd /home/container && exec node scripts/updater/supervisor.mjs",
   config: {
     files: "{}",
     startup: JSON.stringify({ done: "Discord shard" }),

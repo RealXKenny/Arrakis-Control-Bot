@@ -51,6 +51,7 @@ interface BotConfig {
   staffApplications?: StaffApplicationConfig;
   logLevel?: string;
   duneConsoleApiKey: string;
+  duneConsoleTimeoutMs?: number;
   duneConsoleUrl: string;
   discordToken: string;
   clientId?: string | null;
@@ -240,7 +241,7 @@ function createClient(logLevel?: string): BotClient {
 
 function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseConnectionError: DatabasePoolOptions["onConnectionError"]): void {
   client.allowedGuildIds = config.allowedGuildIds ?? [];
-  client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey);
+  client.duneApi = new DuneApi(config.duneConsoleUrl, config.duneConsoleApiKey, { timeoutMs: config.duneConsoleTimeoutMs });
   if (config.chatBridge) {
     const chatNames = new ChatPlayerNames(client.duneApi);
     const chatLogger = createLogger("CHAT BRIDGE", config.logLevel);

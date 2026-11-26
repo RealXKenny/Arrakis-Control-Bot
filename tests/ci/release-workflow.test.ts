@@ -27,7 +27,9 @@ describe("source archive release", () => {
     expect(publish).toContain("needs: validate");
     expect(publish).toContain("contents: write");
     expect(publish).toContain("sha256sum --check");
-    expect(publish).toContain('gh release create "$RELEASE_TAG" "$EGG_FILE" "$ARCHIVE_FILE" "$ARCHIVE_FILE.sha256"');
+    expect(publish).toContain('gh release create "$RELEASE_TAG" "$EGG_FILE" "$ARCHIVE_FILE" "$ARCHIVE_FILE.sha256" "$MANIFEST_FILE"');
+    expect(validate).toContain("node scripts/build-release-manifest.mjs");
+    expect(publish).toContain(".archive.sha256 == $sum");
     // The publish job has no checkout, so gh must be told which repository to release.
     expect(publish).toContain('--repo "$GITHUB_REPOSITORY"');
     expect(release).toContain("github.event.workflow_run.head_branch == 'main'");

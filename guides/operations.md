@@ -58,11 +58,11 @@ Run this before each major release and after changing the backup setup. Use a sc
 ## Upgrades and rollbacks
 
 1. Take a database backup.
-2. Set `RELEASE_TAG` to the new version and run the panel's reinstall action. The installer verifies the release checksum before extracting.
+2. With [automatic updates](automatic-updates.md) on, restart the server (or wait for the next check); with them off, set `RELEASE_TAG` to the new version and restart. The updater verifies the release, builds it in staging and refuses to overwrite files you changed.
 3. Start the bot. It applies pending database migrations under a lock, then starts. Each migration runs in its own transaction.
 4. Watch the first few `METRICS` lines.
 
-To roll back, set `RELEASE_TAG` to the previous version and reinstall. If the newer release applied a migration, the older bot refuses to start with "The database schema is at version N, but this bot only knows up to M". Restore the backup taken in step 1 (or run the newer release again). This is deliberate: old code must not run against a schema it does not understand.
+To roll back by hand, set `AUTO_UPDATE_ENABLED=false`, restore the previous release's files from `.arrakis/backups/` or a fresh install of that version, and restart (automatic updates never downgrade). If the newer release applied a migration, the older bot refuses to start with "The database schema is at version N, but this bot only knows up to M". Restore the backup taken in step 1 (or run the newer release again). This is deliberate: old code must not run against a schema it does not understand.
 
 ## Message archive retention
 

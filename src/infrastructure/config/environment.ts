@@ -32,6 +32,8 @@ interface EnvironmentConfig {
   advinApiKey?: string;
   advinApiUrl: string;
   duneConsoleApiKey: string;
+  /** Per-attempt Console request timeout (CONSOLE_TIMEOUT_MS, 1000-120000, default 30000). */
+  duneConsoleTimeoutMs: number;
   duneDiscordAdapterToken?: string;
   duneDiscordLinkPanelChannelId?: string;
   duneDiscordBlueprintPanelChannelId?: string;
@@ -214,6 +216,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     advinApiKey: process.env.API_KEY,
     advinApiUrl: process.env.API_URL ?? "https://vps.example.com",
     duneConsoleApiKey,
+    duneConsoleTimeoutMs: parseBoundedInteger(process.env.CONSOLE_TIMEOUT_MS, 30_000, 1_000, 120_000, "CONSOLE_TIMEOUT_MS"),
     duneDiscordAdapterToken: process.env.ADAPTER_TOKEN,
     duneDiscordLinkPanelChannelId: process.env.LINK_PANEL_CHANNEL_ID,
     duneDiscordBlueprintPanelChannelId: process.env.BLUEPRINT_PANEL_CHANNEL_ID,
@@ -310,6 +313,12 @@ function parsePositiveInteger(value: string | undefined, fallback: number, name:
     throw new Error(`${name} must be a positive integer.`);
   }
 
+  return parsed;
+}
+
+function parseBoundedInteger(value: string | undefined, fallback: number, min: number, max: number, name: string): number {
+  const parsed = parsePositiveInteger(value, fallback, name);
+  if (parsed < min || parsed > max) throw new Error(`${name} must be between ${min} and ${max}.`);
   return parsed;
 }
 

@@ -1,4 +1,4 @@
-import { DuneConsoleClient, type BinaryResponse, type HttpMethod, type RequestOptions } from "./DuneConsoleClient";
+import { DuneConsoleClient, type BinaryResponse, type DuneConsoleClientOptions, type HttpMethod, type RequestOptions } from "./DuneConsoleClient";
 import { loadEndpointCatalog, resolveRoute, type EndpointDefinition } from "./endpointCatalog";
 
 interface BlueprintImportResult {
@@ -13,8 +13,8 @@ interface BlueprintImportResult {
 class DuneApi extends DuneConsoleClient {
   public readonly endpoints: EndpointDefinition[];
 
-  constructor(baseUrl: string, apiKey: string) {
-    super(baseUrl, apiKey);
+  constructor(baseUrl: string, apiKey: string, options: DuneConsoleClientOptions = {}) {
+    super(baseUrl, apiKey, options);
 
     this.endpoints = loadEndpointCatalog();
   }
