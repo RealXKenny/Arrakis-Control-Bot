@@ -167,6 +167,7 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     DATABASE_BACKGROUND_POOL_MAX: "PostgreSQL connections for the message archive and XP. Default 5.",
     DATABASE_STATEMENT_TIMEOUT_MS: "Longest a single database statement may run, in milliseconds. Default 15000.",
     MESSAGE_ARCHIVE_RETENTION_DAYS: "Delete archived messages older than this many days. 0 keeps everything. Deletion cannot be undone.",
+    ANNOUNCEMENT_CHANNEL_ID: "Changelog channel. Use a forum channel for one tagged post per release; text channels get a post plus a notes thread.",
     RUNTIME_METRICS_INTERVAL_SECONDS: "Seconds between runtime health checks. The console prints a summary every 30 minutes and warns at once on problems. 0 turns them off. Default 60.",
     HEALTH_FILE: "Optional path the bot rewrites with its latest health snapshot, such as /home/container/health.json.",
     AUTO_UPDATE_ENABLED: "Check GitHub for verified releases and install them safely. Custom files are never overwritten.",

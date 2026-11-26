@@ -230,7 +230,7 @@
     },
     {
       "name": "Announcement Channel ID",
-      "description": "Optional bot setting (ANNOUNCEMENT_CHANNEL_ID). See .env.example in the repository.",
+      "description": "Changelog channel. Use a forum channel for one tagged post per release; text channels get a post plus a notes thread.",
       "env_variable": "ANNOUNCEMENT_CHANNEL_ID",
       "default_value": "",
       "user_viewable": true,

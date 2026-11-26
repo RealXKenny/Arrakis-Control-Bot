@@ -89,7 +89,7 @@ describe("chat configuration and game wire format", () => {
     expect(() => loadChatBridgeConfig({ ...env, RABBITMQ_URL: "https://remote.example.com" })).toThrow("RABBITMQ_URL");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_FUNCOM_ID: "" })).toThrow("CHAT_BRIDGE_FUNCOM_ID");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify([route, route]) })).toThrow("CHAT_BRIDGE_ROUTES");
-    for (const routes of [[null], ["text"], [{ ...route, guildId: 123456789012345678 }]]) expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify(routes) })).toThrow("CHAT_BRIDGE_ROUTES");
+    for (const routes of [[null], ["text"], [{ ...route, guildId: 123456 }]]) expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify(routes) })).toThrow("CHAT_BRIDGE_ROUTES");
     expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify([{ ...route, map: "#" }]) })).toThrow("CHAT_BRIDGE_ROUTES");
   });
 
