@@ -52,4 +52,17 @@ describe("dashboard changelog client", () => {
     await expect(client.getReleases()).rejects.toThrow("temporarily unavailable");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("accepts new product keys but rejects malformed ones", async () => {
+    const future = { ...payload.releases[0], project: "launcher", id: "launcher:1.2.3" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...payload, releases: [future] })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...payload, releases: [{ ...future, project: "Launcher!", id: "Launcher!:1.2.3" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    let now = 0;
+    const client = new DashboardChangelogClient("https://example.test", () => now);
+    expect((await client.getReleases()).releases[0].project).toBe("launcher");
+    now = 300_001;
+    expect((await client.getReleases(true)).stale).toBe(true);
+  });
 });

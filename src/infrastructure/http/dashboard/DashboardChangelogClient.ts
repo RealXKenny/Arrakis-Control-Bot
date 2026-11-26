@@ -1,5 +1,6 @@
 export interface DashboardRelease {
-  project: "bot" | "dashboard";
+  /** Product key published by the dashboard, such as `bot` or `dashboard`. Callers decide which keys they know. */
+  project: string;
   id: string;
   version: string;
   title: string;
@@ -18,6 +19,7 @@ const MAX_CACHE_AGE_MS = 300_000;
 const MAX_STALE_AGE_MS = 86_400_000;
 const RETRY_DELAY_MS = 30_000;
 const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+const PROJECT_KEY = /^[a-z][a-z0-9-]{0,31}$/;
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -30,7 +32,7 @@ function parseReleases(value: unknown): DashboardRelease[] {
   }
   const ids = new Set<string>();
   return value.releases.map((entry: unknown) => {
-    if (!record(entry) || (entry.project !== "bot" && entry.project !== "dashboard") ||
+    if (!record(entry) || typeof entry.project !== "string" || !PROJECT_KEY.test(entry.project) ||
         typeof entry.version !== "string" || !VERSION.test(entry.version) ||
         entry.id !== `${entry.project}:${entry.version}` || ids.has(entry.id as string) ||
         typeof entry.title !== "string" || entry.title.length < 1 || entry.title.length > 200 ||
@@ -48,7 +50,7 @@ function parseReleases(value: unknown): DashboardRelease[] {
       }
       return { title: section.title, items: section.items as string[] };
     });
-    return { project: entry.project, id: entry.id as string, version: entry.version, title: entry.title, date: entry.date as string | null, sections };
+    return { project: entry.project as string, id: entry.id as string, version: entry.version, title: entry.title, date: entry.date as string | null, sections };
   });
 }
 

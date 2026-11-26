@@ -3,7 +3,7 @@ import { ActivityType } from "discord.js";
 
 import { startAuditLogForwarder } from "../../modules/audit/DiscordAuditLogForwarder";
 import { persistentPanelTasks } from "../../modules/administration/control/panelRefresh";
-import { announceCurrentVersion } from "../../modules/releases/versionAnnouncement";
+import { announceCurrentVersion } from "../../modules/changelog/changelogAnnouncements";
 import { startStormAnnouncements } from "../../modules/world/storms/stormAnnouncement";
 import { scopedLogger } from "../../client/logger";
 import { discordValidationIssues } from "../../shared/discord/discordValidation";

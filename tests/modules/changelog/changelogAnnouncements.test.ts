@@ -2,7 +2,7 @@ import type { ReleaseAnnouncementChannel, ReleaseAnnouncementRecord, ReleaseAnno
 import { Collection, type Client } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { announceCurrentVersion, refreshReleaseAnnouncements, replayReleaseAnnouncements } from "../../../src/modules/releases/versionAnnouncement";
+import { announceCurrentVersion, refreshReleaseAnnouncements, replayReleaseAnnouncements } from "../../../src/modules/changelog/changelogAnnouncements";
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
 
 vi.mock("../../../src/shared/discord/imageFactory", () => ({
