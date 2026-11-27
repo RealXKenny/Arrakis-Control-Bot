@@ -98,6 +98,6 @@ describe("egg secrets and configuration sync", () => {
 
   it("is regenerated from .env.example", () => {
     const documented = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((match) => match[1]);
-    expect(documented.filter((key) => key.startsWith("AUTO_UPDATE_"))).toHaveLength(7);
+    expect(documented.filter((key) => key.startsWith("AUTO_UPDATE_"))).toHaveLength(9);
   });
 });

@@ -1199,6 +1199,26 @@
       "field_type": "text"
     },
     {
+      "name": "Auto Update Signal Url",
+      "description": "Optional dashboard release signal (https://your-dashboard/api/v2/updates/signal). With it, a new release installs within seconds of being published instead of at the next scheduled check.",
+      "env_variable": "AUTO_UPDATE_SIGNAL_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:512|regex:/^https:\\/\\//",
+      "field_type": "text"
+    },
+    {
+      "name": "Auto Update Signal Seconds",
+      "description": "Seconds between release-signal checks (10-3600).",
+      "env_variable": "AUTO_UPDATE_SIGNAL_SECONDS",
+      "default_value": "30",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:10|max:3600",
+      "field_type": "text"
+    },
+    {
       "name": "Suggestions Forum Channel ID",
       "description": "Optional bot setting (SUGGESTIONS_FORUM_CHANNEL_ID). See .env.example in the repository.",
       "env_variable": "SUGGESTIONS_FORUM_CHANNEL_ID",

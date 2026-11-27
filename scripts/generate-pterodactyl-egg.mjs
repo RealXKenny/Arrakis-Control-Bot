@@ -175,6 +175,8 @@ const RULES = {
   AUTO_UPDATE_GITHUB_TOKEN: "nullable|string|max:255",
   SUGGESTIONS_GITHUB_TOKEN: "nullable|string|max:255",
   LOG_COLOR: "required|string|in:auto,always,never",
+  AUTO_UPDATE_SIGNAL_URL: "nullable|string|max:512|regex:/^https:\\/\\//",
+  AUTO_UPDATE_SIGNAL_SECONDS: "required|integer|min:10|max:3600",
 };
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -227,6 +229,8 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     SUGGESTIONS_AUTOPILOT: "Follow the GitHub repositories and move suggestion statuses automatically.",
     SUGGESTIONS_GITHUB_REPOS: "Comma-separated owner/name repositories the suggestion autopilot reads.",
     SUGGESTIONS_GITHUB_TOKEN: "Optional read-only GitHub token for the suggestion autopilot. Never needs write access.",
+    AUTO_UPDATE_SIGNAL_URL: "Optional dashboard release signal (https://your-dashboard/api/v2/updates/signal). With it, a new release installs within seconds of being published instead of at the next scheduled check.",
+    AUTO_UPDATE_SIGNAL_SECONDS: "Seconds between release-signal checks (10-3600).",
   };
   const name = labels[key] ?? key.split("_").map((word) => word === "ID" ? "ID" : word[0] + word.slice(1).toLowerCase()).join(" ");
   return {
