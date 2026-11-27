@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Client, Message } from "discord.js";
 import { parse as parseDotenv } from "dotenv";
 import { loadChatBridgeConfig } from "../../../src/infrastructure/config/chatBridge";
-import { encodeMapChat, decodeMapChat } from "../../../src/modules/chat/gameChatProtocol";
+import { encodeMapChat, decodeMapChat, decodeGameChat, peekChatChannelType } from "../../../src/modules/chat/gameChatProtocol";
 import { DiscordGameChatBridge } from "../../../src/modules/chat/DiscordGameChatBridge";
 import { GameChatConnection } from "../../../src/infrastructure/amqp/GameChatConnection";
 import { mapChatLabel } from "../../../src/modules/chat/mapChatLabel";
@@ -358,5 +358,116 @@ describe("Discord chat routing", () => {
     client.guilds.cache.clear();
     bridge.start();
     expect(connect).not.toHaveBeenCalled();
+  });
+});
+
+describe("proximity chat", () => {
+  const proximityChannel = "456789012345678901";
+
+  function proximityBody(sender = "Player#1234", text = "psst", type = "Proximity", id?: string): Buffer {
+    const envelope = JSON.parse(encodeMapChat(sender, text).body.toString());
+    const payload = JSON.parse(envelope.content);
+    payload.m_ChannelType = type;
+    if (id) payload.m_Id = id;
+    return Buffer.from(JSON.stringify({ Type: "TextChat", content: JSON.stringify(payload) }));
+  }
+
+  function setupProximity(extraEnv: Record<string, string>, routes = [route]) {
+    const configured = loadChatBridgeConfig({ ...env, CHAT_BRIDGE_ROUTES: JSON.stringify(routes), ...extraEnv })!;
+    const send = vi.fn().mockResolvedValue({});
+    const fetch = vi.fn().mockResolvedValue({ isSendable: () => true, guildId: route.guildId, send });
+    const client = Object.assign(new EventEmitter(), { guilds: { cache: new Map([[route.guildId, {}]]) }, channels: { fetch } });
+    const info = vi.fn();
+    const bridge = new DiscordGameChatBridge(client as unknown as Client, configured, vi.fn(), info, undefined, (sender) => Promise.resolve(sender === "Player#1234" ? "Desert Walker" : sender));
+    return { bridge, send, fetch, info, configured };
+  }
+
+  it("is off by default and validates its settings", () => {
+    expect(loadChatBridgeConfig(env)?.proximity).toBeUndefined();
+    expect(loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY: "on" })?.proximity).toEqual({ routes: [], intercept: false });
+    const dedicated = [{ guildId: route.guildId, channelId: proximityChannel }, { guildId: route.guildId, channelId: proximityChannel, map: "DeepDesert_1.0" }];
+    expect(loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY_ROUTES: JSON.stringify(dedicated) })?.proximity).toEqual({ routes: dedicated, intercept: false });
+    expect(loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY: "off", CHAT_BRIDGE_PROXIMITY_ROUTES: JSON.stringify(dedicated) })?.proximity).toBeUndefined();
+    expect(loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY: "yes", CHAT_BRIDGE_PROXIMITY_INTERCEPT: "true" })?.proximity?.intercept).toBe(true);
+    expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY: "maybe" })).toThrow("CHAT_BRIDGE_PROXIMITY");
+    expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY_ROUTES: JSON.stringify([...dedicated, dedicated[0]]) })).toThrow("CHAT_BRIDGE_PROXIMITY_ROUTES");
+    expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY_ROUTES: JSON.stringify([{ guildId: route.guildId, channelId: proximityChannel, map: "bad key" }]) })).toThrow("CHAT_BRIDGE_PROXIMITY_ROUTES");
+    expect(() => loadChatBridgeConfig({ ...env, CHAT_BRIDGE_PROXIMITY_ROUTES: JSON.stringify([{ guildId: "345678901234567890", channelId: route.channelId }]) })).toThrow("CHAT_BRIDGE_PROXIMITY_ROUTES");
+  });
+
+  it("decodes proximity only when asked and never private or other channels", () => {
+    expect(decodeGameChat(proximityBody(), false)).toBeNull();
+    expect(decodeGameChat(proximityBody(), true)).toMatchObject({ sender: "Player#1234", text: "psst", channelType: "Proximity" });
+    for (const type of ["Local", "nearby"]) expect(decodeGameChat(proximityBody(undefined, undefined, type), true)?.channelType).toBe(type);
+    for (const type of ["Whisper", "Guild", "Party", "Unknown"]) expect(decodeGameChat(chatBody(type), true)).toBeNull();
+    expect(decodeGameChat(chatBody("Proximity", "Recipient#1234"), true)).toBeNull();
+    expect(peekChatChannelType(chatBody("Guild"))).toBe("Guild");
+    expect(peekChatChannelType(chatBody("<b>odd</b>"))).toBe("(unrecognised)");
+  });
+
+  it("drops proximity chat while the setting is off", async () => {
+    const { bridge, send, info } = setupProximity({});
+    await bridge.sendToDiscord(route.map, proximityBody());
+    expect(send).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith('Chat bridge first saw "Proximity" chat on chat.map (Hagga Basin).');
+  });
+
+  it("posts proximity chat in the map's channel with a Proximity label when no dedicated channel is set", async () => {
+    const { bridge, send } = setupProximity({ CHAT_BRIDGE_PROXIMITY: "on" });
+    await bridge.sendToDiscord(route.map, proximityBody());
+    await bridge.sendToDiscord(route.map, proximityBody(config.funcomId, "echo"));
+    await bridge.sendToDiscord(route.map, encodeMapChat("Player#1234", "map hello").body);
+    expect(send.mock.calls.map(([message]) => message.content)).toEqual([
+      "**[Hagga Basin · Proximity] Desert Walker:** psst",
+      "**[Hagga Basin] Desert Walker:** map hello",
+    ]);
+  });
+
+  it("routes proximity chat to dedicated channels, binding their extra maps", async () => {
+    const { channel } = mockBroker();
+    const dedicated = [{ guildId: route.guildId, channelId: proximityChannel }, { guildId: route.guildId, channelId: "567890123456789012", map: "DeepDesert_1.0" }];
+    const { bridge, send, fetch } = setupProximity({ CHAT_BRIDGE_PROXIMITY_ROUTES: JSON.stringify(dedicated) });
+    bridge.start();
+    await vi.waitFor(() => expect(channel.consume).toHaveBeenCalled());
+    expect(channel.bindQueue.mock.calls.map((call) => call[2])).toEqual(["HaggaBasin.0", "DeepDesert_1.0"]);
+    await bridge.sendToDiscord(route.map, proximityBody());
+    expect(fetch).toHaveBeenLastCalledWith(proximityChannel);
+    fetch.mockClear();
+    await bridge.sendToDiscord("DeepDesert_1.0", proximityBody(undefined, "hi", "Proximity", "B".repeat(32)));
+    expect(fetch.mock.calls.flat()).toEqual([proximityChannel, "567890123456789012"]);
+    expect(send.mock.lastCall?.[0].content).toBe("**[Deep Desert PvP · Proximity] Desert Walker:** hi");
+    // Map chat for a proximity-only map is not relayed: it has no map route.
+    send.mockClear();
+    await bridge.sendToDiscord("DeepDesert_1.0", encodeMapChat("Player#1234", "map").body);
+    expect(send).not.toHaveBeenCalled();
+    await bridge.stop();
+  });
+
+  it("listens on chat.intercept when asked, relays only proximity and deduplicates across both feeds", async () => {
+    const { channel } = mockBroker();
+    const { bridge, send, info } = setupProximity({ CHAT_BRIDGE_PROXIMITY: "on", CHAT_BRIDGE_PROXIMITY_INTERCEPT: "on" });
+    bridge.start();
+    await vi.waitFor(() => expect(channel.consume).toHaveBeenCalledTimes(2));
+    expect(channel.checkExchange.mock.calls.flat()).toEqual(expect.arrayContaining(["chat.map", "chat.intercept"]));
+    expect(channel.bindQueue).toHaveBeenCalledWith("amq.gen-test", "chat.intercept", "#");
+    const body = proximityBody();
+    await bridge.sendInterceptToDiscord("player.queue.key", body);
+    await bridge.sendToDiscord(route.map, body);
+    await bridge.sendInterceptToDiscord("player.queue.key", chatBody("Whisper"));
+    await bridge.sendInterceptToDiscord("player.queue.key", chatBody("Map"));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].content).toBe("**[Proximity] Desert Walker:** psst");
+    expect(info.mock.calls.flat().join(" ")).toContain('first saw "Whisper" chat on chat.intercept');
+    expect(info.mock.calls.flat().join(" ")).not.toContain("hello");
+    await bridge.stop();
+  });
+
+  it("keeps proximity receive-only and the intercept listener unable to publish", async () => {
+    const { channel } = mockBroker();
+    const transport = new GameChatConnection(config, vi.fn(), vi.fn(), vi.fn(), { kind: "intercept" });
+    transport.start();
+    await vi.waitFor(() => expect(channel.consume).toHaveBeenCalled());
+    await expect(transport.publish(route.map, "id", Buffer.from("x"))).rejects.toThrow("receive-only");
+    await transport.stop();
   });
 });

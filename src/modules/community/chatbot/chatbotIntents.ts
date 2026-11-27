@@ -14,6 +14,11 @@ type ChatIntent =
   | { kind: "whatsNew" }
   | { kind: "item"; query: string }
   | { kind: "webSearch"; query: string }
+  | { kind: "define"; word: string }
+  | { kind: "weather"; place: string }
+  | { kind: "news"; topic: string }
+  | { kind: "steam"; game: string }
+  | { kind: "currency"; amount: number; from: string; to: string }
   | { kind: "math"; expression: string }
   | { kind: "dice"; count: number; sides: number }
   | { kind: "coin" }
@@ -39,6 +44,8 @@ type ChatIntent =
 type SmallTalk = Extract<ChatIntent["kind"], "feelings" | "identity" | "capabilities" | "howAreYou" | "joke" | "fact" | "compliment" | "insult" | "greeting" | "thanks" | "farewell" | "affirm">;
 
 const MENTION = /<@!?(\d{17,20})>/g;
+/** Three-letter currency codes the rates source knows, so "5 min to sec" isn't read as money. */
+const CURRENCY = /^(usd|eur|gbp|jpy|cad|aud|nzd|chf|cny|hkd|sgd|sek|nok|dkk|pln|czk|huf|ron|bgn|try|inr|idr|ils|krw|mxn|brl|zar|php|thb|myr|isk)$/;
 const MAX_DICE = 20;
 const MAX_SIDES = 1_000;
 /** Small talk only wins over the knowledge search in short messages. */
@@ -83,6 +90,9 @@ function detectIntent(raw: string, botId?: string): ChatIntent {
   const others = mentionedUserIds(raw, botId);
   if (!text && others.length === 0) return { kind: "greeting" };
 
+  const currency = /^(?:(?:convert|how much is|whats|what is)\s+)?(\d+(?:\.\d+)?)\s*([a-z]{3})\s+(?:to|in|into)\s+([a-z]{3})$/.exec(text.replace(/,(?=\d{3})/g, ""));
+  if (currency && CURRENCY.test(currency[2]!) && CURRENCY.test(currency[3]!)) return { kind: "currency", amount: Number(currency[1]), from: currency[2]!, to: currency[3]! };
+
   const math = extractMath(raw);
   if (math) return { kind: "math", expression: math };
 
@@ -95,12 +105,30 @@ function detectIntent(raw: string, botId?: string): ChatIntent {
   if (asksLevel) return others[0] ? { kind: "level", userId: others[0] } : { kind: "level" };
   if (/\b(richest|solari|solaris)\b|\b(leaderboard|top players)\b/.test(text)) return { kind: "solariTop" };
   if (/\b(coriolis|storm|storms)\b/.test(text)) return { kind: "storm" };
+
+  // Steam comes before server status so "how many players are on X on steam" asks Steam.
+  const steam = /^(?:(?:hows|how is|whats|what is|check|look up|show)\s+)?(?:the )?(?:steam (?:price|players|player count|stats?) (?:for|of)|steam)\s+(.{2,60})$/.exec(text)
+    ?? /^(?:how many (?:people|players) (?:are )?(?:playing|on|in)|how much (?:is|does)|whats the price of|price of|player count (?:for|of))\s+(.{2,60}?)\s+(?:on|in) steam(?: cost)?$/.exec(text)
+    ?? /^(.{2,60}?)\s+(?:on )?steam (?:price|players|player count|stats?)$/.exec(text);
+  if (steam?.[1]) return { kind: "steam", game: steam[1].replace(/\s+cost$/, "").trim() };
   if (/\bserver(s)?\b.*\b(up|down|online|offline|status|working|running|alive|lagging|dead)\b|\b(is|are) (the )?(game|servers?) (up|down|online)\b|\bhow many (players|people)\b|\b(population|player count|whos (on|online|playing))\b/.test(text)) return { kind: "serverStatus" };
   if (/\b(whats new|what is new|changelog|patch notes|release notes|latest (update|version|release)|what changed|new features?)\b/.test(text)) return { kind: "whatsNew" };
   if (/\b(your|bot) (version|uptime|ping|latency)\b|\bwhat version\b|\buptime\b|\bping\b|\blatency\b|\bhow long have you been (up|online|running)\b/.test(text)) return { kind: "botInfo" };
 
   const item = /\b(?:item )?(?:template )?id (?:for|of) (?:the |an? )?(.{2,60})$/.exec(text) ?? /^(?:find|look ?up|search(?: for)?) (?:the |an? )?item (.{2,60})$/.exec(text);
   if (item?.[1]) return { kind: "item", query: item[1].trim() };
+
+  const weather = /\b(?:weather|forecast|temperature)\s+(?:like\s+)?(?:in|for|at)\s+(.{2,60})$/.exec(text)
+    ?? /\bhow (?:hot|cold|warm) is it (?:in|at)\s+(.{2,60})$/.exec(text)
+    ?? /\bis it (?:raining|snowing|sunny|hot|cold) (?:in|at)\s+(.{2,60})$/.exec(text)
+    ?? /^(.{2,40}?)\s+weather$/.exec(text);
+  if (weather?.[1]) return { kind: "weather", place: weather[1].replace(/\s+(?:right )?(?:now|today)$/, "").trim() };
+
+  const news = /^(?:(?:whats|what is|any|show me|give me|tell me|get|latest|todays|the)\s+)*(?:the\s+)?(?:(top|world|tech|technology|science|business|entertainment|sports?)\s+)?(?:news|headlines)(?:\s+(?:today|right now|now))?(?:\s+(?:about|on|in)\s+(top|world|tech|technology|science|business|entertainment|sports?))?$/.exec(text);
+  if (news) return { kind: "news", topic: newsTopic(news[1] ?? news[2]) };
+
+  const define = /^(?:define|definition of|meaning of|whats the meaning of|what is the meaning of|what does)\s+(?:the word\s+)?([\p{L}][\p{L}' -]{1,40}?)(?:\s+mean)?$/u.exec(text);
+  if (define?.[1] && (!text.startsWith("what does") || text.endsWith(" mean"))) return { kind: "define", word: define[1].trim() };
 
   const web = /^(?:search(?: the web| online| the internet)?(?: for)?|look ?up|google|wiki|wikipedia|duckduckgo)\s+(.{2,120})$/.exec(text);
   if (web?.[1]) return { kind: "webSearch", query: web[1].trim() };
@@ -129,18 +157,14 @@ function detectIntent(raw: string, botId?: string): ChatIntent {
   return { kind: "unknown" };
 }
 
-/** Small talk checked again after the knowledge search found nothing for a longer message. */
-/** The topic of a question, for a web search: "who is Paul Atreides?" becomes "Paul Atreides". */
-function searchTopic(raw: string): string {
-  return cleanText(raw)
-    .replace(/^(hey|hi|yo|so|ok|okay|um|hmm)\s+/, "")
-    .replace(/^(can you |could you |please )?(tell me |explain )?(about )?/, "")
-    .replace(/^(what|who|where|when|why|how)( is| are| was| were| does| do| did|s)?( a| an| the)?\s+/, "")
-    .replace(/^(do you know|have you heard of|whats|what is)( about)?( a| an| the)?\s+/, "")
-    .replace(/\s+(mean|means|work|works|do)$/, "")
-    .trim();
+function newsTopic(value: string | undefined): string {
+  if (!value) return "top";
+  if (value === "tech") return "technology";
+  if (value.startsWith("sport")) return "sport";
+  return value;
 }
 
+/** Small talk checked again after the knowledge search found nothing for a longer message. */
 function detectSmallTalk(raw: string): SmallTalk | null {
   const text = cleanText(raw);
   for (const [kind, pattern] of SMALL_TALK) if (pattern.test(text)) return kind;
@@ -156,5 +180,5 @@ function extractMath(raw: string): string | null {
   return expression;
 }
 
-export { cleanText, detectIntent, detectSmallTalk, extractMath, mentionedUserIds, searchTopic };
+export { cleanText, detectIntent, detectSmallTalk, extractMath, mentionedUserIds };
 export type { ChatIntent, SmallTalk };

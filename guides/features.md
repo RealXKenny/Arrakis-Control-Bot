@@ -34,7 +34,7 @@ Set `ROLE_PANEL_CHANNEL_ID` and the `ROLE_*_ID` values from `.env.example` to pu
 
 ## Discord ↔ game chat over RabbitMQ
 
-See the [complete RabbitMQ ↔ Discord setup guide](rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map.
+See the [complete RabbitMQ ↔ Discord setup guide](rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map, plus opt-in, receive-only proximity chat.
 
 ## Join-to-create voice rooms
 
@@ -128,7 +128,7 @@ Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required) to let the bot manage a
 
 ## Chatbot
 
-The bot has its own homemade chatbot with no outside AI. Ping the bot, reply to one of its answers or use `/chat ask`. It answers from the FAQ panel, the `/help` command list, live levels, the level and Solari leaderboards, the Coriolis storm schedule, game server status and the latest release notes, does quick math and dice, and says so when it doesn't know. It learns questions and answers from public chat, answers questions by itself when it is confident (after giving members a head start), looks unknown topics up online (game wiki, DuckDuckGo instant answers and Wikipedia, with a source link), and has a mood and per-member rapport that change with how it is treated. Learned answers, taught answers (`/chat teach`) and its mood are kept in PostgreSQL. Members can opt out with `/chat optout`, deleted messages are forgotten, and staff manage what it learned with `/chat learned`, `/chat unlearn` and `/chat purge`. See [the chatbot guide](chatbot.md).
+The bot has its own homemade chatbot with no outside AI. Ping the bot, reply to one of its answers or use `/chat ask`. It answers from the FAQ panel, the `/help` command list, live levels, the level and Solari leaderboards, the Coriolis storm schedule, game server status and the latest release notes, does quick math and dice, and says so when it doesn't know. It learns questions and answers from public chat, answers questions by itself when it is confident (after giving members a head start), looks unknown topics up online (game wiki, DuckDuckGo instant answers and Wikipedia, with a source link), answers definitions, weather, news headlines, Steam prices and player counts and currency conversions, can run its own optional AI model inside the bot (`CHATBOT_AI`), and has a mood and per-member rapport that change with how it is treated. Learned answers, taught answers (`/chat teach`) and its mood are kept in PostgreSQL. Members can opt out with `/chat optout`, deleted messages are forgotten, and staff manage what it learned with `/chat learned`, `/chat unlearn` and `/chat purge`. See [the chatbot guide](chatbot.md).
 
 ## Honeypot moderation
 

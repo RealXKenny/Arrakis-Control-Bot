@@ -1,0 +1,6 @@
+{
+  "name": "no-gpu-binary",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Empty stand-in for the chatbot model's GPU builds. The bot runs its model on the CPU, so the large CUDA and Vulkan binaries are never installed."
+}

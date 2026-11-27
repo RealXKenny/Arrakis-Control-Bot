@@ -138,8 +138,8 @@ describe("ChatBrain web lookups", () => {
   it("looks a question up online when it doesn't know, with the source", async () => {
     const web = vi.fn(() => Promise.resolve(found));
     const reply = await brain({ web }).reply(input("who is Paul Atreides?"));
-    expect(web).toHaveBeenCalledWith("paul atreides");
-    expect(reply.content).toBe("**Paul Atreides**\nPaul Atreides is the protagonist of Dune.\n-# From Wikipedia: <https://en.wikipedia.org/wiki/Paul_Atreides>");
+    expect(web).toHaveBeenCalledWith("paul atreides", undefined);
+    expect(reply.content).toBe("**Paul Atreides** is the protagonist of Dune.\n-# Source: Wikipedia · <https://en.wikipedia.org/wiki/Paul_Atreides>");
   });
 
   it("prefers its own knowledge and searches on request", async () => {
@@ -147,11 +147,15 @@ describe("ChatBrain web lookups", () => {
     await brain({ web }).reply(input("is this server pvp?"));
     expect(web).not.toHaveBeenCalled();
     await brain({ web }).reply(input("search for paul atreides"));
-    expect(web).toHaveBeenCalledWith("paul atreides");
+    expect(web).toHaveBeenCalledWith("paul atreides", undefined);
+    await brain({ web }).reply(input("Who is IShowSpeed from youtube google it"));
+    expect(web).toHaveBeenLastCalledWith("ishowspeed", "youtube");
+    await brain({ web }).reply(input("google who is KSI the youtuber"));
+    expect(web).toHaveBeenLastCalledWith("ksi", "youtuber");
   });
 
   it("explains when a search finds nothing or is busy, and skips the web for unasked answers unless allowed", async () => {
-    expect((await brain({ web: () => Promise.resolve(null) }).reply(input("look up zzqx"))).content).toContain("couldn't find a clear answer");
+    expect((await brain({ web: () => Promise.resolve(null) }).reply(input("look up zzqx"))).content).toBe('I looked it up but couldn\'t find anything clearly about "zzqx".');
     expect((await brain({ web: () => Promise.reject(new Error("busy")) }).reply(input("google spice"))).content).toContain("Give me a moment");
     expect((await brain().reply(input("search for spice"))).content).toBe("Web lookups are turned off on this server.");
     const web = vi.fn(() => Promise.resolve(found));
@@ -174,5 +178,60 @@ describe("ChatKnowledge", () => {
     expect(entries[0]?.title).toBe("About the server");
     expect(entries.map((entry) => entry.title)).toContain("How do I get started?");
     expect(entries.every((entry) => entry.answer.length > 0)).toBe(true);
+  });
+});
+
+describe("ChatBrain data sources", () => {
+  it("answers weather, Steam, currency and news questions from the data sources", async () => {
+    const skills: Partial<ChatSkills> = {
+      weather: () => Promise.resolve({ place: "Oslo, Norway", temperatureC: -2, feelsLikeC: -6, humidity: 70, windKmh: 16, conditions: "light snow", highC: 0, lowC: -5 }),
+      steam: () => Promise.resolve({ name: "Dune: Awakening", price: "$49.99", url: "https://store.steampowered.com/app/1172710/", players: 12345 }),
+      convert: () => Promise.resolve({ amount: 100, from: "USD", to: "EUR", result: 92.345, date: "2026-11-27" }),
+      news: () => Promise.resolve([{ title: "Big [story]", url: "https://www.bbc.co.uk/news/1" }]),
+    };
+    const weather = await brain(skills).reply(input("weather in oslo"));
+    expect(weather.content).toContain("It's **-2°C (28°F)** and light snow in **Oslo, Norway**. Feels like -6°C (21°F), high 0°C (32°F), low -5°C (23°F)");
+    expect((await brain(skills).reply(input("steam dune awakening"))).content).toBe("**Dune: Awakening** on Steam. It costs **$49.99**. **12,345** people are playing right now.\n-# <https://store.steampowered.com/app/1172710/>");
+    expect((await brain(skills).reply(input("100 usd to eur"))).content).toMatch(/^100 USD is about \*\*92\.35 EUR\*\*/);
+    expect((await brain(skills).reply(input("news"))).content).toBe("**Top headlines**\n- [Big story](<https://www.bbc.co.uk/news/1>)\n-# Source: BBC News");
+  });
+
+  it("defines words, and looks names up online when the dictionary has nothing", async () => {
+    const define = vi.fn((word: string) => Promise.resolve(word === "melange" ? { word, partOfSpeech: "noun", definitions: ["A mixture."], url: "https://en.wiktionary.org/wiki/melange" } : null));
+    const web = vi.fn(() => Promise.resolve({ title: "Sietch", summary: "A sietch is a Fremen community.", url: "https://dune.fandom.com/wiki/Sietch", source: "Dune Wiki" }));
+    expect((await brain({ define, web }).reply(input("define melange"))).content).toBe("**melange** *(noun)*\nA mixture.\n-# Source: Wiktionary · <https://en.wiktionary.org/wiki/melange>");
+    expect((await brain({ define, web }).reply(input("what does sietch mean"))).content).toContain("A **sietch** is a Fremen community.");
+  });
+
+  it("tells a fresh joke when it can, and falls back to its own", async () => {
+    expect((await brain({ joke: () => Promise.resolve("I'm reading a book on anti-gravity.") }).reply(input("tell me a joke"))).content).toBe("I'm reading a book on anti-gravity.");
+    expect((await brain({ joke: () => Promise.reject(new Error("busy")) }).reply(input("tell me a joke"))).content.length).toBeGreaterThan(5);
+  });
+});
+
+describe("ChatBrain with its language model", () => {
+  it("lets the model answer with notes from its knowledge and the web, and keeps staff answers as written", async () => {
+    const think = vi.fn((request: { system: string; history: readonly unknown[]; message: string }) => Promise.resolve(`thought about ${request.message}`));
+    const web = vi.fn(() => Promise.resolve({ title: "Sandworm", summary: "Giant worms of Arrakis.", url: "https://dune.fandom.com/wiki/Sandworm", source: "Dune Wiki" }));
+    const reply = await brain({ think, web }).reply(input("how big do sandworms get?"));
+    expect(reply.content).toBe("thought about how big do sandworms get?\n-# Looked up: Dune Wiki · <https://dune.fandom.com/wiki/Sandworm>");
+    expect(think.mock.calls[0]![0].system).toContain("[Dune Wiki] Sandworm: Giant worms of Arrakis.");
+    expect(think.mock.calls[0]![0].system).toContain("Crimson Skies");
+
+    const taught = await brain({ think }).reply(input("when's movie night?"));
+    expect(taught.content).toBe("Movie night is every Friday at 8 PM ET, Kenny.");
+  });
+
+  it("remembers the conversation for the model and falls back to the rules when it can't answer", async () => {
+    const think = vi.fn(() => Promise.resolve("Doing great, thanks!"));
+    const first = await brain({ think }).reply(input("how are you?"));
+    expect(first.content).toBe("Doing great, thanks!");
+    expect(first.memory.history).toEqual([{ user: "how are you?", bot: "Doing great, thanks!" }]);
+    await brain({ think }).reply(input("and you?", { memory: first.memory }));
+    expect((think.mock.calls[1] as unknown as [{ history: unknown[] }])[0].history).toEqual([{ user: "how are you?", bot: "Doing great, thanks!" }]);
+
+    const silent = await brain({ think: () => Promise.resolve(null) }).reply(input("how are you?"));
+    expect(silent.content.length).toBeGreaterThan(3);
+    expect(silent.content).not.toBe("Doing great, thanks!");
   });
 });

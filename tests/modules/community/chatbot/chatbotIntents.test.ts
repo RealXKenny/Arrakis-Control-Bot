@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { detectIntent, extractMath } from "../../../../src/modules/community/chatbot/chatbotIntents";
 import { evaluateExpression, formatNumber } from "../../../../src/modules/community/chatbot/chatbotMath";
+import { parseSearchRequest } from "../../../../src/modules/community/chatbot/chatbotSearch";
 
 const BOT = "100000000000000001";
 const MEMBER = "200000000000000002";
@@ -67,5 +68,38 @@ describe("chatbot math", () => {
     expect(evaluateExpression("2 + process")).toEqual({ ok: false, reason: "invalid" });
     expect(evaluateExpression("(1 + 2")).toEqual({ ok: false, reason: "invalid" });
     expect(formatNumber(0.1 + 0.2)).toBe("0.3");
+  });
+});
+
+describe("chatbot search requests", () => {
+  it("pulls the real subject and a hint out of how people ask", () => {
+    expect(parseSearchRequest("<@100000000000000001> Who is IShowSpeed from youtube google it")).toEqual({ subject: "ishowspeed", hint: "youtube" });
+    expect(parseSearchRequest("Google who is KSI the youtuber")).toEqual({ subject: "ksi", hint: "youtuber" });
+    expect(parseSearchRequest("can you google what a sandworm is")).toEqual({ subject: "sandworm" });
+    expect(parseSearchRequest("what does melange mean")).toEqual({ subject: "melange" });
+    expect(parseSearchRequest("tell me about the game dune awakening")).toEqual({ subject: "dune awakening", hint: "game" });
+    expect(parseSearchRequest("who is Paul Atreides?")).toEqual({ subject: "paul atreides" });
+    expect(parseSearchRequest("look up ornithopter")).toEqual({ subject: "ornithopter" });
+  });
+});
+
+describe("detectIntent data sources", () => {
+  it("reads currency conversions before math", () => {
+    expect(detectIntent("100 usd to eur")).toEqual({ kind: "currency", amount: 100, from: "usd", to: "eur" });
+    expect(detectIntent("convert 1,500 GBP into JPY?")).toEqual({ kind: "currency", amount: 1500, from: "gbp", to: "jpy" });
+    expect(detectIntent("5 min to sec").kind).not.toBe("currency");
+  });
+
+  it("reads weather, news, definitions and Steam questions", () => {
+    expect(detectIntent("what's the weather in New York?")).toEqual({ kind: "weather", place: "new york" });
+    expect(detectIntent("how cold is it in Oslo right now")).toEqual({ kind: "weather", place: "oslo" });
+    expect(detectIntent("london weather")).toEqual({ kind: "weather", place: "london" });
+    expect(detectIntent("what's the news?")).toEqual({ kind: "news", topic: "top" });
+    expect(detectIntent("tech headlines")).toEqual({ kind: "news", topic: "technology" });
+    expect(detectIntent("define melange")).toEqual({ kind: "define", word: "melange" });
+    expect(detectIntent("what does sietch mean?")).toEqual({ kind: "define", word: "sietch" });
+    expect(detectIntent("steam dune awakening")).toEqual({ kind: "steam", game: "dune awakening" });
+    expect(detectIntent("how many players are playing rust on steam")).toEqual({ kind: "steam", game: "rust" });
+    expect(detectIntent("how much is elden ring on steam")).toEqual({ kind: "steam", game: "elden ring" });
   });
 });

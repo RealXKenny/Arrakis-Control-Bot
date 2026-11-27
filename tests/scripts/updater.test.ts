@@ -25,6 +25,7 @@ import {
   selectRelease,
   statePaths,
   updaterSettings,
+  waitForHealth,
   // @ts-expect-error The updater is a dependency-free ESM script shared with the dashboard.
 } from '../../scripts/updater/updater.mjs';
 // @ts-expect-error Directly runnable ESM script.
@@ -469,6 +470,16 @@ describe('automatic update', () => {
     expect(await update({ settings: settings({ AUTO_UPDATE_ENABLED: 'false' }) })).toEqual({ status: 'disabled' });
     const state = JSON.parse(await readFile(statePaths(root).state, 'utf8'));
     expect(state.etag).toBe('"1"');
+  });
+
+  it('judges a new version by its ready line and never waits forever for one', async () => {
+    const never = new Promise<never>(() => undefined);
+    // Ready and still running when the health period ends.
+    expect(await waitForHealth({ ready: Promise.resolve(), exited: never, healthMs: 20 })).toBe('healthy');
+    // Exited before the period ended.
+    expect(await waitForHealth({ ready: Promise.resolve(), exited: Promise.resolve(), healthMs: 1_000 })).toBe('exited');
+    // Running but never printed its ready line: such a version used to leave the supervisor waiting forever.
+    expect(await waitForHealth({ ready: never, exited: never, healthMs: 20 })).toBe('unready');
   });
 
   it('rolls an unhealthy update back exactly and never offers that version again', async () => {

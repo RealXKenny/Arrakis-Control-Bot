@@ -15,6 +15,8 @@ import { ChatBrain, type ChatMemory, type ChatSkills } from "./ChatBrain";
 import { ChatKnowledge, commandEntries, faqEntries, learnedEntry, taughtEntry, type KnowledgeEntry } from "./chatbotKnowledge";
 import { isQuestion, learnableAnswer, learnableQuestion } from "./chatbotLearning";
 import type { WebLookupClient } from "../../../infrastructure/http/web/WebLookupClient";
+import type { WebDataClient } from "../../../infrastructure/http/web/WebDataClient";
+import type { LocalLanguageModel } from "../../../infrastructure/ai/LocalLanguageModel";
 import { adjustRapport, feel, initialMood, moodLabel, settle, type FeelingEvent, type MoodState } from "./chatbotMood";
 
 /**
@@ -41,6 +43,8 @@ interface AccessSubject {
 const MAX_TAUGHT_PER_GUILD = 500;
 const MAX_MEMORY_ENTRIES = 2_000;
 const MAX_ANSWER_IDS = 2_000;
+/** Discord shows "typing…" for about 10 seconds per call. */
+const TYPING_REFRESH_MS = 8_000;
 const MAX_INPUT_LENGTH = 1_500;
 const DISCORD_MESSAGE_LIMIT = 2_000;
 /** How long a question waits for an answer in the next messages, when nobody uses Discord's reply. */
@@ -75,6 +79,8 @@ class ChatbotService {
   private readonly lastAutoAt = new Map<string, number>();
   private readonly recentAutoEntries = new Map<string, number>();
   private readonly moods = new Map<string, MoodState>();
+  /** Messages already handled, so a re-delivered gateway event never gets a second reply. */
+  private readonly handledMessages = new Set<string>();
   private stopped = false;
 
   public constructor(
@@ -84,6 +90,8 @@ class ChatbotService {
     private readonly log: ChatbotLog,
     private readonly now: () => number = Date.now,
     private readonly web?: Pick<WebLookupClient, "lookup">,
+    private readonly data?: Pick<WebDataClient, "define" | "weather" | "headlines" | "steamGame" | "convert" | "joke">,
+    private readonly ai?: Pick<LocalLanguageModel, "ready" | "warmUp" | "generate" | "stop">,
   ) {}
 
   /** FAQ and command entries, built on first use so every command piece is loaded by then. */
@@ -102,6 +110,7 @@ class ChatbotService {
 
   public stop(): void {
     this.stopped = true;
+    void this.ai?.stop();
     for (const pending of this.pendingAuto.values()) clearTimeout(pending.timer);
     this.pendingAuto.clear();
   }
@@ -132,8 +141,13 @@ class ChatbotService {
 
   public async handleMessage(message: Message): Promise<void> {
     if (message.author.bot || message.webhookId || message.system || !message.inGuild()) return;
+    if (this.handledMessages.has(message.id)) return;
+    this.handledMessages.add(message.id);
+    if (this.handledMessages.size > MAX_ANSWER_IDS) this.handledMessages.delete(this.handledMessages.values().next().value!);
     const botId = this.client.user?.id;
     if (!botId || !this.isServed(message)) return;
+    // Only the shard that serves the guild loads the model, on its first message there.
+    this.ai?.warmUp();
     const subject: AccessSubject = { userId: message.author.id, guildOwnerId: message.guild.ownerId, member: message.member, permissions: message.member?.permissions ?? null };
     if (!(await this.isAddressedToMe(message, botId))) {
       // Someone else talking in the channel means a person may be answering: the bot steps back.
@@ -146,7 +160,10 @@ class ChatbotService {
     if (!this.mentionChannelAllowed(message) || !this.canUse(subject)) return;
     if (this.takeCooldown(message.author.id) > 0) return;
 
-    void message.channel.sendTyping().catch(() => undefined);
+    // The model can take a while to think: keep "typing…" showing until the answer is sent.
+    const typing = (): void => void message.channel.sendTyping().catch(() => undefined);
+    typing();
+    const keepTyping = this.ai?.ready ? setInterval(typing, TYPING_REFRESH_MS) : undefined;
     const content = await this.answer({
       guildId: message.guildId,
       channelId: message.channelId,
@@ -156,7 +173,7 @@ class ChatbotService {
       displayName: message.member?.displayName ?? message.author.displayName,
       serverName: message.guild.name,
       isStaff: isChatStaff(subject),
-    });
+    }).finally(() => clearInterval(keepTyping));
     const sent = await message.reply({ content, allowedMentions: { parse: [], repliedUser: false } });
     this.rememberAnswer(sent.id);
   }
@@ -457,8 +474,21 @@ class ChatbotService {
         return { version: release.version.replace(/^v/, ""), highlights: release.sections.flatMap((section) => section.items).map(firstSentence) };
       } : undefined,
       items: (query) => searchCatalog("items", query, 25).map((item) => ({ name: item.name, id: item.value, detail: item.detail })),
-      web: this.web ? (query) => this.web!.lookup(query) : undefined,
+      web: this.web ? (subject, hint) => this.web!.lookup(subject, hint) : undefined,
+      ...(this.data ? this.dataSkills(this.data) : {}),
+      think: this.ai?.ready ? (request) => this.ai!.generate(request) : undefined,
       botInfo: () => ({ version: getBotVersion(), uptimeMs: client.uptime ?? 0, pingMs: client.ws.ping >= 0 ? client.ws.ping : null }),
+    };
+  }
+
+  private dataSkills(data: NonNullable<ChatbotService["data"]>): Partial<ChatSkills> {
+    return {
+      define: (word) => data.define(word),
+      weather: (place) => data.weather(place),
+      news: (topic) => data.headlines(topic),
+      steam: (game) => data.steamGame(game),
+      convert: (amount, from, to) => data.convert(amount, from, to),
+      joke: () => data.joke(),
     };
   }
 

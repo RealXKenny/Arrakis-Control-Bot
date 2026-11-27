@@ -13,3 +13,6 @@ npm-debug.log*
 /dist/
 /.codex
 /.vexp
+
+# The chatbot AI model download
+/models/

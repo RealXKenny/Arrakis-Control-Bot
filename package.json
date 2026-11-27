@@ -1,6 +1,6 @@
 {
   "name": "Arrakis-Control-Bot",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "A modular Sapphire Framework and Discord.js v14 bot.",
   "main": "src/index.ts",
   "engines": {
@@ -27,12 +27,14 @@
     "canvas": "^3.2.3",
     "discord.js": "^14.28.1",
     "dotenv": "^18.0.10",
+    "node-llama-cpp": "3.22.4",
     "pg": "^8.23.1",
     "shoukaku": "^4.3.0"
   },
   "allowScripts": {
     "canvas@3.2.3": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "node-llama-cpp@3.22.4": false
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -87,5 +89,13 @@
       "CONSOLE_URL",
       "CONSOLE_API_KEY"
     ]
+  },
+  "overrides": {
+    "@node-llama-cpp/linux-x64-cuda": "file:./scripts/stubs/no-gpu-binary",
+    "@node-llama-cpp/linux-x64-cuda-ext": "file:./scripts/stubs/no-gpu-binary",
+    "@node-llama-cpp/linux-x64-vulkan": "file:./scripts/stubs/no-gpu-binary",
+    "@node-llama-cpp/win-x64-cuda": "file:./scripts/stubs/no-gpu-binary",
+    "@node-llama-cpp/win-x64-cuda-ext": "file:./scripts/stubs/no-gpu-binary",
+    "@node-llama-cpp/win-x64-vulkan": "file:./scripts/stubs/no-gpu-binary"
   }
 }
