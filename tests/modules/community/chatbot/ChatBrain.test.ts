@@ -214,8 +214,8 @@ describe("ChatBrain with its language model", () => {
     const think = vi.fn((request: { system: string; history: readonly unknown[]; message: string }) => Promise.resolve(`thought about ${request.message}`));
     const web = vi.fn(() => Promise.resolve({ title: "Sandworm", summary: "Giant worms of Arrakis.", url: "https://dune.fandom.com/wiki/Sandworm", source: "Dune Wiki" }));
     const reply = await brain({ think, web }).reply(input("how big do sandworms get?"));
-    expect(reply.content).toBe("thought about how big do sandworms get?\n-# Looked up: Dune Wiki · <https://dune.fandom.com/wiki/Sandworm>");
-    expect(think.mock.calls[0]![0].system).toContain("[Dune Wiki] Sandworm: Giant worms of Arrakis.");
+    expect(reply.content).toBe("thought about how big do sandworms get?\n-# Sources: Dune Wiki · <https://dune.fandom.com/wiki/Sandworm>");
+    expect(think.mock.calls[0]![0].system).toContain("[Dune Wiki: Sandworm] Giant worms of Arrakis.");
     expect(think.mock.calls[0]![0].system).toContain("Crimson Skies");
 
     const taught = await brain({ think }).reply(input("when's movie night?"));
@@ -233,5 +233,26 @@ describe("ChatBrain with its language model", () => {
     const silent = await brain({ think: () => Promise.resolve(null) }).reply(input("how are you?"));
     expect(silent.content.length).toBeGreaterThan(3);
     expect(silent.content).not.toBe("Doing great, thanks!");
+  });
+});
+
+describe("ChatBrain grounding its model in sources", () => {
+  it("searches before the model answers, even without a question mark, and cites what it read", async () => {
+    const think = vi.fn((request: { system: string }) => Promise.resolve(request.system.includes("December 18, 2026") ? "Dune: Part Three is scheduled for December 18, 2026." : "I don't know."));
+    const research = vi.fn(() => Promise.resolve([
+      { title: "Dune: Part Three", summary: "Dune: Part Three is an upcoming film directed by Denis Villeneuve. It is scheduled to be released on December 18, 2026.", url: "https://en.wikipedia.org/wiki/Dune:_Part_Three", source: "Wikipedia" },
+      { title: "Dune Messiah", summary: "Dune Messiah is a 1969 novel by Frank Herbert.", url: "https://en.wikipedia.org/wiki/Dune_Messiah", source: "Wikipedia" },
+    ]));
+    const web = vi.fn(() => Promise.resolve(null));
+    const reply = await brain({ think, research, web }).reply(input("Dune Part 3"));
+    expect(research).toHaveBeenCalledWith("Dune Part 3");
+    expect(reply.content).toBe("Dune: Part Three is scheduled for December 18, 2026.\n-# Sources: Wikipedia · <https://en.wikipedia.org/wiki/Dune:_Part_Three> · Wikipedia · <https://en.wikipedia.org/wiki/Dune_Messiah>");
+    expect(think.mock.calls[0]![0].system).toMatch(/out of date/);
+  });
+
+  it("doesn't search for small talk", async () => {
+    const research = vi.fn(() => Promise.resolve([]));
+    await brain({ think: () => Promise.resolve("Hey!"), research }).reply(input("thanks so much for helping me today friend"));
+    expect(research).not.toHaveBeenCalled();
   });
 });

@@ -4,7 +4,13 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [2.0.5] - 2026-11-27
 
+### Changed
+
+- The chatbot's AI model is now downloaded (if it isn't there yet) and loaded as soon as the bot starts, instead of on the first message, so it is ready before anyone asks. The bot is online and answers with its rules while it downloads.
+
 ### Fixed
+
+- The chatbot's AI model answered from its own out-of-date memory ("I'm not aware of a release date for Dune Part 3"). It now searches first, for any message that isn't small talk (not only questions with a question mark): it reads the opening of the best few Wikipedia articles and the game wiki's best hits, is told to trust those over its memory, and lists the sources under its reply. It only says it doesn't know when the sources don't have the answer.
 
 - 2.0.4 could fail to start (and the updater rolled back to 2.0.3) when `CHATBOT_AI` was on and `CHATBOT_AI_MODEL` had a value it didn't recognise, such as a quoted `"small"`. A mistake in any chatbot AI setting now only turns the AI model off, with a warning in the console that names the setting; the bot and the rest of the chatbot start normally.
 - AI settings are read the way panels and `.env` files write them: surrounding quotes and a trailing `# comment` are ignored, `CHATBOT_AI` also accepts `1`/`0`, `yes`/`no` and `on`/`off`, and `CHATBOT_AI_MODEL` also accepts `3b`/`8b`, `hf:owner/repo:quant` and a huggingface.co file link.

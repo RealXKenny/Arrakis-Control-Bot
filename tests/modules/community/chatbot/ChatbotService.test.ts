@@ -124,6 +124,19 @@ describe("ChatbotService", () => {
     vi.unstubAllEnvs();
   });
 
+  it("starts the AI model download at startup on shard 0 only", async () => {
+    const ai = () => ({ ready: false, warmUp: vi.fn(), generate: vi.fn(() => Promise.resolve(null)), stop: vi.fn(() => Promise.resolve()) });
+    const single = ai();
+    await new ChatbotService(fakeClient(), config(), undefined, log, Date.now, undefined, undefined, single).initialize();
+    expect(single.warmUp).toHaveBeenCalledTimes(1);
+    const other = ai();
+    await new ChatbotService(fakeClient({ shard: { ids: [1] } }), config(), undefined, log, Date.now, undefined, undefined, other).initialize();
+    expect(other.warmUp).not.toHaveBeenCalled();
+    const first = ai();
+    await new ChatbotService(fakeClient({ shard: { ids: [0] } }), config(), undefined, log, Date.now, undefined, undefined, first).initialize();
+    expect(first.warmUp).toHaveBeenCalledTimes(1);
+  });
+
   it("answers staff who mention it, without pinging anyone", async () => {
     const service = new ChatbotService(fakeClient(), config(), undefined, log);
     const incoming = message(`<@${BOT}> how are you?`, { roles: [STAFF_ROLE] });

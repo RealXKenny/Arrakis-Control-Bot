@@ -89,7 +89,7 @@ class ChatbotService {
     private readonly storage: ChatbotStorage | undefined,
     private readonly log: ChatbotLog,
     private readonly now: () => number = Date.now,
-    private readonly web?: Pick<WebLookupClient, "lookup">,
+    private readonly web?: Pick<WebLookupClient, "lookup" | "research">,
     private readonly data?: Pick<WebDataClient, "define" | "weather" | "headlines" | "steamGame" | "convert" | "joke">,
     private readonly ai?: Pick<LocalLanguageModel, "ready" | "warmUp" | "generate" | "stop">,
   ) {}
@@ -105,6 +105,9 @@ class ChatbotService {
   }
 
   public async initialize(): Promise<void> {
+    // Fetch and load the AI model at startup, so it is ready before anyone asks. One shard does
+    // it, so several shards never download the same file at once; the others load on first use.
+    if (!this.client.shard || this.client.shard.ids.includes(0)) this.ai?.warmUp();
     await this.storage?.initialize();
   }
 
@@ -146,7 +149,7 @@ class ChatbotService {
     if (this.handledMessages.size > MAX_ANSWER_IDS) this.handledMessages.delete(this.handledMessages.values().next().value!);
     const botId = this.client.user?.id;
     if (!botId || !this.isServed(message)) return;
-    // Only the shard that serves the guild loads the model, on its first message there.
+    // Another shard's copy of the model loads on its first message (shard 0 loads it at startup).
     this.ai?.warmUp();
     const subject: AccessSubject = { userId: message.author.id, guildOwnerId: message.guild.ownerId, member: message.member, permissions: message.member?.permissions ?? null };
     if (!(await this.isAddressedToMe(message, botId))) {
@@ -475,6 +478,7 @@ class ChatbotService {
       } : undefined,
       items: (query) => searchCatalog("items", query, 25).map((item) => ({ name: item.name, id: item.value, detail: item.detail })),
       web: this.web ? (subject, hint) => this.web!.lookup(subject, hint) : undefined,
+      research: this.web && this.ai?.ready ? (question) => this.web!.research(question) : undefined,
       ...(this.data ? this.dataSkills(this.data) : {}),
       think: this.ai?.ready ? (request) => this.ai!.generate(request) : undefined,
       botInfo: () => ({ version: getBotVersion(), uptimeMs: client.uptime ?? 0, pingMs: client.ws.ping >= 0 ? client.ws.ping : null }),
