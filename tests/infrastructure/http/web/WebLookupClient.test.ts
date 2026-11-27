@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { WebLookupBusyError, WebLookupClient, firstParagraph, relevant } from "../../../../src/infrastructure/http/web/WebLookupClient";
+import { WebLookupBusyError, WebLookupClient, firstParagraph, matchScore } from "../../../../src/infrastructure/http/web/WebLookupClient";
 
 function json(value: unknown, url: string): Response {
   const response = new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -74,9 +74,31 @@ describe("WebLookupClient", () => {
     expect(WebLookupClient.parseWikiUrl("https://wiki.example/")).toBe("https://wiki.example");
   });
 
-  it("matches search hits to the question and reads the first paragraph", () => {
-    expect(relevant("who is paul atreides", "Paul Atreides")).toBe(true);
-    expect(relevant("who is paul atreides", "What")).toBe(false);
+  it("only accepts pages that are about the subject", async () => {
+    const fetcher = fakeFetch((url) => {
+      if (url.origin === "https://api.duckduckgo.com") return { Heading: "YouTube", AbstractText: "YouTube is an American video-sharing platform owned by Google." };
+      if (url.pathname === "/w/api.php") {
+        return url.searchParams.get("srsearch") === "ishowspeed youtube"
+          ? { query: { search: [{ title: "List of most-subscribed YouTube channels" }, { title: "YouTube" }] } }
+          : { query: { search: [{ title: "IShowSpeed" }] } };
+      }
+      if (url.pathname === "/api/rest_v1/page/summary/IShowSpeed") return { title: "IShowSpeed", extract: "Darren Jason Watkins Jr., known online as IShowSpeed, is an American YouTuber and online streamer. He is known for his energetic livestreams. He was born in 2005." };
+      return undefined;
+    });
+    const client = new WebLookupClient({ perMinute: 10, userAgent: "test", fetcher });
+    const answer = await client.lookup("ishowspeed", "youtube");
+    expect(answer?.title).toBe("IShowSpeed");
+    expect(answer?.summary).toBe("Darren Jason Watkins Jr., known online as IShowSpeed, is an American YouTuber and online streamer. He is known for his energetic livestreams.");
+  });
+
+  it("scores how well a title covers the subject and reads the first paragraph", () => {
+    expect(matchScore("paul atreides", "Paul Atreides")).toBe(1);
+    expect(matchScore("ishowspeed", "List of most-subscribed YouTube channels")).toBe(0);
+    expect(matchScore("ishowspeed", "YouTube")).toBe(0);
+    expect(matchScore("i show speed", "IShowSpeed")).toBe(1);
+    expect(matchScore("ksi", "KSI")).toBe(1);
+    expect(matchScore("coriolis storm", "Coriolis Storm (Dune)")).toBe(1);
+    expect(matchScore("spice", "Spice melange")).toBe(1);
     expect(firstParagraph("<table><p>in a table, ignore this paragraph please, it is long enough</p></table><p>Hi</p>")).toBeNull();
   });
 });

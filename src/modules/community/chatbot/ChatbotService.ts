@@ -15,6 +15,7 @@ import { ChatBrain, type ChatMemory, type ChatSkills } from "./ChatBrain";
 import { ChatKnowledge, commandEntries, faqEntries, learnedEntry, taughtEntry, type KnowledgeEntry } from "./chatbotKnowledge";
 import { isQuestion, learnableAnswer, learnableQuestion } from "./chatbotLearning";
 import type { WebLookupClient } from "../../../infrastructure/http/web/WebLookupClient";
+import type { WebDataClient } from "../../../infrastructure/http/web/WebDataClient";
 import { adjustRapport, feel, initialMood, moodLabel, settle, type FeelingEvent, type MoodState } from "./chatbotMood";
 
 /**
@@ -75,6 +76,8 @@ class ChatbotService {
   private readonly lastAutoAt = new Map<string, number>();
   private readonly recentAutoEntries = new Map<string, number>();
   private readonly moods = new Map<string, MoodState>();
+  /** Messages already handled, so a re-delivered gateway event never gets a second reply. */
+  private readonly handledMessages = new Set<string>();
   private stopped = false;
 
   public constructor(
@@ -84,6 +87,7 @@ class ChatbotService {
     private readonly log: ChatbotLog,
     private readonly now: () => number = Date.now,
     private readonly web?: Pick<WebLookupClient, "lookup">,
+    private readonly data?: Pick<WebDataClient, "define" | "weather" | "headlines" | "steamGame" | "convert" | "joke">,
   ) {}
 
   /** FAQ and command entries, built on first use so every command piece is loaded by then. */
@@ -132,6 +136,9 @@ class ChatbotService {
 
   public async handleMessage(message: Message): Promise<void> {
     if (message.author.bot || message.webhookId || message.system || !message.inGuild()) return;
+    if (this.handledMessages.has(message.id)) return;
+    this.handledMessages.add(message.id);
+    if (this.handledMessages.size > MAX_ANSWER_IDS) this.handledMessages.delete(this.handledMessages.values().next().value!);
     const botId = this.client.user?.id;
     if (!botId || !this.isServed(message)) return;
     const subject: AccessSubject = { userId: message.author.id, guildOwnerId: message.guild.ownerId, member: message.member, permissions: message.member?.permissions ?? null };
@@ -457,8 +464,20 @@ class ChatbotService {
         return { version: release.version.replace(/^v/, ""), highlights: release.sections.flatMap((section) => section.items).map(firstSentence) };
       } : undefined,
       items: (query) => searchCatalog("items", query, 25).map((item) => ({ name: item.name, id: item.value, detail: item.detail })),
-      web: this.web ? (query) => this.web!.lookup(query) : undefined,
+      web: this.web ? (subject, hint) => this.web!.lookup(subject, hint) : undefined,
+      ...(this.data ? this.dataSkills(this.data) : {}),
       botInfo: () => ({ version: getBotVersion(), uptimeMs: client.uptime ?? 0, pingMs: client.ws.ping >= 0 ? client.ws.ping : null }),
+    };
+  }
+
+  private dataSkills(data: NonNullable<ChatbotService["data"]>): Partial<ChatSkills> {
+    return {
+      define: (word) => data.define(word),
+      weather: (place) => data.weather(place),
+      news: (topic) => data.headlines(topic),
+      steam: (game) => data.steamGame(game),
+      convert: (amount, from, to) => data.convert(amount, from, to),
+      joke: () => data.joke(),
     };
   }
 

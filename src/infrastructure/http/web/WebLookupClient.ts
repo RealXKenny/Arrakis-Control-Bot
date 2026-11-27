@@ -32,7 +32,9 @@ const REQUEST_TIMEOUT_MS = 6_000;
 const MAX_RESPONSE_BYTES = 1_000_000;
 const CACHE_TTL_MS = 60 * 60_000;
 const MAX_CACHE = 500;
-const MAX_SUMMARY = 700;
+const MAX_SUMMARY = 360;
+/** Share of the subject's words a page title must contain to count as being about it. */
+const MIN_MATCH = 0.67;
 const MAX_QUERY = 120;
 
 /** Searches that should never be run, whoever asks. The sources are encyclopedic, but the bot is in a community server. */
@@ -69,11 +71,17 @@ class WebLookupClient {
     return BLOCKED_QUERY.test(query);
   }
 
-  /** The best short answer for a search phrase, or null when nothing reliable was found. */
-  public async lookup(rawQuery: string): Promise<WebAnswer | null> {
-    const query = rawQuery.replace(/[\p{Cc}<>]/gu, " ").replace(/\s+/g, " ").trim().slice(0, MAX_QUERY);
-    if (query.length < 2 || WebLookupClient.isBlocked(query)) return null;
-    const key = query.toLowerCase();
+  /**
+   * A short answer about `subject`, or null when no page is clearly about it. The optional
+   * `hint` (such as "youtube") only helps the search rank pages; a result must match the subject.
+   */
+  public async lookup(rawSubject: string, rawHint?: string): Promise<WebAnswer | null> {
+    const clean = (value: string) => value.replace(/[\p{Cc}<>]/gu, " ").replace(/\s+/g, " ").trim().slice(0, MAX_QUERY);
+    const subject = clean(rawSubject);
+    const hint = rawHint ? clean(rawHint) : "";
+    if (subject.length < 2 || WebLookupClient.isBlocked(`${subject} ${hint}`)) return null;
+    const query = { subject, search: hint ? `${subject} ${hint}` : subject };
+    const key = `${subject}|${hint}`.toLowerCase();
     const cached = this.cache.get(key);
     if (cached && this.now() - cached.at < CACHE_TTL_MS) return cached.answer;
     if (!this.takeBudget()) throw new WebLookupBusyError();
@@ -97,11 +105,21 @@ class WebLookupClient {
     return true;
   }
 
-  private async wiki(query: string): Promise<WebAnswer | null> {
+  /** The search hit whose title best matches the subject, trying the subject alone if the hint led astray. */
+  private async bestTitle(origin: string, query: { subject: string; search: string }): Promise<string | null> {
+    for (const phrase of [...new Set([query.search, query.subject])]) {
+      const search = await this.getJson(`${origin}/api.php?${params({ action: "query", list: "search", srsearch: phrase, srlimit: "5", format: "json" })}`);
+      const hits = isRecord(search) && isRecord(search.query) && Array.isArray(search.query.search) ? search.query.search : [];
+      const titles = hits.flatMap((hit) => (isRecord(hit) && typeof hit.title === "string" ? [hit.title] : []));
+      const best = titles.map((title) => ({ title, score: matchScore(query.subject, title) })).filter((entry) => entry.score >= MIN_MATCH).sort((left, right) => right.score - left.score)[0];
+      if (best) return best.title;
+    }
+    return null;
+  }
+
+  private async wiki(query: { subject: string; search: string }): Promise<WebAnswer | null> {
     if (!this.wikiUrl) return null;
-    const search = await this.getJson(`${this.wikiUrl}/api.php?${params({ action: "query", list: "search", srsearch: query, srlimit: "3", format: "json" })}`);
-    const hits = isRecord(search) && isRecord(search.query) && Array.isArray(search.query.search) ? search.query.search : [];
-    const title = hits.map((hit) => (isRecord(hit) && typeof hit.title === "string" ? hit.title : "")).find((candidate) => relevant(query, candidate));
+    const title = await this.bestTitle(this.wikiUrl, query);
     if (!title) return null;
     const parsed = await this.getJson(`${this.wikiUrl}/api.php?${params({ action: "parse", page: title, prop: "text", section: "0", format: "json", redirects: "1", disablelimitreport: "1" })}`);
     const html = isRecord(parsed) && isRecord(parsed.parse) && isRecord(parsed.parse.text) && typeof parsed.parse.text["*"] === "string" ? parsed.parse.text["*"] : "";
@@ -110,22 +128,22 @@ class WebLookupClient {
     return { title, summary: clip(summary), url: `${this.wikiUrl}/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`, source: this.options.wikiName ?? new URL(this.wikiUrl).hostname };
   }
 
-  private async duckDuckGo(query: string): Promise<WebAnswer | null> {
+  private async duckDuckGo(query: { subject: string; search: string }): Promise<WebAnswer | null> {
     // kp=1 is DuckDuckGo's strict safe search.
-    const value = await this.getJson(`${DUCKDUCKGO}/?${params({ q: query, format: "json", no_html: "1", skip_disambig: "1", no_redirect: "1", kp: "1", t: "arrakis-control" })}`);
+    const value = await this.getJson(`${DUCKDUCKGO}/?${params({ q: query.subject, format: "json", no_html: "1", skip_disambig: "1", no_redirect: "1", kp: "1", t: "arrakis-control" })}`);
     if (!isRecord(value)) return null;
+    // An instant answer must be about the subject, not something its words happen to touch.
+    if (typeof value.Heading !== "string" || matchScore(query.subject, value.Heading) < MIN_MATCH) return null;
     const text = [value.Answer, value.AbstractText, value.Definition].find((entry): entry is string => typeof entry === "string" && entry.trim().length >= 20);
     if (!text) return null;
-    const url = [value.AbstractURL, value.DefinitionURL].find((entry): entry is string => typeof entry === "string" && /^https:\/\//.test(entry)) ?? `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
-    const title = typeof value.Heading === "string" && value.Heading.trim() ? value.Heading.trim() : query;
+    const url = [value.AbstractURL, value.DefinitionURL].find((entry): entry is string => typeof entry === "string" && /^https:\/\//.test(entry)) ?? `https://duckduckgo.com/?q=${encodeURIComponent(query.subject)}`;
+    const title = value.Heading.trim();
     const source = typeof value.AbstractSource === "string" && value.AbstractSource.trim() ? value.AbstractSource.trim() : "DuckDuckGo";
     return { title, summary: clip(text.trim()), url, source };
   }
 
-  private async wikipedia(query: string): Promise<WebAnswer | null> {
-    const search = await this.getJson(`${WIKIPEDIA}/w/api.php?${params({ action: "query", list: "search", srsearch: query, srlimit: "3", format: "json" })}`);
-    const hits = isRecord(search) && isRecord(search.query) && Array.isArray(search.query.search) ? search.query.search : [];
-    const title = hits.map((hit) => (isRecord(hit) && typeof hit.title === "string" ? hit.title : "")).find((candidate) => relevant(query, candidate));
+  private async wikipedia(query: { subject: string; search: string }): Promise<WebAnswer | null> {
+    const title = await this.bestTitle(`${WIKIPEDIA}/w`, query);
     if (!title) return null;
     const summary = await this.getJson(`${WIKIPEDIA}/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}`);
     if (!isRecord(summary) || typeof summary.extract !== "string" || summary.extract.length < 20 || summary.type === "disambiguation") return null;
@@ -162,12 +180,26 @@ function params(values: Record<string, string>): string {
 
 const FILLER = new Set(["what", "who", "whos", "whats", "where", "when", "why", "how", "the", "and", "for", "are", "was", "were", "does", "did", "can", "about", "tell", "with", "from", "that", "this", "is", "of"]);
 
-/** A search hit counts only when it shares a real word with the question. */
-function relevant(query: string, title: string): boolean {
-  if (!title) return false;
-  const words = (value: string) => new Set(value.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N} ]+/gu, " ").split(" ").filter((word) => word.length > 2 && !FILLER.has(word)));
-  const queryWords = words(query);
-  return [...words(title)].some((word) => queryWords.has(word) || [...queryWords].some((queryWord) => queryWord.startsWith(word) || word.startsWith(queryWord)));
+function words(value: string): string[] {
+  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N} ]+/gu, " ").split(" ").filter((word) => word.length > 1 && !FILLER.has(word));
+}
+
+/**
+ * How much of the subject a page title covers, from 0 to 1. "List of most-subscribed YouTube
+ * channels" covers none of "ishowspeed"; "IShowSpeed" covers all of "i show speed" too.
+ */
+function matchScore(subject: string, title: string): number {
+  const subjectWords = words(subject);
+  const titleWords = words(title.replace(/\s*\([^)]*\)\s*$/, ""));
+  if (subjectWords.length === 0 || titleWords.length === 0) return 0;
+  if (/^list of\b/i.test(title) && !/^list\b/i.test(subject.trim())) return 0;
+  const joinedTitle = titleWords.join("");
+  if (subjectWords.join("") === joinedTitle) return 1;
+  const found = subjectWords.filter((word) => titleWords.some((titleWord) => titleWord === word || (word.length >= 4 && (titleWord.startsWith(word) || word.startsWith(titleWord)) && Math.min(word.length, titleWord.length) >= 4)) || (word.length >= 4 && joinedTitle.includes(word)));
+  const coverage = found.length / subjectWords.length;
+  // A title with many extra words is probably about something bigger than the subject.
+  const extra = titleWords.length - found.length;
+  return extra > subjectWords.length + 2 ? coverage * 0.6 : coverage;
 }
 
 /** The first real paragraph of a MediaWiki page section, as plain text. */
@@ -189,12 +221,14 @@ function decodeEntities(value: string): string {
     .replace(/&quot;/g, "\"").replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
+/** The first two sentences, at most a few hundred characters: enough to answer, short enough for chat. */
 function clip(text: string): string {
-  if (text.length <= MAX_SUMMARY) return text;
-  const cut = text.slice(0, MAX_SUMMARY);
-  const end = cut.lastIndexOf(". ");
-  return end > 200 ? cut.slice(0, end + 1) : `${cut.trimEnd()}…`;
+  const sentences = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+(?=["“(]?[A-Z0-9])/);
+  let result = sentences[0] ?? "";
+  if (sentences[1] && result.length + sentences[1].length + 1 <= MAX_SUMMARY) result = `${result} ${sentences[1]}`;
+  if (result.length <= MAX_SUMMARY) return result;
+  return `${result.slice(0, MAX_SUMMARY - 1).replace(/\s+\S*$/, "")}…`;
 }
 
-export { WebLookupBusyError, WebLookupClient, firstParagraph, relevant };
+export { WebLookupBusyError, WebLookupClient, firstParagraph, matchScore };
 export type { WebAnswer, WebLookupOptions };

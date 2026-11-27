@@ -1,5 +1,6 @@
 import { escapeMarkdown } from "discord.js";
-import { detectIntent, detectSmallTalk, searchTopic, type ChatIntent } from "./chatbotIntents";
+import { detectIntent, detectSmallTalk, type ChatIntent } from "./chatbotIntents";
+import { parseSearchRequest } from "./chatbotSearch";
 import { isQuestion } from "./chatbotLearning";
 import { ANSWER_SCORE, type ChatKnowledge, type KnowledgeMatch } from "./chatbotKnowledge";
 import { evaluateExpression, formatNumber } from "./chatbotMath";
@@ -31,7 +32,25 @@ interface ChatSkills {
   items?(query: string): { name: string; id: string; detail?: string }[];
   botInfo(): { version: string; uptimeMs: number; pingMs: number | null };
   /** Looks a topic up online. Throws when the lookup budget is used up. */
-  web?(query: string): Promise<{ title: string; summary: string; url: string; source: string } | null>;
+  web?(subject: string, hint?: string): Promise<{ title: string; summary: string; url: string; source: string } | null>;
+  /** Free keyless data sources. Each throws when the lookup budget is used up. */
+  define?(word: string): Promise<{ word: string; partOfSpeech: string; definitions: string[]; url: string } | null>;
+  weather?(place: string): Promise<WeatherInfo | null>;
+  news?(topic: string): Promise<{ title: string; url: string }[]>;
+  steam?(game: string): Promise<{ name: string; price: string | null; url: string; players: number | null } | null>;
+  convert?(amount: number, from: string, to: string): Promise<{ amount: number; from: string; to: string; result: number; date: string } | null>;
+  joke?(): Promise<string | null>;
+}
+
+interface WeatherInfo {
+  place: string;
+  temperatureC: number;
+  feelsLikeC: number | null;
+  humidity: number | null;
+  windKmh: number | null;
+  conditions: string;
+  highC: number | null;
+  lowC: number | null;
 }
 
 /** What the chatbot remembers about one member in one channel, for follow-up questions. */
@@ -97,7 +116,12 @@ class ChatBrain {
         case "whatsNew": return done(await this.whatsNew());
         case "botInfo": return done(this.botInfo());
         case "item": return done(this.items(intent.query));
-        case "webSearch": return done(await this.webSearch(intent.query, true));
+        case "webSearch": return done(await this.webSearch(input.text, true));
+        case "define": return done(await this.define(intent.word, input.text));
+        case "weather": return done(await this.weather(intent.place));
+        case "news": return done(await this.news(intent.topic));
+        case "steam": return done(await this.steam(intent.game));
+        case "currency": return done(await this.currency(intent.amount, intent.from, intent.to));
         case "math": return done(math(intent.expression));
         case "dice": return done(dice(intent.count, intent.sides, random));
         case "coin": return done(random() < 0.5 ? "Heads." : "Tails.");
@@ -106,6 +130,10 @@ class ChatBrain {
         case "time": return done(`It's <t:${Math.floor(this.now() / 1_000)}:F> in your time zone.`);
         case "more": return this.more(memory, say);
         case "unknown": return await this.answerFromKnowledge(input, random, say);
+        case "joke": {
+          const fresh = this.skills.joke ? await this.skills.joke().catch(() => null) : null;
+          return { ...done(fresh ? escapeMarkdown(fresh) : say(this.smallTalk("joke", input, random))), feeling: "chat" };
+        }
         default: return { ...done(say(this.smallTalk(intent.kind, input, random))), feeling: FEELINGS[intent.kind] ?? "chat" };
       }
     } catch {
@@ -129,7 +157,8 @@ class ChatBrain {
     const matches = this.knowledge().search(input.text, 3);
     const best = matches[0];
     if ((!best || best.score < SUGGEST_FLOOR) && useWeb && this.skills.web) {
-      const found = await this.skills.web(searchTopic(input.text)).catch(() => null);
+      const request = parseSearchRequest(input.text);
+      const found = request.subject.length >= 2 ? await this.skills.web(request.subject, request.hint).catch(() => null) : null;
       return found ? { content: formatWeb(found), memory: { lastKind: "webSearch", at } } : null;
     }
     if (!best || best.score < threshold) return null;
@@ -170,8 +199,7 @@ class ChatBrain {
 
     // Not in its own memory: a real question gets looked up online, if that is turned on.
     if (this.skills.web && isQuestion(input.text)) {
-      const topic = searchTopic(input.text);
-      const online = topic.length >= 2 ? await this.webSearch(topic, false) : null;
+      const online = await this.webSearch(input.text, false);
       if (online) return { content: online, memory: { lastKind: "webSearch", at } };
     }
 
@@ -194,18 +222,69 @@ class ChatBrain {
     };
   }
 
-  /** A web answer, or (when `explicit`) a plain message saying why there is none; null otherwise. */
-  private async webSearch(query: string, explicit: true): Promise<string>;
-  private async webSearch(query: string, explicit: false): Promise<string | null>;
-  private async webSearch(query: string, explicit: boolean): Promise<string | null> {
+  /** A web answer to what the message asks about, or (when `explicit`) a plain message saying why there is none. */
+  private async webSearch(text: string, explicit: true): Promise<string>;
+  private async webSearch(text: string, explicit: false): Promise<string | null>;
+  private async webSearch(text: string, explicit: boolean): Promise<string | null> {
     if (!this.skills.web) return explicit ? "Web lookups are turned off on this server." : null;
+    const { subject, hint } = parseSearchRequest(text);
+    if (subject.length < 2) return explicit ? "What should I look up? Try something like `search for sandworms`." : null;
     try {
-      const found = await this.skills.web(query);
+      const found = await this.skills.web(subject, hint);
       if (found) return formatWeb(found);
-      return explicit ? `I looked online but couldn't find a clear answer for "${escapeMarkdown(query)}".` : null;
+      return explicit ? `I looked it up but couldn't find anything clearly about "${escapeMarkdown(subject)}".` : null;
     } catch {
       return explicit ? "I've done a lot of searching in the last minute. Give me a moment and ask again." : null;
     }
+  }
+
+  private async define(word: string, text: string): Promise<string> {
+    const found = await this.skills.define?.(word).catch(() => null);
+    if (found) {
+      const lines = found.definitions.map((definition, index) => `${found.definitions.length > 1 ? `${index + 1}. ` : ""}${escapeMarkdown(definition)}`);
+      return [`**${escapeMarkdown(found.word)}**${found.partOfSpeech ? ` *(${escapeMarkdown(found.partOfSpeech)})*` : ""}`, ...lines, `-# Source: Wiktionary · <${found.url}>`].join("\n");
+    }
+    // Not a dictionary word (a name, a game term): try the wiki and encyclopedia instead.
+    const online = await this.webSearch(text, false);
+    return online ?? `I couldn't find a definition for "${escapeMarkdown(word)}".`;
+  }
+
+  private async weather(place: string): Promise<string> {
+    if (!this.skills.weather) return "Weather lookups are turned off on this server.";
+    const found = await this.skills.weather(place);
+    if (!found) return `I couldn't find a place called "${escapeMarkdown(place)}".`;
+    const extras = [
+      found.feelsLikeC !== null && Math.round(found.feelsLikeC) !== Math.round(found.temperatureC) ? `feels like ${temperature(found.feelsLikeC)}` : "",
+      found.highC !== null && found.lowC !== null ? `high ${temperature(found.highC)}, low ${temperature(found.lowC)}` : "",
+      found.windKmh !== null ? `wind ${Math.round(found.windKmh)} km/h (${Math.round(found.windKmh / 1.609)} mph)` : "",
+      found.humidity !== null ? `humidity ${Math.round(found.humidity)}%` : "",
+    ].filter(Boolean);
+    return `It's **${temperature(found.temperatureC)}** and ${escapeMarkdown(found.conditions)} in **${escapeMarkdown(found.place)}**.${extras.length ? ` ${capitalize(extras.join(", "))}.` : ""}\n-# Source: Open-Meteo`;
+  }
+
+  private async news(topic: string): Promise<string> {
+    if (!this.skills.news) return "News lookups are turned off on this server.";
+    const items = await this.skills.news(topic);
+    if (items.length === 0) return "I couldn't load the headlines right now.";
+    const heading = topic === "top" ? "**Top headlines**" : `**${capitalize(topic)} headlines**`;
+    return [heading, ...items.map((item) => `- [${escapeMarkdown(item.title).replace(/[[\]]/g, "")}](<${item.url}>)`), "-# Source: BBC News"].join("\n");
+  }
+
+  private async steam(game: string): Promise<string> {
+    if (!this.skills.steam) return "Steam lookups are turned off on this server.";
+    const found = await this.skills.steam(game);
+    if (!found) return `I couldn't find "${escapeMarkdown(game)}" on Steam.`;
+    const price = found.price === null ? "" : found.price === "$0.00" ? " It's free to play." : ` It costs **${found.price}**.`;
+    const players = found.players === null ? "" : ` **${found.players.toLocaleString("en-US")}** people are playing right now.`;
+    return `**${escapeMarkdown(found.name)}** on Steam.${price}${players}\n-# <${found.url}>`;
+  }
+
+  private async currency(amount: number, from: string, to: string): Promise<string> {
+    if (!this.skills.convert) return "Currency lookups are turned off on this server.";
+    const found = await this.skills.convert(amount, from, to);
+    if (!found) return `I don't have a rate from ${from.toUpperCase()} to ${to.toUpperCase()}.`;
+    const money = (value: number): string => value.toLocaleString("en-US", { maximumFractionDigits: value < 1 ? 4 : 2 });
+    return `${money(found.amount)} ${found.from} is about **${money(found.result)} ${found.to}**.\n-# Source: European Central Bank rates via Frankfurter${found.date ? `, ${found.date}` : ""}`;
   }
 
   private async level(userId: string, self: boolean): Promise<string> {
@@ -279,8 +358,21 @@ function formatAnswer(match: KnowledgeMatch, say: (template: string) => string):
   return say(entry.answer);
 }
 
+/** A short, conversational web answer: the subject in bold where it is named, and a quiet source line. */
 function formatWeb(found: { title: string; summary: string; url: string; source: string }): string {
-  return `**${escapeMarkdown(found.title)}**\n${escapeMarkdown(found.summary)}\n-# From ${escapeMarkdown(found.source)}: <${found.url}>`;
+  const summary = escapeMarkdown(found.summary);
+  const title = escapeMarkdown(found.title.replace(/\s*\([^)]*\)$/, ""));
+  const at = summary.toLowerCase().indexOf(title.toLowerCase());
+  const body = at >= 0 && at < 80 ? `${summary.slice(0, at)}**${summary.slice(at, at + title.length)}**${summary.slice(at + title.length)}` : `**${title}**: ${summary}`;
+  return `${body}\n-# Source: ${escapeMarkdown(found.source)} · <${found.url}>`;
+}
+
+function temperature(celsius: number): string {
+  return `${Math.round(celsius)}°C (${Math.round(celsius * 9 / 5 + 32)}°F)`;
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function math(expression: string): string {
@@ -306,4 +398,4 @@ function formatDuration(ms: number): string {
 }
 
 export { ChatBrain, MEMORY_TTL_MS };
-export type { ChatInput, ChatMemory, ChatReply, ChatSkills, LevelInfo };
+export type { ChatInput, ChatMemory, ChatReply, ChatSkills, LevelInfo, WeatherInfo };

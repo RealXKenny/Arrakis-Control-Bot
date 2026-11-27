@@ -47,6 +47,7 @@ import type { ChatbotConfig } from "../infrastructure/config/chatbot";
 import { ChatbotRepository } from "../infrastructure/database/chatbot/ChatbotRepository";
 import { ChatbotService } from "../modules/community/chatbot/ChatbotService";
 import { WebLookupClient } from "../infrastructure/http/web/WebLookupClient";
+import { WebDataClient } from "../infrastructure/http/web/WebDataClient";
 
 type BotClient = ArrakisClient;
 
@@ -315,6 +316,7 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
     }, suggestionLog));
   }
   const chatbotLogger = createLogger("CHATBOT", config.logLevel);
+  const chatbotUserAgent = `ArrakisControlBot/${getBotVersion()} (Discord community bot)`;
   client.chatbot = config.chatbot ? new ChatbotService(client, config.chatbot, client.tickets ? new ChatbotRepository(client.tickets.pool) : undefined, {
     info: (message: string) => chatbotLogger.info(message),
     warn: (message: string) => chatbotLogger.warn(message),
@@ -322,8 +324,8 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
   }, Date.now, config.chatbot.web ? new WebLookupClient({
     wikiUrl: config.chatbot.webWikiUrl,
     perMinute: config.chatbot.webPerMinute,
-    userAgent: `ArrakisControlBot/${getBotVersion()} (Discord community bot)`,
-  }) : undefined) : undefined;
+    userAgent: chatbotUserAgent,
+  }) : undefined, config.chatbot.web ? new WebDataClient({ perMinute: config.chatbot.webPerMinute, userAgent: chatbotUserAgent }) : undefined) : undefined;
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music =
     config.music && client.tickets
