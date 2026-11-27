@@ -2,6 +2,17 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [2.0.2] - 2026-11-27
+
+### Fixed
+
+- A server installed with 2.0.0 could not move to automatic updates: its files have no updater, and its `package.json` lacks the release settings the updater reads. Reinstalling such a server from the panel now adds only the verified updater files and `.arrakis/bootstrap.json` (the release settings), changes no existing file, and tells you the startup command to set. The updater then installs the newest release at the next start, keeping `.env`, certificates and your own files.
+
+### Upgrading
+
+- On a server still running 2.0.0: back up PostgreSQL, import the new egg, choose **Reinstall Server**, then set the startup command under **Admin → Servers → Startup** to `cd /home/container && exec node scripts/updater/supervisor.mjs` and restart. Importing an egg does not change the startup command of an existing server. Steps are in `guides/automatic-updates.md`.
+- Servers already on 2.0.1 with the updater update by themselves.
+
 ## [2.0.1] - 2026-11-26
 
 ### Added

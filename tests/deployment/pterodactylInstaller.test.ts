@@ -14,8 +14,16 @@ const asset = "https://github.com/RealXKenny/Arrakis-Control-Bot/releases/downlo
 const fixtureName = (url: string) => url.replace(/[^A-Za-z0-9._-]/g, "_");
 const roots: string[] = [];
 
-function archive(name = "arrakis-control-bot/package.json", link = false): Buffer {
-  const content = Buffer.from("{}");
+function archive(name = "arrakis-control-bot/package.json", link = false, body = "{}"): Buffer {
+  return gzipSync(tarEntry(name, link, body));
+}
+
+function releaseArchive(files: Record<string, string>): Buffer {
+  return gzipSync(Buffer.concat([...Object.entries(files).map(([name, body]) => tarEntry(`arrakis-control-bot/${name}`, false, body).subarray(0, -1024)), Buffer.alloc(1024)]));
+}
+
+function tarEntry(name: string, link: boolean, body: string): Buffer {
+  const content = Buffer.from(body);
   const header = Buffer.alloc(512);
   header.write(name, 0, 100);
   header.write("0000644\0", 100);
@@ -29,7 +37,8 @@ function archive(name = "arrakis-control-bot/package.json", link = false): Buffe
   header.write("ustar\0", 257);
   header.write("00", 263);
   header.write(`${[...header].reduce((sum, byte) => sum + byte, 0).toString(8).padStart(6, "0")}\0 `, 148);
-  return gzipSync(Buffer.concat([header, ...(link ? [] : [content, Buffer.alloc(510)]), Buffer.alloc(1024)]));
+  const padding = Buffer.alloc((512 - (content.length % 512)) % 512);
+  return Buffer.concat([header, ...(link ? [] : [content, padding]), Buffer.alloc(1024)]);
 }
 
 function install(options: { payload?: Buffer; checksum?: string; metadata?: unknown; releaseTag?: string; existing?: Record<string, string> } = {}) {
@@ -88,18 +97,58 @@ suite("Pterodactyl release installer", () => {
     expect(commands).toContain("npm ci");
   });
 
-  it("leaves an existing installation and its custom files untouched on reinstall", () => {
+  it("leaves an updater-managed installation and its custom files untouched on reinstall", () => {
     const existing = {
       "package.json": "{\"version\":\"2.0.0\"}",
       ".env": "TOKEN=synthetic\n",
       "certs/rabbit mq/ca.pem": "synthetic certificate\n",
       "custom dir/nested/notes.txt": "keep\n",
+      "scripts/updater/supervisor.mjs": "// installed updater\n",
     };
     const { run, server, commands } = install({ existing });
     expect(run.status, run.stderr).toBe(0);
     expect(run.stdout).toContain("Nothing was changed");
     for (const [name, content] of Object.entries(existing)) expect(readFileSync(path.join(server, name), "utf8")).toBe(content);
     expect(commands).toBe("");
+  });
+
+  it("adds only the updater to an install from before automatic updates, once", () => {
+    const existing = {
+      "package.json": "{\"version\":\"2.0.0\"}",
+      ".env": "TOKEN=synthetic\n",
+      "certificates/rabbitmq-server.pem": "synthetic certificate\n",
+    };
+    const release = {
+      "package.json": JSON.stringify({ version: "2.0.2", arrakisRelease: { repository: "RealXKenny/Arrakis-Control-Bot", assetPrefix: "arrakis-control-bot", start: ["node", "dist/src/index.js"] } }),
+      "scripts/updater/supervisor.mjs": "// supervisor\n",
+      "scripts/updater/updater.mjs": "// updater\n",
+      "src/index.ts": "// application\n",
+    };
+    const { run, server, commands } = install({ existing, payload: releaseArchive(release) });
+    expect(run.status, run.stderr).toBe(0);
+    expect(run.stdout).toContain("Automatic updater added");
+    for (const [name, content] of Object.entries(existing)) expect(readFileSync(path.join(server, name), "utf8")).toBe(content);
+    expect(readFileSync(path.join(server, "scripts/updater/supervisor.mjs"), "utf8")).toBe("// supervisor\n");
+    expect(existsSync(path.join(server, "src/index.ts"))).toBe(false);
+    const bootstrap = JSON.parse(readFileSync(path.join(server, ".arrakis/bootstrap.json"), "utf8")) as { release: { repository: string }; files: Record<string, string> };
+    expect(bootstrap.release.repository).toBe("RealXKenny/Arrakis-Control-Bot");
+    expect(bootstrap.files).toEqual({
+      "scripts/updater/supervisor.mjs": createHash("sha256").update("// supervisor\n").digest("hex"),
+      "scripts/updater/updater.mjs": createHash("sha256").update("// updater\n").digest("hex"),
+    });
+    expect(commands).toBe("");
+
+    const again = install({ existing: { ...existing, "scripts/updater/supervisor.mjs": "// supervisor\n" }, payload: releaseArchive(release) });
+    expect(again.run.stdout).toContain("Nothing was changed");
+  });
+
+  it("changes nothing when the release has no updater to add", () => {
+    const existing = { "package.json": "{\"version\":\"2.0.0\"}" };
+    const { run, server } = install({ existing, payload: releaseArchive({ "package.json": "{\"version\":\"2.0.0\"}" }) });
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain("does not include the automatic updater");
+    expect(existsSync(path.join(server, "scripts"))).toBe(false);
+    expect(existsSync(path.join(server, ".arrakis"))).toBe(false);
   });
 
   it("refuses a bad checksum before extraction", () => {
