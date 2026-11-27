@@ -21,6 +21,7 @@ type ChatIntent =
   | { kind: "time" }
   | { kind: "more" }
   | { kind: "followUp"; userId: string }
+  | { kind: "feelings" }
   | { kind: "identity" }
   | { kind: "capabilities" }
   | { kind: "howAreYou" }
@@ -34,7 +35,7 @@ type ChatIntent =
   | { kind: "affirm" }
   | { kind: "unknown" };
 
-type SmallTalk = Extract<ChatIntent["kind"], "identity" | "capabilities" | "howAreYou" | "joke" | "fact" | "compliment" | "insult" | "greeting" | "thanks" | "farewell" | "affirm">;
+type SmallTalk = Extract<ChatIntent["kind"], "feelings" | "identity" | "capabilities" | "howAreYou" | "joke" | "fact" | "compliment" | "insult" | "greeting" | "thanks" | "farewell" | "affirm">;
 
 const MENTION = /<@!?(\d{17,20})>/g;
 const MAX_DICE = 20;
@@ -43,6 +44,7 @@ const MAX_SIDES = 1_000;
 const SMALL_TALK_WORDS = 6;
 
 const SMALL_TALK: readonly [SmallTalk, RegExp][] = [
+  ["feelings", /\bhow (do|are) (you|u) feel(ing)?\b|\b(do|can) (you|u) (have|feel) (feelings|emotions)\b|\b(your|ur) (mood|feelings)\b|\bare (you|u) (happy|sad|ok|okay|alright|mad|angry|upset|lonely)\b|\bwhats (your|ur) mood\b/],
   ["identity", /\b(who|what) (are|r) (you|u)\b|\byour name\b|\bare you (a bot|an ai|real|human|alive|sentient)\b|\bwho (made|built|created) you\b/],
   ["capabilities", /^(help|commands?|menu)$|\bwhat (can|do) you (do|know)\b|\bhow do (i|you) (use|talk to) you\b|\bwhat are you (for|good at)\b/],
   ["howAreYou", /\bhow (are|r) (you|u|ya)\b|\bhow ?s it going\b|\bhow are things\b|\bwhats up\b|\bwassup\b|\bhows (your|ur) day\b|^sup$/],

@@ -34,7 +34,7 @@ describe("ChatBrain", () => {
   it("prefers a taught answer and fills in the asker's name", async () => {
     const reply = await brain().reply(input("when's movie night?"));
     expect(reply.content).toBe("Movie night is every Friday at 8 PM ET, Kenny.");
-    expect(reply.taughtId).toBe("7");
+    expect(reply.usedEntryId).toBe("taught:7");
   });
 
   it("explains commands", async () => {
@@ -100,6 +100,35 @@ describe("ChatBrain", () => {
   it("finds item IDs from the bundled catalog", async () => {
     const reply = await brain({ items: () => [{ name: "Stillsuit Mask", id: "Stillsuit_Mask_T1", detail: "armor" }] }).reply(input("item id for stillsuit mask"));
     expect(reply.content).toContain("`Stillsuit_Mask_T1`");
+  });
+});
+
+describe("ChatBrain feelings", () => {
+  it("says how it feels and reports how a message made it feel", async () => {
+    const happy = await brain().reply(input("how are you?", { mood: 50 }));
+    expect(happy.content).toMatch(/great|Happy|good/);
+    expect(happy.feeling).toBe("chat");
+    const hurt = await brain().reply(input("how do you feel", { mood: -80 }));
+    expect(hurt.content).toContain("Right now:");
+    expect(hurt.content).toMatch(/rough|hurt/);
+    expect((await brain().reply(input("thanks!"))).feeling).toBe("thanks");
+  });
+
+  it("is hurt by rudeness but never rude back, and warms up to friends", async () => {
+    const insult = await brain().reply(input("you suck", { mood: -50 }));
+    expect(insult.feeling).toBe("insult");
+    expect(insult.content).not.toMatch(/stupid|idiot|shut up/i);
+    expect((await brain().reply(input("good bot", { mood: -50 }))).content).toMatch(/needed that|feel better|turned my day/);
+    expect((await brain().reply(input("hey", { rapport: 30 }))).content).toMatch(/good to see you|favorite person|nice to see you again/);
+  });
+
+  it("only speaks up unasked when it is confident", async () => {
+    const quiet = await brain().autoReply(input("purple elephants dancing?"), 0.5);
+    expect(quiet).toBeNull();
+    const smallTalk = await brain().autoReply(input("how are you?"), 0.5);
+    expect(smallTalk).toBeNull();
+    const faq = await brain().autoReply(input("Is crimson skies PvP or PvE?"), 0.5);
+    expect(faq?.content).toContain("PvE-focused");
   });
 });
 

@@ -13,6 +13,8 @@ describe("Sapphire listener store", () => {
         "levelingMessages",
         "suggestionMessages",
         "chatbotMessages",
+        "chatbotMessageDelete",
+        "chatbotMessageBulkDelete",
         "suggestionThreadCreate",
         "suggestionThreadUpdate",
         "suggestionThreadDelete",

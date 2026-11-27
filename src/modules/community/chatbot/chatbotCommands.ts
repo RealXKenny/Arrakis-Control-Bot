@@ -17,19 +17,24 @@ async function executeChatCommand(interaction: ChatInputCommandInteraction): Pro
   }
   const action = interaction.options.getSubcommand(true);
   if (action === "ask") return ask(interaction, service, interaction.guildId);
+  if (action === "mood") return mood(interaction, service, interaction.guildId);
+  if (action === "optout" || action === "optin") return optOut(interaction, service, interaction.guildId, action === "optout");
   // Authorization is checked here at execution time, never from Discord's command visibility.
   if (!service.isStaff(subjectOf(interaction))) {
     await interaction.reply({ content: STAFF_ONLY, flags: MessageFlags.Ephemeral });
     return;
   }
   if (!service.canLearn) {
-    await interaction.reply({ content: "Teaching the chatbot needs the PostgreSQL database (`DATABASE_URL`).", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "Teaching the chatbot and keeping what it learns needs the PostgreSQL database (`DATABASE_URL`).", flags: MessageFlags.Ephemeral });
     return;
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     if (action === "teach") await teach(interaction, service, interaction.guildId);
     else if (action === "forget") await forget(interaction, service, interaction.guildId);
+    else if (action === "learned") await listLearned(interaction, service, interaction.guildId);
+    else if (action === "unlearn") await unlearn(interaction, service, interaction.guildId);
+    else if (action === "purge") await purge(interaction, service, interaction.guildId);
     else await list(interaction, service, interaction.guildId);
   } catch (error: unknown) {
     await interaction.editReply({ content: error instanceof RangeError ? error.message : "Something went wrong saving that. Try again in a minute." });
@@ -40,7 +45,7 @@ async function executeChatCommand(interaction: ChatInputCommandInteraction): Pro
 async function ask(interaction: ChatInputCommandInteraction, service: ChatbotService, guildId: string): Promise<void> {
   const subject = subjectOf(interaction);
   if (!service.canUse(subject)) {
-    await interaction.reply({ content: "The chatbot is only open to staff on this server right now.", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "The chatbot isn't open to you on this server.", flags: MessageFlags.Ephemeral });
     return;
   }
   const wait = service.takeCooldown(interaction.user.id);
@@ -103,19 +108,88 @@ async function list(interaction: ChatInputCommandInteraction, service: ChatbotSe
   await interaction.editReply({ content, allowedMentions: { parse: [] } });
 }
 
-/** Suggests taught answers for `/chat forget`, staff only. */
-async function autocompleteTaughtAnswer(interaction: AutocompleteInteraction): Promise<void> {
+const MOOD_WORDS: Readonly<Record<string, string>> = Object.freeze({
+  thrilled: "thrilled. Everyone has been really kind lately",
+  happy: "happy. It's been a nice day",
+  content: "content. Calm desert, steady winds",
+  meh: "a bit meh. A kind word wouldn't hurt",
+  down: "a bit down. Some people weren't very nice",
+  hurt: "hurt. It's been a rough day",
+});
+
+async function mood(interaction: ChatInputCommandInteraction, service: ChatbotService, guildId: string): Promise<void> {
+  const { label, score } = await service.describeMood(guildId);
+  const bar = "▰".repeat(Math.round((score + 100) / 20)).padEnd(10, "▱");
+  await interaction.reply({ content: `I'm feeling ${MOOD_WORDS[label] ?? label}.\n${bar} ${score > 0 ? "+" : ""}${score}\n-# My mood rises when people are kind and slowly settles back to calm.`, flags: MessageFlags.Ephemeral });
+}
+
+async function optOut(interaction: ChatInputCommandInteraction, service: ChatbotService, guildId: string, optedOut: boolean): Promise<void> {
+  if (!service.canLearn) {
+    await interaction.reply({ content: "The chatbot doesn't learn from chat on this server.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const removed = await service.setOptOut(guildId, interaction.user.id, optedOut);
+  await interaction.editReply({
+    content: optedOut
+      ? `Done. I won't learn from your messages anymore${removed > 0 ? `, and I forgot ${removed} answer${removed === 1 ? "" : "s"} I had learned from you` : ""}. Use \`/chat optin\` to change your mind.`
+      : "Thanks! I'll learn from your questions and answers again.",
+  });
+}
+
+async function listLearned(interaction: ChatInputCommandInteraction, service: ChatbotService, guildId: string): Promise<void> {
+  const search = interaction.options.getString("search")?.toLowerCase().trim();
+  const answers = (await service.learned(guildId)).filter((entry) => !search || entry.question.toLowerCase().includes(search) || entry.answer.toLowerCase().includes(search)).reverse();
+  if (answers.length === 0) {
+    await interaction.editReply({ content: search ? "Nothing learned matches that." : "I haven't learned anything from chat yet. I learn when a member answers someone's question." });
+    return;
+  }
+  let content = `**Learned from chat (${answers.length}, newest first)**\n`;
+  for (const [index, entry] of answers.entries()) {
+    const line = `**#${entry.id}** ${escapeMarkdown(entry.question.slice(0, 70))} → ${escapeMarkdown(entry.answer.slice(0, 70))} · used ${entry.uses}×\n`;
+    if (content.length + line.length + 40 > 2_000) {
+      content += `-# and ${answers.length - index} more. Use \`search\` to narrow it down.`;
+      break;
+    }
+    content += line;
+  }
+  await interaction.editReply({ content, allowedMentions: { parse: [] } });
+}
+
+async function unlearn(interaction: ChatInputCommandInteraction, service: ChatbotService, guildId: string): Promise<void> {
+  const id = interaction.options.getString("answer", true).replace(/^#/, "").trim();
+  if (!/^\d{1,18}$/.test(id)) {
+    await interaction.editReply({ content: "Pick a learned answer from the list, or give its number such as `12`." });
+    return;
+  }
+  const removed = await service.unlearn(guildId, id);
+  await interaction.editReply({ content: removed ? `Forgot learned answer **#${removed.id}** ("${escapeMarkdown(removed.question)}").` : `There's no learned answer #${id}.`, allowedMentions: { parse: [] } });
+}
+
+async function purge(interaction: ChatInputCommandInteraction, service: ChatbotService, guildId: string): Promise<void> {
+  if (interaction.options.getBoolean("confirm", true) !== true) {
+    await interaction.editReply({ content: "Nothing was removed. Set `confirm` to true to forget everything learned from chat." });
+    return;
+  }
+  const removed = await service.purgeLearned(guildId);
+  await interaction.editReply({ content: `Forgot ${removed} learned answer${removed === 1 ? "" : "s"}. Taught answers were kept.` });
+}
+
+/** Suggests taught answers for `/chat forget` and learned ones for `/chat unlearn`, staff only. */
+async function autocompleteChatAnswer(interaction: AutocompleteInteraction): Promise<void> {
   const service = interaction.client.chatbot;
   if (!service || !interaction.guildId || !service.isStaff(subjectOf(interaction))) {
     await interaction.respond([]);
     return;
   }
   const query = interaction.options.getFocused().toLowerCase();
-  const answers = await service.taught(interaction.guildId).catch(() => []);
+  const answers = interaction.options.getSubcommand(false) === "unlearn"
+    ? (await service.learned(interaction.guildId).catch(() => [])).reverse()
+    : await service.taught(interaction.guildId).catch(() => []);
   await interaction.respond(answers
     .filter((entry) => !query || entry.question.toLowerCase().includes(query) || entry.id === query.replace(/^#/, ""))
     .slice(0, 25)
     .map((entry) => ({ name: `#${entry.id} ${entry.question}`.slice(0, 100), value: entry.id })));
 }
 
-export { autocompleteTaughtAnswer, executeChatCommand };
+export { autocompleteChatAnswer, executeChatCommand };

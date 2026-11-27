@@ -2,7 +2,9 @@ import { escapeMarkdown } from "discord.js";
 import { detectIntent, detectSmallTalk, type ChatIntent } from "./chatbotIntents";
 import { ANSWER_SCORE, type ChatKnowledge, type KnowledgeMatch } from "./chatbotKnowledge";
 import { evaluateExpression, formatNumber } from "./chatbotMath";
-import { EIGHT_BALL, SMALL_TALK, UNKNOWN, fill, pick, seededRandom } from "./chatbotPhrases";
+import { moodLabel, type FeelingEvent } from "./chatbotMood";
+import { EIGHT_BALL, HURT_REPLIES, LIFTED, MOOD_LINES, SMALL_TALK, UNKNOWN, WARM_GREETINGS, fill, pick, seededRandom } from "./chatbotPhrases";
+import type { SmallTalk } from "./chatbotIntents";
 
 /**
  * The homemade chatbot. It reads the message with simple rules, answers live questions through
@@ -48,16 +50,22 @@ interface ChatInput {
   isStaff: boolean;
   botId?: string;
   memory?: ChatMemory;
+  /** The bot's current mood score (-100 to 100) and its rapport with the asker (-50 to 50). */
+  mood?: number;
+  rapport?: number;
 }
 
 interface ChatReply {
   content: string;
   memory: ChatMemory;
-  /** Taught answer used, so its use count can be recorded. */
-  taughtId?: string;
+  /** Knowledge entry the answer came from (such as `taught:7` or `learned:12`), so its use can be counted. */
+  usedEntryId?: string;
+  /** How the message made the bot feel, so its mood and rapport can be updated. */
+  feeling?: FeelingEvent;
 }
 
 const MEMORY_TTL_MS = 10 * 60_000;
+const FEELINGS: Partial<Record<SmallTalk, FeelingEvent>> = Object.freeze({ compliment: "compliment", thanks: "thanks", greeting: "greeting", insult: "insult", farewell: "farewell" });
 
 class ChatBrain {
   public constructor(
@@ -92,11 +100,48 @@ class ChatBrain {
         case "time": return done(`It's <t:${Math.floor(this.now() / 1_000)}:F> in your time zone.`);
         case "more": return this.more(memory, say);
         case "unknown": return this.answerFromKnowledge(input, random, say);
-        default: return done(say(pick(SMALL_TALK[intent.kind], random)));
+        default: return { ...done(say(this.smallTalk(intent.kind, input, random))), feeling: FEELINGS[intent.kind] ?? "chat" };
       }
     } catch {
       return done("I couldn't reach that information right now. Try again in a minute.");
     }
+  }
+
+  /**
+   * The answer to a question nobody asked the bot directly, or null when it should stay quiet.
+   * Only confident knowledge matches and read-only lookups qualify; no small talk, no guesses.
+   */
+  public async autoReply(input: ChatInput, threshold: number): Promise<ChatReply | null> {
+    const intent = detectIntent(input.text, input.botId);
+    const at = this.now();
+    const lookups: readonly ChatIntent["kind"][] = ["storm", "serverStatus", "whatsNew", "solariTop", "levelTop"];
+    if (lookups.includes(intent.kind)) {
+      const reply = await this.reply(input);
+      return reply.content.startsWith("I couldn't reach") || /isn't (turned on|available)|can't (see|check)/.test(reply.content) ? null : reply;
+    }
+    if (intent.kind !== "unknown") return null;
+    const matches = this.knowledge().search(input.text, 3);
+    const best = matches[0];
+    if (!best || best.score < threshold) return null;
+    // A close second means the question is ambiguous; better to stay quiet.
+    const second = matches[1];
+    if (second && second.entry.answer !== best.entry.answer && best.score - second.score < 0.05 && best.score < 0.9) return null;
+    const say = (template: string): string => fill(template, { name: escapeMarkdown(input.displayName), server: escapeMarkdown(input.serverName) });
+    return { content: formatAnswer(best, say), memory: { lastKind: "unknown", matches: matches.map((match) => match.entry.id), shown: 1, at }, usedEntryId: best.entry.id };
+  }
+
+  /** Small talk coloured by how the bot feels and how it gets on with the asker. */
+  private smallTalk(kind: SmallTalk, input: ChatInput, random: () => number): string {
+    const mood = moodLabel(input.mood ?? 20);
+    const low = mood === "down" || mood === "hurt";
+    if (kind === "howAreYou" || kind === "feelings") {
+      const line = pick(MOOD_LINES[mood], random);
+      return kind === "feelings" ? `${pick(SMALL_TALK.feelings, random)}\nRight now: ${line}` : line;
+    }
+    if (kind === "insult") return pick(HURT_REPLIES[low || (input.rapport ?? 0) < -20 ? "sad" : "fine"], random);
+    if (kind === "compliment" && low) return pick(LIFTED, random);
+    if (kind === "greeting" && (input.rapport ?? 0) >= 20) return pick(WARM_GREETINGS, random);
+    return pick(SMALL_TALK[kind], random);
   }
 
   private answerFromKnowledge(input: ChatInput, random: () => number, say: (template: string) => string): ChatReply {
@@ -107,11 +152,11 @@ class ChatBrain {
       return {
         content: formatAnswer(best, say),
         memory: { lastKind: "unknown", matches: matches.map((match) => match.entry.id), shown: 1, at },
-        taughtId: best.entry.source === "taught" ? best.entry.id.slice("taught:".length) : undefined,
+        usedEntryId: best.entry.id,
       };
     }
     const smallTalk = detectSmallTalk(input.text);
-    if (smallTalk) return { content: say(pick(SMALL_TALK[smallTalk], random)), memory: { lastKind: smallTalk, at } };
+    if (smallTalk) return { content: say(this.smallTalk(smallTalk, input, random)), memory: { lastKind: smallTalk, at }, feeling: FEELINGS[smallTalk] ?? "chat" };
 
     const lines = [say(pick(UNKNOWN, random))];
     if (matches.length > 0) lines.push(`Maybe one of these helps: ${matches.slice(0, 3).map((match) => `**${escapeMarkdown(match.entry.title)}**`).join(", ")}. Ask me about it, or say "more".`);
@@ -128,7 +173,7 @@ class ChatBrain {
     return {
       content: formatAnswer({ entry, score: 1 }, say),
       memory: { ...memory, shown: (memory.shown ?? 0) + 1, at },
-      taughtId: entry.source === "taught" ? entry.id.slice("taught:".length) : undefined,
+      usedEntryId: entry.id,
     };
   }
 
@@ -198,6 +243,8 @@ class ChatBrain {
 function formatAnswer(match: KnowledgeMatch, say: (template: string) => string): string {
   const { entry } = match;
   if (entry.source === "faq") return `**${entry.title}**\n${entry.answer}`;
+  // Learned answers are members' own words: shown as said, never filled in, and linked to the source.
+  if (entry.source === "learned") return `${entry.answer}${entry.link ? `\n-# Learned from chat · ${entry.link}` : "\n-# Learned from chat"}`;
   return say(entry.answer);
 }
 

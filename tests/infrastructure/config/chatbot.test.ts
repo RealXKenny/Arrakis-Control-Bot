@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import { loadChatbotConfig } from "../../../src/infrastructure/config/chatbot";
 
 describe("chatbot config", () => {
-  it("is on and staff-only by default", () => {
-    expect(loadChatbotConfig({})).toEqual({ access: "staff", roleIds: [], channelIds: [], cooldownSeconds: 3 });
+  it("is on, open to everyone, learning and answering by default", () => {
+    expect(loadChatbotConfig({})).toEqual({
+      access: "everyone", roleIds: [], channelIds: [], cooldownSeconds: 3,
+      learn: true, learnChannelIds: [], learnLimit: 5_000,
+      autoReply: true, autoChannelIds: [], autoConfidence: 0.5, autoDelaySeconds: 15, autoCooldownSeconds: 60,
+    });
   });
 
   it("can be turned off or opened up", () => {
     expect(loadChatbotConfig({ CHATBOT_ENABLED: "false" })).toBeUndefined();
-    expect(loadChatbotConfig({ CHATBOT_ACCESS: "everyone" })?.access).toBe("everyone");
+    expect(loadChatbotConfig({ CHATBOT_ACCESS: "staff" })?.access).toBe("staff");
     expect(loadChatbotConfig({ CHATBOT_ACCESS: "roles", CHATBOT_ROLE_IDS: "123456789012345678, 123456789012345679" })?.roleIds).toEqual(["123456789012345678", "123456789012345679"]);
   });
 
@@ -18,5 +22,7 @@ describe("chatbot config", () => {
     expect(() => loadChatbotConfig({ CHATBOT_CHANNEL_IDS: "general" })).toThrow("CHATBOT_CHANNEL_IDS");
     expect(() => loadChatbotConfig({ CHATBOT_COOLDOWN_SECONDS: "-1" })).toThrow("CHATBOT_COOLDOWN_SECONDS");
     expect(() => loadChatbotConfig({ CHATBOT_ENABLED: "yes" })).toThrow("CHATBOT_ENABLED");
+    expect(() => loadChatbotConfig({ CHATBOT_AUTO_CONFIDENCE: "0.05" })).toThrow("CHATBOT_AUTO_CONFIDENCE");
+    expect(() => loadChatbotConfig({ CHATBOT_LEARN_LIMIT: "10" })).toThrow("CHATBOT_LEARN_LIMIT");
   });
 });

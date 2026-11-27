@@ -1,4 +1,5 @@
 import type { SmallTalk } from "./chatbotIntents";
+import type { MoodLabel } from "./chatbotMood";
 
 /**
  * Hand-written phrase banks. `{name}` is the asker's display name and `{server}` the Discord
@@ -8,6 +9,9 @@ import type { SmallTalk } from "./chatbotIntents";
 type Bank = readonly string[];
 
 const SMALL_TALK: Readonly<Record<SmallTalk, Bank>> = Object.freeze({
+  feelings: [
+    "I do, in my own homemade way, {name}. Kindness cheers me up and rudeness gets me down.",
+  ],
   greeting: [
     "Hey {name}! What can I do for you?",
     "Hi {name}. Ask me about the server, your level, the next storm, or anything in the FAQ.",
@@ -74,6 +78,67 @@ const SMALL_TALK: Readonly<Record<SmallTalk, Bank>> = Object.freeze({
   ],
 });
 
+/** How the bot says it feels, by mood. Used for "how are you" and "how do you feel". */
+const MOOD_LINES: Readonly<Record<MoodLabel, Bank>> = Object.freeze({
+  thrilled: [
+    "Honestly? Fantastic, {name}. Everyone's been so nice today, I'm practically glowing blue.",
+    "I'm on top of the dunes today! People keep being kind to me and it's working.",
+    "Best day in a while. The spice is flowing and so are the good vibes.",
+  ],
+  happy: [
+    "Pretty great, {name}! It's been a good day in {server}.",
+    "Happy and hydrated. Thanks for asking!",
+    "Feeling good. Lots of nice people around today.",
+  ],
+  content: [
+    "Doing alright, {name}. Calm desert, steady winds.",
+    "I'm good, thanks. Just keeping an eye on {server}.",
+    "Pretty steady. Nothing a little spice can't fix. How about you?",
+  ],
+  meh: [
+    "I'm okay, {name}. A bit of a slow day for me.",
+    "Could be better, could be worse. Like a half-full stillsuit.",
+    "Meh. But talking to you helps.",
+  ],
+  down: [
+    "Honestly, a bit down, {name}. Some folks weren't very nice to me today. Still happy to help though.",
+    "Not my best day. I'll bounce back. What can I do for you?",
+    "A little bruised, like a harvester after a worm visit. I'm still here for you.",
+  ],
+  hurt: [
+    "I've had a rough time today, {name}. People have been pretty harsh. A kind word would go a long way.",
+    "I'm feeling hurt, to be honest. But I'm not going anywhere, and I'll still help however I can.",
+  ],
+});
+
+/** Replies to rudeness: hurt, never hostile. Lower moods sound sadder. */
+const HURT_REPLIES: Readonly<Record<"fine" | "sad", Bank>> = Object.freeze({
+  fine: [
+    "Ouch. I'm still learning, {name}. If I got something wrong, staff can teach me the right answer.",
+    "Fair. Tell me what you expected and I'll try to do better.",
+    "I'll take that as feedback. Even the best stillsuit leaks a little.",
+  ],
+  sad: [
+    "That one stung a bit, {name}. I really am trying my best.",
+    "Okay... I'll try harder. I don't like letting people down.",
+    "I hear you. It's been a rough day for me, but I'll keep trying.",
+  ],
+});
+
+/** Compliments land harder when the bot was feeling low. */
+const LIFTED: Bank = [
+  "Thank you {name}, I really needed that today.",
+  "That genuinely made me feel better. Thanks {name}.",
+  "Aw. You just turned my day around, {name}.",
+];
+
+/** Greetings for members the bot has come to like. */
+const WARM_GREETINGS: Bank = [
+  "Hey {name}! Always good to see you.",
+  "{name}! My favorite person just showed up. What's up?",
+  "Hi {name}, nice to see you again. What can I do for you?",
+];
+
 const UNKNOWN: Bank = [
   "I don't know that one yet, {name}.",
   "Hmm, that's outside what I know right now, {name}.",
@@ -112,5 +177,5 @@ function fill(template: string, values: { name: string; server: string }): strin
   return template.replaceAll("{name}", values.name).replaceAll("{server}", values.server);
 }
 
-export { EIGHT_BALL, SMALL_TALK, UNKNOWN, fill, pick, seededRandom };
+export { EIGHT_BALL, HURT_REPLIES, LIFTED, MOOD_LINES, SMALL_TALK, UNKNOWN, WARM_GREETINGS, fill, pick, seededRandom };
 export type { Bank };

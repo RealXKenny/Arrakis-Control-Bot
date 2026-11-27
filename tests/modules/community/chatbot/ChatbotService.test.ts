@@ -1,7 +1,7 @@
 import { PermissionFlagsBits, PermissionsBitField, type Client, type Message } from "discord.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatbotConfig } from "../../../../src/infrastructure/config/chatbot";
-import type { ChatbotStorage, TaughtAnswer } from "../../../../src/infrastructure/database/chatbot/ChatbotRepository";
+import type { ChatbotStorage, LearnedAnswer, TaughtAnswer } from "../../../../src/infrastructure/database/chatbot/ChatbotRepository";
 import { ChatbotService } from "../../../../src/modules/community/chatbot/ChatbotService";
 
 const BOT = "100000000000000001";
@@ -12,14 +12,64 @@ const STAFF_ROLE = "700000000000000007";
 const FRIEND_ROLE = "800000000000000008";
 const CHANNEL = "900000000000000009";
 
-const config = (overrides: Partial<ChatbotConfig> = {}): ChatbotConfig => ({ access: "staff", roleIds: [], channelIds: [], cooldownSeconds: 3, ...overrides });
+const config = (overrides: Partial<ChatbotConfig> = {}): ChatbotConfig => ({
+  access: "staff", roleIds: [], channelIds: [], cooldownSeconds: 3,
+  learn: false, learnChannelIds: [], learnLimit: 5_000,
+  autoReply: false, autoChannelIds: [], autoConfidence: 0.5, autoDelaySeconds: 0, autoCooldownSeconds: 60,
+  ...overrides,
+});
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
-function memoryStorage(): ChatbotStorage & { rows: TaughtAnswer[] } {
+function memoryStorage(): ChatbotStorage & { rows: TaughtAnswer[]; learnedRows: LearnedAnswer[]; optOuts: Set<string> } {
   const rows: TaughtAnswer[] = [];
+  const learnedRows: LearnedAnswer[] = [];
+  const optOuts = new Set<string>();
+  const rapport = new Map<string, number>();
+  let savedMood: { score: number; updatedAt: Date } | null = null;
   let next = 1;
   return {
     rows,
+    learnedRows,
+    optOuts,
+    listLearned: (guildId) => Promise.resolve(learnedRows.filter((row) => row.guildId === guildId)),
+    learn: (answer) => {
+      if (optOuts.has(answer.askerId) || optOuts.has(answer.answererId) || learnedRows.some((row) => row.answerMessageId === answer.answerMessageId)) return Promise.resolve(null);
+      const row = { ...answer, id: String(next++), createdAt: new Date(0), uses: 0 };
+      learnedRows.push(row);
+      return Promise.resolve(row);
+    },
+    forgetMessages: (guildId, ids) => {
+      const gone = learnedRows.filter((row) => row.guildId === guildId && (ids.includes(row.questionMessageId) || ids.includes(row.answerMessageId)));
+      for (const row of gone) learnedRows.splice(learnedRows.indexOf(row), 1);
+      return Promise.resolve(gone.map((row) => row.id));
+    },
+    forgetLearned: (guildId, id) => {
+      const index = learnedRows.findIndex((row) => row.guildId === guildId && row.id === id);
+      return Promise.resolve(index < 0 ? null : learnedRows.splice(index, 1)[0]!);
+    },
+    forgetMember: (guildId, userId) => {
+      const gone = learnedRows.filter((row) => row.guildId === guildId && (row.askerId === userId || row.answererId === userId));
+      for (const row of gone) learnedRows.splice(learnedRows.indexOf(row), 1);
+      return Promise.resolve(gone.length);
+    },
+    purgeLearned: () => Promise.resolve(learnedRows.splice(0).length),
+    recordLearnedUse: () => Promise.resolve(),
+    mood: () => Promise.resolve(savedMood),
+    saveMood: (_guildId, score, updatedAt) => {
+      savedMood = { score, updatedAt };
+      return Promise.resolve();
+    },
+    rapport: (_guildId, userId) => Promise.resolve(rapport.get(userId) ?? 0),
+    saveRapport: (_guildId, userId, score) => {
+      rapport.set(userId, score);
+      return Promise.resolve();
+    },
+    optedOut: () => Promise.resolve([...optOuts]),
+    setOptOut: (_guildId, userId, optedOut) => {
+      if (optedOut) optOuts.add(userId);
+      else optOuts.delete(userId);
+      return Promise.resolve();
+    },
     initialize: () => Promise.resolve(),
     list: (guildId) => Promise.resolve(rows.filter((row) => row.guildId === guildId)),
     count: (guildId) => Promise.resolve(rows.filter((row) => row.guildId === guildId).length),
@@ -40,24 +90,26 @@ function fakeClient(extra: Record<string, unknown> = {}): Client {
   return { user: { id: BOT }, allowedGuildIds: [GUILD], uptime: 1_000, ws: { ping: 10 }, stores: undefined, ...extra } as unknown as Client;
 }
 
-function message(content: string, options: { roles?: string[]; author?: string; reply?: { authorId: string; id: string; plain?: boolean }; channelId?: string; manageGuild?: boolean } = {}): Message & { reply: ReturnType<typeof vi.fn> } {
+const EVERYONE = { id: GUILD };
+
+function message(content: string, options: { id?: string; roles?: string[]; author?: string; reply?: { authorId: string; id: string; plain?: boolean; content?: string }; channelId?: string; manageGuild?: boolean; privateChannel?: boolean } = {}): Message & { reply: ReturnType<typeof vi.fn> } {
   const roles = options.roles ?? [];
   const sent = { id: `sent-${Math.random()}` };
-  const referenced = options.reply ? { author: { id: options.reply.authorId }, reference: options.reply.plain === false ? null : { messageId: "x" }, components: [], embeds: [], content: "hi" } : null;
+  const referenced = options.reply ? { id: options.reply.id, author: { id: options.reply.authorId, bot: options.reply.authorId === BOT }, reference: options.reply.plain === false ? null : { messageId: "x" }, components: [], embeds: [], content: options.reply.content ?? "hi" } : null;
   return {
-    id: `m-${content}`,
+    id: options.id ?? `m-${content}`,
     content,
     author: { id: options.author ?? MEMBER, bot: false, displayName: "Member" },
     webhookId: null,
     system: false,
     inGuild: () => true,
     guildId: GUILD,
-    guild: { ownerId: OWNER, name: "Crimson Skies" },
+    guild: { ownerId: OWNER, name: "Crimson Skies", roles: { everyone: EVERYONE } },
     channelId: options.channelId ?? CHANNEL,
-    channel: { isThread: () => false, sendTyping: vi.fn(() => Promise.resolve()) },
+    channel: { isThread: () => false, sendTyping: vi.fn(() => Promise.resolve()), permissionsFor: () => ({ has: () => !options.privateChannel }) },
     member: { displayName: "Member", roles: { cache: new Map(roles.map((role) => [role, {}])) }, permissions: new PermissionsBitField(options.manageGuild ? PermissionFlagsBits.ManageGuild : 0n) },
     reference: options.reply ? { messageId: options.reply.id } : null,
-    mentions: { repliedUser: options.reply ? { id: options.reply.authorId } : null },
+    mentions: { repliedUser: options.reply ? { id: options.reply.authorId } : null, users: new Map([...content.matchAll(/<@!?(\d+)>/g)].map((match) => [match[1], {}])), roles: new Map() },
     fetchReference: vi.fn(() => Promise.resolve(referenced)),
     reply: vi.fn(() => Promise.resolve(sent)),
   } as unknown as Message & { reply: ReturnType<typeof vi.fn> };
@@ -157,5 +209,82 @@ describe("ChatbotService", () => {
     const storage = memoryStorage();
     storage.count = () => Promise.resolve(500);
     await expect(new ChatbotService(fakeClient(), config(), storage, log).teach(GUILD, "q?", "a", OWNER)).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it("learns a member's answer to a question, keeps it across restarts and forgets it when deleted", async () => {
+    const storage = memoryStorage();
+    const client = fakeClient();
+    const service = new ChatbotService(client, config({ access: "everyone", learn: true }), storage, log);
+    const question = message("Where do I find titanium ore?", { id: "q1", author: OWNER });
+    await service.handleMessage(question);
+    await service.handleMessage(message("Titanium is in the rock outcrops near the shield wall.", { id: "a1", author: MEMBER }));
+    expect(storage.learnedRows).toHaveLength(1);
+    expect(storage.learnedRows[0]).toMatchObject({ question: "Where do I find titanium ore?", askerId: OWNER, answererId: MEMBER, fromStaff: false });
+
+    // A fresh service (as after a restart) answers from what was saved in the database.
+    const restarted = new ChatbotService(client, config({ access: "everyone" }), storage, log);
+    const ask = (text: string) => restarted.answer({ guildId: GUILD, channelId: CHANNEL, text, seed: text, userId: STAFF_ROLE, displayName: "New", serverName: "Crimson Skies", isStaff: false });
+    const answer = await ask("where can I find titanium ore");
+    expect(answer).toContain("rock outcrops near the shield wall");
+    expect(answer).toContain(`https://discord.com/channels/${GUILD}/${CHANNEL}/a1`);
+
+    await restarted.handleDeleted(GUILD, ["a1"]);
+    expect(storage.learnedRows).toHaveLength(0);
+    expect(await ask("where can I find titanium ore")).not.toContain("shield wall");
+  });
+
+  it("learns from Discord replies, but not from private channels, opted-out members or non-answers", async () => {
+    const storage = memoryStorage();
+    const service = new ChatbotService(fakeClient(), config({ access: "everyone", learn: true }), storage, log);
+    await service.handleMessage(message("Spice blooms show up after a storm, look for the orange dust.", { id: "a2", author: MEMBER, reply: { authorId: OWNER, id: "q2", content: "When do spice blooms happen?" } }));
+    expect(storage.learnedRows.map((row) => row.question)).toEqual(["When do spice blooms happen?"]);
+
+    await service.handleMessage(message("Where is the private stash kept?", { id: "q3", author: OWNER, privateChannel: true }));
+    await service.handleMessage(message("It is behind the third rock on the left.", { id: "a3", author: MEMBER, privateChannel: true }));
+    await service.handleMessage(message("How do I get water early on?", { id: "q4", author: OWNER }));
+    await service.handleMessage(message("idk", { id: "a4", author: MEMBER }));
+    expect(storage.learnedRows).toHaveLength(1);
+
+    await service.setOptOut(GUILD, MEMBER, true);
+    expect(storage.learnedRows).toHaveLength(0);
+    await service.handleMessage(message("What's the best early weapon?", { id: "q5", author: OWNER }));
+    await service.handleMessage(message("The Maula pistol is great early because ammo is cheap.", { id: "a5", author: MEMBER }));
+    expect(storage.learnedRows).toHaveLength(0);
+  });
+
+  it("answers a question by itself when it knows, but steps back if someone else replies first", async () => {
+    vi.useFakeTimers();
+    try {
+      const storage = memoryStorage();
+      const service = new ChatbotService(fakeClient(), config({ autoReply: true, autoDelaySeconds: 10, autoCooldownSeconds: 0 }), storage, log);
+      const asked = message("Is Crimson Skies PvP or PvE?", { id: "q6", author: MEMBER });
+      await service.handleMessage(asked);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(asked.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("PvE-focused"), allowedMentions: { parse: [], repliedUser: false } }));
+
+      const again = message("Is crimson skies pvp or pve?", { id: "q7", author: OWNER, channelId: "910000000000000009" });
+      await service.handleMessage(again);
+      await service.handleMessage(message("It's PvE, no fighting other players here.", { id: "a7", author: MEMBER, channelId: "910000000000000009" }));
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(again.reply).not.toHaveBeenCalled();
+
+      const unknown = message("Does anyone want to go to the deep desert tonight?", { id: "q8", author: MEMBER, channelId: "920000000000000009" });
+      await service.handleMessage(unknown);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(unknown.reply).not.toHaveBeenCalled();
+      service.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("remembers its mood and how it feels about members across restarts", async () => {
+    const storage = memoryStorage();
+    const service = new ChatbotService(fakeClient(), config({ access: "everyone", cooldownSeconds: 0 }), storage, log, () => 1_000);
+    const before = (await service.describeMood(GUILD)).score;
+    await service.answer({ guildId: GUILD, channelId: CHANNEL, text: "good bot", seed: "x", userId: MEMBER, displayName: "M", serverName: "S", isStaff: false });
+    const restarted = new ChatbotService(fakeClient(), config(), storage, log, () => 1_000);
+    expect((await restarted.describeMood(GUILD)).score).toBeGreaterThan(before);
+    expect(await storage.rapport(GUILD, MEMBER)).toBeGreaterThan(0);
   });
 });

@@ -7,7 +7,7 @@ import { TfIdfIndex, normalizeText, tokenize } from "../suggestions/textAnalysis
  * suggestion assistant uses, so it runs in memory with no model and no network.
  */
 
-type KnowledgeSource = "faq" | "command" | "taught";
+type KnowledgeSource = "faq" | "command" | "taught" | "learned";
 
 interface KnowledgeEntry {
   id: string;
@@ -17,6 +17,10 @@ interface KnowledgeEntry {
   answer: string;
   /** Extra words that help matching but are not shown. */
   keywords?: string;
+  /** Link to where the answer came from, such as the chat message it was learned from. */
+  link?: string;
+  /** Multiplies the match score; defaults to the source's weight. */
+  weight?: number;
 }
 
 interface KnowledgeMatch {
@@ -37,7 +41,7 @@ const SUGGEST_SCORE = 0.14;
  * Taught answers are what staff explicitly want said, so they win close calls; FAQ answers
  * beat a command whose name merely shares a word ("get started" is not `/server start`).
  */
-const SOURCE_WEIGHT: Readonly<Record<KnowledgeSource, number>> = Object.freeze({ taught: 1.25, faq: 1.15, command: 0.8 });
+const SOURCE_WEIGHT: Readonly<Record<KnowledgeSource, number>> = Object.freeze({ taught: 1.25, faq: 1.15, learned: 0.95, command: 0.8 });
 const MAX_WEIGHT = 1.25;
 
 class ChatKnowledge {
@@ -59,7 +63,7 @@ class ChatKnowledge {
     const tokens = tokenize(`${entry.title} ${entry.title} ${entry.keywords ?? ""} ${entry.source === "taught" ? entry.title : entry.answer}`);
     this.index.set(entry.id, tokens);
     // Asking exactly an FAQ heading or a taught question always gets that answer.
-    if (entry.source !== "command" && (entry.source === "taught" || !this.exact.has(exactKey(entry.title)))) this.exact.set(exactKey(entry.title), entry.id);
+    if ((entry.source === "faq" || entry.source === "taught") && (entry.source === "taught" || !this.exact.has(exactKey(entry.title)))) this.exact.set(exactKey(entry.title), entry.id);
   }
 
   public remove(id: string): void {
@@ -79,11 +83,11 @@ class ChatKnowledge {
     const exactId = this.exact.get(exactKey(question));
     const exactEntry = exactId ? this.entries.get(exactId) : undefined;
     const tokens = tokenize(question);
-    const results = tokens.length === 0 ? [] : this.index.similar(tokens, { limit: limit + 1, minScore: SUGGEST_SCORE / MAX_WEIGHT });
+    const results = tokens.length === 0 ? [] : this.index.similar(tokens, { limit: limit * 4, minScore: SUGGEST_SCORE / MAX_WEIGHT });
     const matches = results
       .map(({ id, score }) => ({ entry: this.entries.get(id)!, score }))
       .filter((match) => match.entry && match.entry.id !== exactId)
-      .map((match) => ({ ...match, score: Math.min(1, match.score * SOURCE_WEIGHT[match.entry.source]) }))
+      .map((match) => ({ ...match, score: Math.min(1, match.score * (match.entry.weight ?? SOURCE_WEIGHT[match.entry.source])) }))
       .filter((match) => match.score >= SUGGEST_SCORE)
       .sort((left, right) => right.score - left.score || left.entry.id.localeCompare(right.entry.id));
     return [...(exactEntry ? [{ entry: exactEntry, score: 1 }] : []), ...matches].slice(0, limit);
@@ -129,6 +133,18 @@ function taughtEntry(answer: { id: string; question: string; answer: string }): 
   return { id: `taught:${answer.id}`, source: "taught", title: answer.question, answer: answer.answer };
 }
 
+/** An answer learned from chat. Staff answers are trusted a little more than members'. */
+function learnedEntry(answer: { id: string; guildId: string; channelId: string; question: string; answer: string; answerMessageId: string; fromStaff: boolean }): KnowledgeEntry {
+  return {
+    id: `learned:${answer.id}`,
+    source: "learned",
+    title: answer.question,
+    answer: answer.answer,
+    link: `https://discord.com/channels/${answer.guildId}/${answer.channelId}/${answer.answerMessageId}`,
+    weight: answer.fromStaff ? 1.05 : SOURCE_WEIGHT.learned,
+  };
+}
+
 function sentenceCase(value: string): string {
   const lower = value.toLowerCase().replace(/\bpvp\b/g, "PvP").replace(/\bpve\b/g, "PvE").replace(/\bi\b/g, "I");
   return lower.charAt(0).toUpperCase() + lower.slice(1);
@@ -138,5 +154,5 @@ function lowerFirst(value: string): string {
   return /^[A-Z][a-z]/.test(value) ? value.charAt(0).toLowerCase() + value.slice(1) : value;
 }
 
-export { ANSWER_SCORE, ChatKnowledge, SUGGEST_SCORE, commandEntries, faqEntries, taughtEntry };
+export { ANSWER_SCORE, ChatKnowledge, SUGGEST_SCORE, commandEntries, faqEntries, learnedEntry, taughtEntry };
 export type { HelpCommand, KnowledgeEntry, KnowledgeMatch, KnowledgeSource };

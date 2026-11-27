@@ -128,7 +128,7 @@ Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required) to let the bot manage a
 
 ## Chatbot
 
-The bot has its own homemade chatbot with no outside AI. Mention the bot, reply to one of its answers or use `/chat ask`. It answers from the FAQ panel, the `/help` command list, live levels, the level and Solari leaderboards, the Coriolis storm schedule, game server status and the latest release notes, does quick math and dice, and says so when it doesn't know. Staff teach it new answers with `/chat teach` (PostgreSQL required). It is staff-only by default; `CHATBOT_ACCESS` opens it to listed roles or everyone, and `CHATBOT_CHANNEL_IDS` limits where mentions are answered. See [the chatbot guide](chatbot.md).
+The bot has its own homemade chatbot with no outside AI. Ping the bot, reply to one of its answers or use `/chat ask`. It answers from the FAQ panel, the `/help` command list, live levels, the level and Solari leaderboards, the Coriolis storm schedule, game server status and the latest release notes, does quick math and dice, and says so when it doesn't know. It learns questions and answers from public chat, answers questions by itself when it is confident (after giving members a head start), and has a mood and per-member rapport that change with how it is treated. Learned answers, taught answers (`/chat teach`) and its mood are kept in PostgreSQL. Members can opt out with `/chat optout`, deleted messages are forgotten, and staff manage what it learned with `/chat learned`, `/chat unlearn` and `/chat purge`. See [the chatbot guide](chatbot.md).
 
 ## Honeypot moderation
 

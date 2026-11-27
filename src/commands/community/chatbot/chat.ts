@@ -1,9 +1,9 @@
 import { Command } from "@sapphire/framework";
 import { InteractionContextType, SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
-import { autocompleteTaughtAnswer, executeChatCommand } from "../../../modules/community/chatbot/chatbotCommands";
+import { autocompleteChatAnswer, executeChatCommand } from "../../../modules/community/chatbot/chatbotCommands";
 import { registerApplicationCommand } from "../../../support/commands/registerApplicationCommand";
 
-const DESCRIPTION = "Talk to the Arrakis Control chatbot, or teach it new answers.";
+const DESCRIPTION = "Talk to the Arrakis Control chatbot, teach it answers, or manage what it learned.";
 
 const data = new SlashCommandBuilder()
   .setName("chat")
@@ -23,7 +23,22 @@ const data = new SlashCommandBuilder()
     .setName("forget")
     .setDescription("Staff: remove an answer the chatbot was taught.")
     .addStringOption((option) => option.setName("answer").setDescription("Taught answer to remove.").setRequired(true).setAutocomplete(true)))
-  .addSubcommand((command) => command.setName("taught").setDescription("Staff: list the answers the chatbot was taught."));
+  .addSubcommand((command) => command.setName("taught").setDescription("Staff: list the answers the chatbot was taught."))
+  .addSubcommand((command) => command
+    .setName("learned")
+    .setDescription("Staff: see what the chatbot learned from chat.")
+    .addStringOption((option) => option.setName("search").setDescription("Only show learned questions containing these words.").setMaxLength(100)))
+  .addSubcommand((command) => command
+    .setName("unlearn")
+    .setDescription("Staff: remove something the chatbot learned from chat.")
+    .addStringOption((option) => option.setName("answer").setDescription("Learned answer to remove.").setRequired(true).setAutocomplete(true)))
+  .addSubcommand((command) => command
+    .setName("purge")
+    .setDescription("Staff: forget everything the chatbot learned from chat (taught answers stay).")
+    .addBooleanOption((option) => option.setName("confirm").setDescription("Set to true to confirm. This can't be undone.").setRequired(true)))
+  .addSubcommand((command) => command.setName("mood").setDescription("See how the chatbot is feeling."))
+  .addSubcommand((command) => command.setName("optout").setDescription("Stop the chatbot learning from your messages and forget what it learned from you."))
+  .addSubcommand((command) => command.setName("optin").setDescription("Let the chatbot learn from your messages again."));
 
 function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   return executeChatCommand(interaction);
@@ -43,7 +58,7 @@ class ChatCommand extends Command {
   }
 
   public override autocompleteRun(interaction: Command.AutocompleteInteraction): Promise<void> {
-    return autocompleteTaughtAnswer(interaction);
+    return autocompleteChatAnswer(interaction);
   }
 }
 

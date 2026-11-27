@@ -196,6 +196,7 @@ function createBotApplication(config: BotConfig) {
     const stopMusic = client.music?.stop() ?? Promise.resolve();
     client.leveling?.stop();
     client.suggestions?.stop();
+    client.chatbot?.stop();
     await cleanupResources(
       [
         { name: "RabbitMQ chat bridge", run: () => client.chatBridge?.stop() },

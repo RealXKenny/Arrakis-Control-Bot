@@ -73,8 +73,9 @@ All guides are listed in [guides/README.md](guides/README.md).
   long discussions and gives staff a status panel (Planned, Working on it, Back burner, Not doing, Added) in every post.
   It follows the GitHub repositories by itself and moves suggestions forward as work is planned, built and released.
   Runs locally with no paid AI service.
-- **Homemade chatbot:** mention the bot, reply to it or use `/chat ask`. It answers from the FAQ, the command list, live
-  levels, leaderboards, storms and server status, and whatever staff teach it with `/chat teach`. No outside AI.
+- **Homemade chatbot:** ping the bot, reply to it or use `/chat ask`. It answers from the FAQ, the command list, live
+  levels, leaderboards, storms and server status, what staff teach it, and what it learns from members answering each
+  other. It answers questions in chat by itself when confident, and has a mood that remembers how people treat it. No outside AI.
 
 ### Moderation and records
 
