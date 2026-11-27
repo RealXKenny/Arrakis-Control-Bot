@@ -13,6 +13,7 @@ type ChatIntent =
   | { kind: "botInfo" }
   | { kind: "whatsNew" }
   | { kind: "item"; query: string }
+  | { kind: "webSearch"; query: string }
   | { kind: "math"; expression: string }
   | { kind: "dice"; count: number; sides: number }
   | { kind: "coin" }
@@ -101,6 +102,9 @@ function detectIntent(raw: string, botId?: string): ChatIntent {
   const item = /\b(?:item )?(?:template )?id (?:for|of) (?:the |an? )?(.{2,60})$/.exec(text) ?? /^(?:find|look ?up|search(?: for)?) (?:the |an? )?item (.{2,60})$/.exec(text);
   if (item?.[1]) return { kind: "item", query: item[1].trim() };
 
+  const web = /^(?:search(?: the web| online| the internet)?(?: for)?|look ?up|google|wiki|wikipedia|duckduckgo)\s+(.{2,120})$/.exec(text);
+  if (web?.[1]) return { kind: "webSearch", query: web[1].trim() };
+
   const dice = /\broll(?: me)?(?: an?| the)?\s*(\d{0,3})\s*d(\d{1,6})\b/.exec(text);
   if (dice) {
     const count = Math.min(Math.max(Number(dice[1] || 1), 1), MAX_DICE);
@@ -126,6 +130,17 @@ function detectIntent(raw: string, botId?: string): ChatIntent {
 }
 
 /** Small talk checked again after the knowledge search found nothing for a longer message. */
+/** The topic of a question, for a web search: "who is Paul Atreides?" becomes "Paul Atreides". */
+function searchTopic(raw: string): string {
+  return cleanText(raw)
+    .replace(/^(hey|hi|yo|so|ok|okay|um|hmm)\s+/, "")
+    .replace(/^(can you |could you |please )?(tell me |explain )?(about )?/, "")
+    .replace(/^(what|who|where|when|why|how)( is| are| was| were| does| do| did|s)?( a| an| the)?\s+/, "")
+    .replace(/^(do you know|have you heard of|whats|what is)( about)?( a| an| the)?\s+/, "")
+    .replace(/\s+(mean|means|work|works|do)$/, "")
+    .trim();
+}
+
 function detectSmallTalk(raw: string): SmallTalk | null {
   const text = cleanText(raw);
   for (const [kind, pattern] of SMALL_TALK) if (pattern.test(text)) return kind;
@@ -141,5 +156,5 @@ function extractMath(raw: string): string | null {
   return expression;
 }
 
-export { cleanText, detectIntent, detectSmallTalk, extractMath, mentionedUserIds };
+export { cleanText, detectIntent, detectSmallTalk, extractMath, mentionedUserIds, searchTopic };
 export type { ChatIntent, SmallTalk };

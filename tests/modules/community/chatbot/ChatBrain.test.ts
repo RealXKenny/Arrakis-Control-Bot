@@ -132,6 +132,34 @@ describe("ChatBrain feelings", () => {
   });
 });
 
+describe("ChatBrain web lookups", () => {
+  const found = { title: "Paul Atreides", summary: "Paul Atreides is the protagonist of Dune.", url: "https://en.wikipedia.org/wiki/Paul_Atreides", source: "Wikipedia" };
+
+  it("looks a question up online when it doesn't know, with the source", async () => {
+    const web = vi.fn(() => Promise.resolve(found));
+    const reply = await brain({ web }).reply(input("who is Paul Atreides?"));
+    expect(web).toHaveBeenCalledWith("paul atreides");
+    expect(reply.content).toBe("**Paul Atreides**\nPaul Atreides is the protagonist of Dune.\n-# From Wikipedia: <https://en.wikipedia.org/wiki/Paul_Atreides>");
+  });
+
+  it("prefers its own knowledge and searches on request", async () => {
+    const web = vi.fn(() => Promise.resolve(found));
+    await brain({ web }).reply(input("is this server pvp?"));
+    expect(web).not.toHaveBeenCalled();
+    await brain({ web }).reply(input("search for paul atreides"));
+    expect(web).toHaveBeenCalledWith("paul atreides");
+  });
+
+  it("explains when a search finds nothing or is busy, and skips the web for unasked answers unless allowed", async () => {
+    expect((await brain({ web: () => Promise.resolve(null) }).reply(input("look up zzqx"))).content).toContain("couldn't find a clear answer");
+    expect((await brain({ web: () => Promise.reject(new Error("busy")) }).reply(input("google spice"))).content).toContain("Give me a moment");
+    expect((await brain().reply(input("search for spice"))).content).toBe("Web lookups are turned off on this server.");
+    const web = vi.fn(() => Promise.resolve(found));
+    expect(await brain({ web }).autoReply(input("who is Paul Atreides?"), 0.5)).toBeNull();
+    expect((await brain({ web }).autoReply(input("who is Paul Atreides?"), 0.5, true))?.content).toContain("Paul Atreides");
+  });
+});
+
 describe("ChatKnowledge", () => {
   it("adds and forgets taught answers", () => {
     const base = knowledge();

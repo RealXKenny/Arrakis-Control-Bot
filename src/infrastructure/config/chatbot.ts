@@ -24,6 +24,14 @@ interface ChatbotConfig {
   autoDelaySeconds: number;
   /** Seconds between two automatic answers in the same channel. */
   autoCooldownSeconds: number;
+  /** Look things up online (game wiki, DuckDuckGo, Wikipedia) when it doesn't know the answer. */
+  web: boolean;
+  /** MediaWiki site searched first, or undefined to skip it. */
+  webWikiUrl?: string;
+  /** Most web lookups per minute for the whole bot. */
+  webPerMinute: number;
+  /** Also use web lookups for unasked answers. Off by default to keep the bot quiet. */
+  webAuto: boolean;
 }
 
 const DISCORD_ID = /^\d{17,20}$/;
@@ -47,7 +55,28 @@ function loadChatbotConfig(env: NodeJS.ProcessEnv): ChatbotConfig | undefined {
     autoConfidence: parseNumber(env.CHATBOT_AUTO_CONFIDENCE, 0.5, 0.2, 1, "CHATBOT_AUTO_CONFIDENCE"),
     autoDelaySeconds: parseInteger(env.CHATBOT_AUTO_DELAY_SECONDS, 15, 0, 300, "CHATBOT_AUTO_DELAY_SECONDS"),
     autoCooldownSeconds: parseInteger(env.CHATBOT_AUTO_COOLDOWN_SECONDS, 60, 0, 3_600, "CHATBOT_AUTO_COOLDOWN_SECONDS"),
+    web: parseFlag(env.CHATBOT_WEB, true, "CHATBOT_WEB"),
+    webWikiUrl: parseWikiUrl(env.CHATBOT_WEB_WIKI_URL),
+    webPerMinute: parseInteger(env.CHATBOT_WEB_PER_MINUTE, 20, 1, 120, "CHATBOT_WEB_PER_MINUTE"),
+    webAuto: parseFlag(env.CHATBOT_WEB_AUTO, false, "CHATBOT_WEB_AUTO"),
   });
+}
+
+const DEFAULT_WIKI_URL = "https://dune.fandom.com";
+
+/** HTTPS only, no credentials, query or fragment; `none` turns the wiki lookup off. */
+function parseWikiUrl(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (trimmed?.toLowerCase() === "none") return undefined;
+  const raw = trimmed || DEFAULT_WIKI_URL;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("CHATBOT_WEB_WIKI_URL must be a valid https URL, or none.");
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) throw new Error("CHATBOT_WEB_WIKI_URL must be an https URL without credentials, query or fragment, or none.");
+  return url.toString().replace(/\/+$/, "");
 }
 
 function parseAccess(value: string | undefined): ChatbotAccess {

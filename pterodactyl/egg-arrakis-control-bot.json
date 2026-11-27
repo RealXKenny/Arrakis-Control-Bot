@@ -1487,6 +1487,46 @@
       "user_editable": true,
       "rules": "nullable|string",
       "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web",
+      "description": "Optional bot setting (CHATBOT_WEB). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web Wiki Url",
+      "description": "Optional bot setting (CHATBOT_WEB_WIKI_URL). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB_WIKI_URL",
+      "default_value": "https://dune.fandom.com",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web Per Minute",
+      "description": "Optional bot setting (CHATBOT_WEB_PER_MINUTE). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB_PER_MINUTE",
+      "default_value": "20",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web Auto",
+      "description": "Optional bot setting (CHATBOT_WEB_AUTO). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB_AUTO",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
     }
   ]
 }

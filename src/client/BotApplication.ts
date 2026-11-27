@@ -46,6 +46,7 @@ import { GitHubActivityClient } from "../infrastructure/http/github/GitHubActivi
 import type { ChatbotConfig } from "../infrastructure/config/chatbot";
 import { ChatbotRepository } from "../infrastructure/database/chatbot/ChatbotRepository";
 import { ChatbotService } from "../modules/community/chatbot/ChatbotService";
+import { WebLookupClient } from "../infrastructure/http/web/WebLookupClient";
 
 type BotClient = ArrakisClient;
 
@@ -318,7 +319,11 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
     info: (message: string) => chatbotLogger.info(message),
     warn: (message: string) => chatbotLogger.warn(message),
     error: (message: string, error?: unknown) => chatbotLogger.error(message, error),
-  }) : undefined;
+  }, Date.now, config.chatbot.web ? new WebLookupClient({
+    wikiUrl: config.chatbot.webWikiUrl,
+    perMinute: config.chatbot.webPerMinute,
+    userAgent: `ArrakisControlBot/${getBotVersion()} (Discord community bot)`,
+  }) : undefined) : undefined;
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music =
     config.music && client.tickets

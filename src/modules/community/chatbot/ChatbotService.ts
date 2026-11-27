@@ -14,6 +14,7 @@ import { parseCoriolisEnd, stormWindowFromEnd } from "../../world/storms/stormAn
 import { ChatBrain, type ChatMemory, type ChatSkills } from "./ChatBrain";
 import { ChatKnowledge, commandEntries, faqEntries, learnedEntry, taughtEntry, type KnowledgeEntry } from "./chatbotKnowledge";
 import { isQuestion, learnableAnswer, learnableQuestion } from "./chatbotLearning";
+import type { WebLookupClient } from "../../../infrastructure/http/web/WebLookupClient";
 import { adjustRapport, feel, initialMood, moodLabel, settle, type FeelingEvent, type MoodState } from "./chatbotMood";
 
 /**
@@ -82,6 +83,7 @@ class ChatbotService {
     private readonly storage: ChatbotStorage | undefined,
     private readonly log: ChatbotLog,
     private readonly now: () => number = Date.now,
+    private readonly web?: Pick<WebLookupClient, "lookup">,
   ) {}
 
   /** FAQ and command entries, built on first use so every command piece is loaded by then. */
@@ -328,7 +330,7 @@ class ChatbotService {
       isStaff: isChatStaff(subject),
       botId,
       mood: (await this.currentMood(message.guildId)).score,
-    }, this.config.autoConfidence).catch(() => null);
+    }, this.config.autoConfidence, this.config.webAuto).catch(() => null);
     if (!reply) return;
     const repeatKey = `${message.channelId}:${reply.usedEntryId ?? reply.content}`;
     if (now - (this.recentAutoEntries.get(repeatKey) ?? -Infinity) < AUTO_REPEAT_WINDOW_MS) return;
@@ -455,6 +457,7 @@ class ChatbotService {
         return { version: release.version.replace(/^v/, ""), highlights: release.sections.flatMap((section) => section.items).map(firstSentence) };
       } : undefined,
       items: (query) => searchCatalog("items", query, 25).map((item) => ({ name: item.name, id: item.value, detail: item.detail })),
+      web: this.web ? (query) => this.web!.lookup(query) : undefined,
       botInfo: () => ({ version: getBotVersion(), uptimeMs: client.uptime ?? 0, pingMs: client.ws.ping >= 0 ? client.ws.ping : null }),
     };
   }

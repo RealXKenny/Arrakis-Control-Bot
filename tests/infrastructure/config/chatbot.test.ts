@@ -7,6 +7,7 @@ describe("chatbot config", () => {
       access: "everyone", roleIds: [], channelIds: [], cooldownSeconds: 3,
       learn: true, learnChannelIds: [], learnLimit: 5_000,
       autoReply: true, autoChannelIds: [], autoConfidence: 0.5, autoDelaySeconds: 15, autoCooldownSeconds: 60,
+      web: true, webWikiUrl: "https://dune.fandom.com", webPerMinute: 20, webAuto: false,
     });
   });
 
@@ -24,5 +25,8 @@ describe("chatbot config", () => {
     expect(() => loadChatbotConfig({ CHATBOT_ENABLED: "yes" })).toThrow("CHATBOT_ENABLED");
     expect(() => loadChatbotConfig({ CHATBOT_AUTO_CONFIDENCE: "0.05" })).toThrow("CHATBOT_AUTO_CONFIDENCE");
     expect(() => loadChatbotConfig({ CHATBOT_LEARN_LIMIT: "10" })).toThrow("CHATBOT_LEARN_LIMIT");
+    expect(() => loadChatbotConfig({ CHATBOT_WEB_WIKI_URL: "http://10.0.0.5" })).toThrow("CHATBOT_WEB_WIKI_URL");
+    expect(() => loadChatbotConfig({ CHATBOT_WEB_WIKI_URL: "https://user:pw@wiki.example" })).toThrow("CHATBOT_WEB_WIKI_URL");
+    expect(loadChatbotConfig({ CHATBOT_WEB_WIKI_URL: "none" })?.webWikiUrl).toBeUndefined();
   });
 });

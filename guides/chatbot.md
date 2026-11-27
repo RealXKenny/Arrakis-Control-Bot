@@ -1,6 +1,6 @@
 # Chatbot
 
-Arrakis Control has its own homemade chatbot. It runs entirely inside the bot: there is no outside AI service, no API key, no model download and nothing to pay for. It answers from what the bot already knows, from answers staff teach it, and from what it learns by watching members answer each other's questions. It has feelings too: a mood that rises when people are kind and drops when they are rude. When it doesn't know something, it says so instead of making things up.
+Arrakis Control has its own homemade chatbot. It runs entirely inside the bot: there is no outside AI service, no API key, no model download and nothing to pay for. It answers from what the bot already knows, from answers staff teach it, from what it learns by watching members answer each other's questions, and from the internet when it doesn't know. It has feelings too: a mood that rises when people are kind and drops when they are rude. When it doesn't know something, it says so instead of making things up.
 
 ## Talking to it
 
@@ -28,8 +28,24 @@ Replies never ping anyone, not even the person who asked.
 | Uptime, version, ping | The bot itself |
 | Math (`what is 12 * (3 + 4)`), dice (`roll 2d20`), coin flips, `pick tacos or pizza`, `8ball`, the time | Built in |
 | Hello, thanks, jokes, fun facts, "how are you?", "how do you feel?" | Built-in phrase banks, coloured by its mood |
+| Anything else ("who is Paul Atreides?", "search for ornithopter") | Looked up online (see below) |
 
 Every lookup is read-only. The chatbot can't run commands, change settings, or act on the game server.
+
+## Internet lookups
+
+When someone asks the bot a question it can't answer from its own memory, it looks the topic up online and replies with a short summary and a link to the source. You can also ask directly: `search for spice`, `look up Coriolis storm`, `wiki ornithopter`, `google Frank Herbert`.
+
+It checks, in order: the game wiki (`CHATBOT_WEB_WIKI_URL`, the Dune wiki by default), DuckDuckGo instant answers (with strict safe search), and Wikipedia. These are free and need no API key.
+
+It is careful about it:
+
+- It only ever sends a search phrase to those fixed sites. It never opens links members post, so it can't be pointed at anything else.
+- Requests are read-only, time out after 6 seconds, and are size-limited. A redirect to any other site is refused.
+- Explicit or harmful searches are refused.
+- Results are cached for an hour, and the whole bot does at most `CHATBOT_WEB_PER_MINUTE` lookups a minute (20 by default).
+- Unasked answers don't use the internet unless you set `CHATBOT_WEB_AUTO=true`, so it only searches when someone talks to it.
+- Web answers are never saved as learned answers.
 
 ## Learning from chat
 
@@ -97,13 +113,17 @@ A taught answer wins over the FAQ and learned answers when both match, so you ca
 | `CHATBOT_AUTO_CONFIDENCE` | `0.5` | How sure it must be (0.2 to 1) to answer unasked. |
 | `CHATBOT_AUTO_DELAY_SECONDS` | `15` | Head start for members to answer first. |
 | `CHATBOT_AUTO_COOLDOWN_SECONDS` | `60` | Gap between unasked answers in one channel. |
+| `CHATBOT_WEB` | `true` | Look things up online when it doesn't know. |
+| `CHATBOT_WEB_WIKI_URL` | `https://dune.fandom.com` | MediaWiki site searched first (https), or `none`. |
+| `CHATBOT_WEB_PER_MINUTE` | `20` | Most web lookups a minute for the whole bot. |
+| `CHATBOT_WEB_AUTO` | `false` | Also use the internet for unasked answers. |
 
 Members without access are ignored quietly when they ping the bot, and get a short private note from `/chat ask`. The chatbot stays out of suggestion posts (the suggestion assistant answers there), the honeypot channel and the music request channel. Without PostgreSQL it still chats and answers from the FAQ and commands, but it can't learn, be taught or remember its mood.
 
 ## How it works
 
 1. A short list of rules spots questions it can look up or work out itself (levels, storms, math, dice and so on).
-2. Everything else is matched against the FAQ, the command list, taught answers and learned answers with the same local TF-IDF search the suggestion assistant uses. A good match is answered; a weak one is offered as "maybe one of these helps".
+2. Everything else is matched against the FAQ, the command list, taught answers and learned answers with the same local TF-IDF search the suggestion assistant uses. A good match is answered. If nothing matches, a question is looked up online; otherwise a weak match is offered as "maybe one of these helps".
 3. Small talk gets a reply from hand-written phrase banks, picked by its mood and how it gets on with you. The same message always gets the same wording.
 
 It remembers your last question in a channel for 10 minutes so follow-ups work.

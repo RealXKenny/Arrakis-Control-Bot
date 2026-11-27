@@ -16,6 +16,7 @@ const config = (overrides: Partial<ChatbotConfig> = {}): ChatbotConfig => ({
   access: "staff", roleIds: [], channelIds: [], cooldownSeconds: 3,
   learn: false, learnChannelIds: [], learnLimit: 5_000,
   autoReply: false, autoChannelIds: [], autoConfidence: 0.5, autoDelaySeconds: 0, autoCooldownSeconds: 60,
+  web: false, webPerMinute: 20, webAuto: false,
   ...overrides,
 });
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };

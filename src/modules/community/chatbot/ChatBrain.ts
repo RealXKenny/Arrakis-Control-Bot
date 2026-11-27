@@ -1,5 +1,6 @@
 import { escapeMarkdown } from "discord.js";
-import { detectIntent, detectSmallTalk, type ChatIntent } from "./chatbotIntents";
+import { detectIntent, detectSmallTalk, searchTopic, type ChatIntent } from "./chatbotIntents";
+import { isQuestion } from "./chatbotLearning";
 import { ANSWER_SCORE, type ChatKnowledge, type KnowledgeMatch } from "./chatbotKnowledge";
 import { evaluateExpression, formatNumber } from "./chatbotMath";
 import { moodLabel, type FeelingEvent } from "./chatbotMood";
@@ -29,6 +30,8 @@ interface ChatSkills {
   changelog?(): Promise<{ version: string; highlights: string[] } | null>;
   items?(query: string): { name: string; id: string; detail?: string }[];
   botInfo(): { version: string; uptimeMs: number; pingMs: number | null };
+  /** Looks a topic up online. Throws when the lookup budget is used up. */
+  web?(query: string): Promise<{ title: string; summary: string; url: string; source: string } | null>;
 }
 
 /** What the chatbot remembers about one member in one channel, for follow-up questions. */
@@ -65,6 +68,8 @@ interface ChatReply {
 }
 
 const MEMORY_TTL_MS = 10 * 60_000;
+/** Below this, nothing in its own memory is even close, so a web lookup is worth trying unasked. */
+const SUGGEST_FLOOR = 0.2;
 const FEELINGS: Partial<Record<SmallTalk, FeelingEvent>> = Object.freeze({ compliment: "compliment", thanks: "thanks", greeting: "greeting", insult: "insult", farewell: "farewell" });
 
 class ChatBrain {
@@ -92,6 +97,7 @@ class ChatBrain {
         case "whatsNew": return done(await this.whatsNew());
         case "botInfo": return done(this.botInfo());
         case "item": return done(this.items(intent.query));
+        case "webSearch": return done(await this.webSearch(intent.query, true));
         case "math": return done(math(intent.expression));
         case "dice": return done(dice(intent.count, intent.sides, random));
         case "coin": return done(random() < 0.5 ? "Heads." : "Tails.");
@@ -99,7 +105,7 @@ class ChatBrain {
         case "eightBall": return done(pick(EIGHT_BALL, random));
         case "time": return done(`It's <t:${Math.floor(this.now() / 1_000)}:F> in your time zone.`);
         case "more": return this.more(memory, say);
-        case "unknown": return this.answerFromKnowledge(input, random, say);
+        case "unknown": return await this.answerFromKnowledge(input, random, say);
         default: return { ...done(say(this.smallTalk(intent.kind, input, random))), feeling: FEELINGS[intent.kind] ?? "chat" };
       }
     } catch {
@@ -111,7 +117,7 @@ class ChatBrain {
    * The answer to a question nobody asked the bot directly, or null when it should stay quiet.
    * Only confident knowledge matches and read-only lookups qualify; no small talk, no guesses.
    */
-  public async autoReply(input: ChatInput, threshold: number): Promise<ChatReply | null> {
+  public async autoReply(input: ChatInput, threshold: number, useWeb = false): Promise<ChatReply | null> {
     const intent = detectIntent(input.text, input.botId);
     const at = this.now();
     const lookups: readonly ChatIntent["kind"][] = ["storm", "serverStatus", "whatsNew", "solariTop", "levelTop"];
@@ -122,6 +128,10 @@ class ChatBrain {
     if (intent.kind !== "unknown") return null;
     const matches = this.knowledge().search(input.text, 3);
     const best = matches[0];
+    if ((!best || best.score < SUGGEST_FLOOR) && useWeb && this.skills.web) {
+      const found = await this.skills.web(searchTopic(input.text)).catch(() => null);
+      return found ? { content: formatWeb(found), memory: { lastKind: "webSearch", at } } : null;
+    }
     if (!best || best.score < threshold) return null;
     // A close second means the question is ambiguous; better to stay quiet.
     const second = matches[1];
@@ -144,7 +154,7 @@ class ChatBrain {
     return pick(SMALL_TALK[kind], random);
   }
 
-  private answerFromKnowledge(input: ChatInput, random: () => number, say: (template: string) => string): ChatReply {
+  private async answerFromKnowledge(input: ChatInput, random: () => number, say: (template: string) => string): Promise<ChatReply> {
     const matches = this.knowledge().search(input.text, 5);
     const best = matches[0];
     const at = this.now();
@@ -157,6 +167,13 @@ class ChatBrain {
     }
     const smallTalk = detectSmallTalk(input.text);
     if (smallTalk) return { content: say(this.smallTalk(smallTalk, input, random)), memory: { lastKind: smallTalk, at }, feeling: FEELINGS[smallTalk] ?? "chat" };
+
+    // Not in its own memory: a real question gets looked up online, if that is turned on.
+    if (this.skills.web && isQuestion(input.text)) {
+      const topic = searchTopic(input.text);
+      const online = topic.length >= 2 ? await this.webSearch(topic, false) : null;
+      if (online) return { content: online, memory: { lastKind: "webSearch", at } };
+    }
 
     const lines = [say(pick(UNKNOWN, random))];
     if (matches.length > 0) lines.push(`Maybe one of these helps: ${matches.slice(0, 3).map((match) => `**${escapeMarkdown(match.entry.title)}**`).join(", ")}. Ask me about it, or say "more".`);
@@ -175,6 +192,20 @@ class ChatBrain {
       memory: { ...memory, shown: (memory.shown ?? 0) + 1, at },
       usedEntryId: entry.id,
     };
+  }
+
+  /** A web answer, or (when `explicit`) a plain message saying why there is none; null otherwise. */
+  private async webSearch(query: string, explicit: true): Promise<string>;
+  private async webSearch(query: string, explicit: false): Promise<string | null>;
+  private async webSearch(query: string, explicit: boolean): Promise<string | null> {
+    if (!this.skills.web) return explicit ? "Web lookups are turned off on this server." : null;
+    try {
+      const found = await this.skills.web(query);
+      if (found) return formatWeb(found);
+      return explicit ? `I looked online but couldn't find a clear answer for "${escapeMarkdown(query)}".` : null;
+    } catch {
+      return explicit ? "I've done a lot of searching in the last minute. Give me a moment and ask again." : null;
+    }
   }
 
   private async level(userId: string, self: boolean): Promise<string> {
@@ -246,6 +277,10 @@ function formatAnswer(match: KnowledgeMatch, say: (template: string) => string):
   // Learned answers are members' own words: shown as said, never filled in, and linked to the source.
   if (entry.source === "learned") return `${entry.answer}${entry.link ? `\n-# Learned from chat · ${entry.link}` : "\n-# Learned from chat"}`;
   return say(entry.answer);
+}
+
+function formatWeb(found: { title: string; summary: string; url: string; source: string }): string {
+  return `**${escapeMarkdown(found.title)}**\n${escapeMarkdown(found.summary)}\n-# From ${escapeMarkdown(found.source)}: <${found.url}>`;
 }
 
 function math(expression: string): string {
