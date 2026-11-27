@@ -48,6 +48,7 @@ import { ChatbotRepository } from "../infrastructure/database/chatbot/ChatbotRep
 import { ChatbotService } from "../modules/community/chatbot/ChatbotService";
 import { WebLookupClient } from "../infrastructure/http/web/WebLookupClient";
 import { WebDataClient } from "../infrastructure/http/web/WebDataClient";
+import { LocalLanguageModel } from "../infrastructure/ai/LocalLanguageModel";
 
 type BotClient = ArrakisClient;
 
@@ -325,7 +326,10 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
     wikiUrl: config.chatbot.webWikiUrl,
     perMinute: config.chatbot.webPerMinute,
     userAgent: chatbotUserAgent,
-  }) : undefined, config.chatbot.web ? new WebDataClient({ perMinute: config.chatbot.webPerMinute, userAgent: chatbotUserAgent }) : undefined) : undefined;
+  }) : undefined, config.chatbot.web ? new WebDataClient({ perMinute: config.chatbot.webPerMinute, userAgent: chatbotUserAgent }) : undefined, config.chatbot.ai ? new LocalLanguageModel(config.chatbot.ai, {
+    info: (message: string) => chatbotLogger.info(message),
+    warn: (message: string) => chatbotLogger.warn(message),
+  }) : undefined) : undefined;
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music =
     config.music && client.tickets

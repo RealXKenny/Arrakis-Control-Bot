@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadChatbotConfig } from "../../../src/infrastructure/config/chatbot";
+import { AI_MODELS, loadChatbotConfig } from "../../../src/infrastructure/config/chatbot";
 
 describe("chatbot config", () => {
   it("is on, open to everyone, learning and answering by default", () => {
@@ -28,5 +28,18 @@ describe("chatbot config", () => {
     expect(() => loadChatbotConfig({ CHATBOT_WEB_WIKI_URL: "http://10.0.0.5" })).toThrow("CHATBOT_WEB_WIKI_URL");
     expect(() => loadChatbotConfig({ CHATBOT_WEB_WIKI_URL: "https://user:pw@wiki.example" })).toThrow("CHATBOT_WEB_WIKI_URL");
     expect(loadChatbotConfig({ CHATBOT_WEB_WIKI_URL: "none" })?.webWikiUrl).toBeUndefined();
+  });
+
+  it("keeps its own AI model off until turned on, with checksummed presets", () => {
+    expect(loadChatbotConfig({})?.ai).toBeUndefined();
+    expect(loadChatbotConfig({ CHATBOT_AI: "true" })?.ai).toEqual({
+      modelUri: AI_MODELS.small!.uri, sha256: AI_MODELS.small!.sha256, modelDir: "models",
+      threads: 8, contextSize: 4_096, maxTokens: 220, timeoutSeconds: 60,
+    });
+    expect(loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "large", CHATBOT_AI_THREADS: "12" })?.ai).toMatchObject({ modelUri: AI_MODELS.large!.uri, sha256: AI_MODELS.large!.sha256, threads: 12 });
+    expect(loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "hf:someone/repo/model-Q4_K_M.gguf" })?.ai).toMatchObject({ modelUri: "hf:someone/repo/model-Q4_K_M.gguf", sha256: undefined });
+    expect(() => loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "https://evil.example/model.gguf" })).toThrow("CHATBOT_AI_MODEL");
+    expect(() => loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "hf:a/../b/model.gguf" })).toThrow("CHATBOT_AI_MODEL");
+    expect(() => loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL_SHA256: "abc" })).toThrow("CHATBOT_AI_MODEL_SHA256");
   });
 });

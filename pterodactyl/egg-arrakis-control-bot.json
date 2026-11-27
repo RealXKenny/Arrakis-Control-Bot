@@ -1527,6 +1527,86 @@
       "user_editable": true,
       "rules": "nullable|string",
       "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai",
+      "description": "Optional bot setting (CHATBOT_AI). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai Model",
+      "description": "Optional bot setting (CHATBOT_AI_MODEL). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI_MODEL",
+      "default_value": "small",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai Model Sha256",
+      "description": "Optional bot setting (CHATBOT_AI_MODEL_SHA256). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI_MODEL_SHA256",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai Model Dir",
+      "description": "Optional bot setting (CHATBOT_AI_MODEL_DIR). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI_MODEL_DIR",
+      "default_value": "models",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai Threads",
+      "description": "Optional bot setting (CHATBOT_AI_THREADS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI_THREADS",
+      "default_value": "8",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai Context",
+      "description": "Optional bot setting (CHATBOT_AI_CONTEXT). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI_CONTEXT",
+      "default_value": "4096",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai Max Tokens",
+      "description": "Optional bot setting (CHATBOT_AI_MAX_TOKENS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI_MAX_TOKENS",
+      "default_value": "220",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Ai Timeout Seconds",
+      "description": "Optional bot setting (CHATBOT_AI_TIMEOUT_SECONDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AI_TIMEOUT_SECONDS",
+      "default_value": "60",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
     }
   ]
 }

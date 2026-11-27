@@ -32,7 +32,32 @@ interface ChatbotConfig {
   webPerMinute: number;
   /** Also use web lookups for unasked answers. Off by default to keep the bot quiet. */
   webAuto: boolean;
+  /** The bot's own language model, run inside the bot process. Undefined when it is off. */
+  ai?: ChatbotAiConfig;
 }
+
+interface ChatbotAiConfig {
+  /** Hugging Face model reference (`hf:owner/repo/file.gguf`). */
+  modelUri: string;
+  /** SHA-256 the downloaded file must match; set for the built-in presets. */
+  sha256?: string;
+  /** Folder the model file is kept in. */
+  modelDir: string;
+  /** CPU threads the model may use. */
+  threads: number;
+  /** Tokens of conversation the model can see at once. */
+  contextSize: number;
+  /** Longest answer, in tokens. */
+  maxTokens: number;
+  /** Seconds before a slow answer is abandoned for the rule-based one. */
+  timeoutSeconds: number;
+}
+
+/** Models the bot knows by name, with the checksum each download must match. */
+const AI_MODELS: Readonly<Record<string, { uri: string; sha256: string }>> = Object.freeze({
+  small: { uri: "hf:bartowski/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-Q4_K_M.gguf", sha256: "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff" },
+  large: { uri: "hf:bartowski/Qwen2.5-7B-Instruct-GGUF/Qwen2.5-7B-Instruct-Q4_K_M.gguf", sha256: "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423" },
+});
 
 const DISCORD_ID = /^\d{17,20}$/;
 
@@ -59,7 +84,34 @@ function loadChatbotConfig(env: NodeJS.ProcessEnv): ChatbotConfig | undefined {
     webWikiUrl: parseWikiUrl(env.CHATBOT_WEB_WIKI_URL),
     webPerMinute: parseInteger(env.CHATBOT_WEB_PER_MINUTE, 20, 1, 120, "CHATBOT_WEB_PER_MINUTE"),
     webAuto: parseFlag(env.CHATBOT_WEB_AUTO, false, "CHATBOT_WEB_AUTO"),
+    ai: parseFlag(env.CHATBOT_AI, false, "CHATBOT_AI") ? loadAiConfig(env) : undefined,
   });
+}
+
+function loadAiConfig(env: NodeJS.ProcessEnv): ChatbotAiConfig {
+  const model = parseAiModel(env.CHATBOT_AI_MODEL);
+  const sha256 = env.CHATBOT_AI_MODEL_SHA256?.trim().toLowerCase() || model.sha256;
+  if (sha256 && !/^[0-9a-f]{64}$/.test(sha256)) throw new Error("CHATBOT_AI_MODEL_SHA256 must be a 64-character hex SHA-256.");
+  const modelDir = env.CHATBOT_AI_MODEL_DIR?.trim() || "models";
+  if (/[\p{Cc}]/u.test(modelDir)) throw new Error("CHATBOT_AI_MODEL_DIR must be a folder path.");
+  return Object.freeze({
+    modelUri: model.uri,
+    sha256,
+    modelDir,
+    threads: parseInteger(env.CHATBOT_AI_THREADS, 8, 1, 64, "CHATBOT_AI_THREADS"),
+    contextSize: parseInteger(env.CHATBOT_AI_CONTEXT, 4_096, 1_024, 32_768, "CHATBOT_AI_CONTEXT"),
+    maxTokens: parseInteger(env.CHATBOT_AI_MAX_TOKENS, 220, 32, 1_024, "CHATBOT_AI_MAX_TOKENS"),
+    timeoutSeconds: parseInteger(env.CHATBOT_AI_TIMEOUT_SECONDS, 60, 5, 600, "CHATBOT_AI_TIMEOUT_SECONDS"),
+  });
+}
+
+/** `small`, `large`, or a Hugging Face GGUF file (`hf:owner/repo/file.gguf`). Nothing else is downloaded. */
+function parseAiModel(value: string | undefined): { uri: string; sha256?: string } {
+  const raw = value?.trim() || "small";
+  const preset = AI_MODELS[raw.toLowerCase()];
+  if (preset) return preset;
+  if (/^hf:[\w.-]+\/[\w.-]+\/(?:[\w.-]+\/)*[\w.-]+\.gguf$/i.test(raw) && !raw.includes("..")) return { uri: raw };
+  throw new Error("CHATBOT_AI_MODEL must be small, large, or a Hugging Face GGUF file such as hf:owner/repo/model.gguf.");
 }
 
 const DEFAULT_WIKI_URL = "https://dune.fandom.com";
@@ -116,5 +168,5 @@ function parseInteger(value: string | undefined, fallback: number, minimum: numb
   return parsed;
 }
 
-export { loadChatbotConfig };
-export type { ChatbotAccess, ChatbotConfig };
+export { AI_MODELS, loadChatbotConfig };
+export type { ChatbotAccess, ChatbotAiConfig, ChatbotConfig };

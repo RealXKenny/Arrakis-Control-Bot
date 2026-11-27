@@ -2,6 +2,19 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [2.0.4] - 2026-11-27
+
+### Added
+
+- The chatbot can run its own AI model. Set `CHATBOT_AI=true` and the bot downloads a model once from Hugging Face, checks it against its SHA-256, and runs it itself on the CPU with llama.cpp. There is no outside AI service and no API key. The model gets what the bot already knows (the FAQ, taught and learned answers, and web results), its mood and the last few messages, so it can hold a real conversation. FAQ and staff-taught answers are still given word for word, and live facts (levels, storms, server status, weather) still come from the real sources. If the model can't load, runs short of memory or takes longer than `CHATBOT_AI_TIMEOUT_SECONDS`, the chatbot answers with its rules instead. `CHATBOT_AI_MODEL` is `small` (Llama 3.2 3B: give the server about 8 GB of memory, replies in roughly 4 to 10 seconds) or `large` (Qwen 2.5 7B: about 12 GB, roughly 12 to 30 seconds). Other settings: `CHATBOT_AI_MODEL_SHA256`, `CHATBOT_AI_MODEL_DIR`, `CHATBOT_AI_THREADS`, `CHATBOT_AI_CONTEXT`, `CHATBOT_AI_MAX_TOKENS`.
+- More things to ask the chatbot, all free with no API key: word definitions (`define melange`, from Wiktionary), the weather anywhere (`weather in London`, from Open-Meteo), news headlines (`tech news`, from BBC News), Steam games with their price and how many people are playing (`steam Dune Awakening`), currency conversion (`100 usd to eur`, European Central Bank rates) and fresh jokes.
+
+### Fixed
+
+- The chatbot now works out what you're actually asking about before it searches. "Who is IShowSpeed from youtube google it" looks up IShowSpeed instead of returning the list of most-subscribed YouTube channels, and phrases like "google", "search for", "who is" and "the youtuber" no longer end up in the search.
+- Web answers are only given when the page is really about what you asked; otherwise the chatbot says it couldn't find anything clear. Answers are shorter and read more like a reply in chat.
+- The chatbot never answers the same message twice.
+
 ## [2.0.3] - 2026-11-27
 
 ### Added

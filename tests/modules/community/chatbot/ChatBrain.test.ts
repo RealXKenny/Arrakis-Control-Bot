@@ -208,3 +208,30 @@ describe("ChatBrain data sources", () => {
     expect((await brain({ joke: () => Promise.reject(new Error("busy")) }).reply(input("tell me a joke"))).content.length).toBeGreaterThan(5);
   });
 });
+
+describe("ChatBrain with its language model", () => {
+  it("lets the model answer with notes from its knowledge and the web, and keeps staff answers as written", async () => {
+    const think = vi.fn((request: { system: string; history: readonly unknown[]; message: string }) => Promise.resolve(`thought about ${request.message}`));
+    const web = vi.fn(() => Promise.resolve({ title: "Sandworm", summary: "Giant worms of Arrakis.", url: "https://dune.fandom.com/wiki/Sandworm", source: "Dune Wiki" }));
+    const reply = await brain({ think, web }).reply(input("how big do sandworms get?"));
+    expect(reply.content).toBe("thought about how big do sandworms get?\n-# Looked up: Dune Wiki · <https://dune.fandom.com/wiki/Sandworm>");
+    expect(think.mock.calls[0]![0].system).toContain("[Dune Wiki] Sandworm: Giant worms of Arrakis.");
+    expect(think.mock.calls[0]![0].system).toContain("Crimson Skies");
+
+    const taught = await brain({ think }).reply(input("when's movie night?"));
+    expect(taught.content).toBe("Movie night is every Friday at 8 PM ET, Kenny.");
+  });
+
+  it("remembers the conversation for the model and falls back to the rules when it can't answer", async () => {
+    const think = vi.fn(() => Promise.resolve("Doing great, thanks!"));
+    const first = await brain({ think }).reply(input("how are you?"));
+    expect(first.content).toBe("Doing great, thanks!");
+    expect(first.memory.history).toEqual([{ user: "how are you?", bot: "Doing great, thanks!" }]);
+    await brain({ think }).reply(input("and you?", { memory: first.memory }));
+    expect((think.mock.calls[1] as unknown as [{ history: unknown[] }])[0].history).toEqual([{ user: "how are you?", bot: "Doing great, thanks!" }]);
+
+    const silent = await brain({ think: () => Promise.resolve(null) }).reply(input("how are you?"));
+    expect(silent.content.length).toBeGreaterThan(3);
+    expect(silent.content).not.toBe("Doing great, thanks!");
+  });
+});
