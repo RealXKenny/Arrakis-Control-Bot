@@ -45,6 +45,8 @@ const MAX_MEMORY_ENTRIES = 2_000;
 const MAX_ANSWER_IDS = 2_000;
 /** Discord shows "typing…" for about 10 seconds per call. */
 const TYPING_REFRESH_MS = 8_000;
+/** Longest a message waits for the AI model to finish loading before the rules answer it instead. */
+const AI_LOAD_WAIT_MS = 45_000;
 const MAX_INPUT_LENGTH = 1_500;
 const DISCORD_MESSAGE_LIMIT = 2_000;
 /** How long a question waits for an answer in the next messages, when nobody uses Discord's reply. */
@@ -91,7 +93,7 @@ class ChatbotService {
     private readonly now: () => number = Date.now,
     private readonly web?: Pick<WebLookupClient, "lookup" | "research">,
     private readonly data?: Pick<WebDataClient, "define" | "weather" | "headlines" | "steamGame" | "convert" | "joke">,
-    private readonly ai?: Pick<LocalLanguageModel, "ready" | "warmUp" | "generate" | "stop">,
+    private readonly ai?: Pick<LocalLanguageModel, "ready" | "warmUp" | "whenReady" | "generate" | "stop">,
   ) {}
 
   /** FAQ and command entries, built on first use so every command piece is loaded by then. */
@@ -166,7 +168,7 @@ class ChatbotService {
     // The model can take a while to think: keep "typing…" showing until the answer is sent.
     const typing = (): void => void message.channel.sendTyping().catch(() => undefined);
     typing();
-    const keepTyping = this.ai?.ready ? setInterval(typing, TYPING_REFRESH_MS) : undefined;
+    const keepTyping = this.ai ? setInterval(typing, TYPING_REFRESH_MS) : undefined;
     const content = await this.answer({
       guildId: message.guildId,
       channelId: message.channelId,
@@ -183,6 +185,8 @@ class ChatbotService {
 
   /** The full answer to one message, already sized for Discord. */
   public async answer(input: { guildId: string; channelId: string; text: string; seed: string; userId: string; displayName: string; serverName: string; isStaff: boolean }): Promise<string> {
+    // A model that is still loading gets a short wait, so this message is answered by it too.
+    if (this.ai && !this.ai.ready) await this.ai.whenReady(AI_LOAD_WAIT_MS);
     const knowledge = await this.knowledge(input.guildId);
     const memoryKey = `${input.channelId}:${input.userId}`;
     const brain = new ChatBrain(() => knowledge, this.skills(input.guildId), this.now);

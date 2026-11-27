@@ -79,7 +79,8 @@ How it answers with the model:
 - For everything else, the bot searches first: it reads the opening of the best few Wikipedia articles and the game wiki's best hits for your message, and gives them to the model together with close FAQ, taught and learned answers, the last few messages of your conversation, its mood and how it gets on with you. The model is told its own knowledge is out of date and to answer from those sources, and the sources are listed under its reply. It only says it doesn't know when the sources don't have the answer, but a model can still be wrong.
 - It answers one message at a time. If several people are waiting, or an answer takes longer than `CHATBOT_AI_TIMEOUT_SECONDS`, the chatbot answers with its rules instead.
 - Answers to questions nobody asked the bot (automatic answers) never use the model.
-- Before loading, the bot checks the server's memory limit and refuses to load a model that wouldn't fit, so it can't crash the bot by running out of memory.
+- The model stays fully in memory while the bot runs, so it is never slow to wake up. A message that arrives while it is still loading waits up to 45 seconds for it.
+- Before loading, the bot checks how much of the server's memory is still free and refuses to load a model that wouldn't fit, so it can't crash the bot by running out of memory.
 
 Shard 0 downloads and loads the model at startup. Any other shard that serves your server loads its own copy on its first message.
 

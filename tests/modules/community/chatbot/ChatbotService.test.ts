@@ -125,7 +125,7 @@ describe("ChatbotService", () => {
   });
 
   it("starts the AI model download at startup on shard 0 only", async () => {
-    const ai = () => ({ ready: false, warmUp: vi.fn(), generate: vi.fn(() => Promise.resolve(null)), stop: vi.fn(() => Promise.resolve()) });
+    const ai = () => ({ ready: false, warmUp: vi.fn(), whenReady: vi.fn(() => Promise.resolve(false)), generate: vi.fn(() => Promise.resolve(null)), stop: vi.fn(() => Promise.resolve()) });
     const single = ai();
     await new ChatbotService(fakeClient(), config(), undefined, log, Date.now, undefined, undefined, single).initialize();
     expect(single.warmUp).toHaveBeenCalledTimes(1);

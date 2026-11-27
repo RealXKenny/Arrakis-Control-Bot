@@ -14,7 +14,7 @@ afterEach(async () => {
   await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
-async function setup(overrides: Partial<ChatbotAiConfig> = {}, answer: (message: string) => Promise<string> = (message) => Promise.resolve(`You said ${message}`), memory: number | null = null) {
+async function setup(overrides: Partial<ChatbotAiConfig> = {}, answer: (message: string) => Promise<string> = (message) => Promise.resolve(`You said ${message}`), memory: { limit: number; used: number } | null = null) {
   const dir = await mkdtemp(path.join(tmpdir(), "arrakis-ai-"));
   dirs.push(dir);
   const log = { info: vi.fn(), warn: vi.fn() };
@@ -62,12 +62,12 @@ describe("LocalLanguageModel", () => {
   });
 
   it("refuses to load a model the container doesn't have the memory for", async () => {
-    const { model, engine, log } = await setup({}, undefined, 500_000_000);
+    const { model, engine, log } = await setup({}, undefined, { limit: 4_000_000_000, used: 3_500_000_000 });
     model.warmUp();
     await settle(model);
     expect(model.status).toBe("failed");
     expect(engine.load).not.toHaveBeenCalled();
-    expect(log.warn.mock.calls[0]![0]).toMatch(/more memory/);
+    expect(log.warn.mock.calls[0]![0]).toMatch(/only 0\.5 GB of the server's 4\.0 GB is free/);
   });
 
   it("answers one question at a time and gives up on slow or failed answers", async () => {
@@ -95,5 +95,18 @@ describe("LocalLanguageModel", () => {
     expect(cleanOutput("Assistant: Hello @everyone <@123456789012345678>!")).toBe("Hello @​everyone !");
     expect(cleanOutput("   ")).toBeNull();
     expect(cleanOutput("word ".repeat(400))!.length).toBeLessThanOrEqual(1_500);
+  });
+
+  it("lets a message wait for a load in progress, up to a limit", async () => {
+    let finishLoad: () => void = () => undefined;
+    const { model, engine } = await setup();
+    const realLoad = engine.load;
+    engine.load = vi.fn((file: string, options: { threads: number; contextSize: number }) => new Promise((resolve) => { finishLoad = () => resolve(realLoad(file, options)); })) as ModelEngine["load"];
+    expect(await model.whenReady(10)).toBe(false);
+    await vi.waitFor(() => expect(model.status).toBe("loading"));
+    const waiting = model.whenReady(5_000);
+    finishLoad();
+    expect(await waiting).toBe(true);
+    expect(await model.whenReady(10)).toBe(true);
   });
 });

@@ -43,8 +43,8 @@ interface LoadedModel {
 
 /** Most questions waiting for the model; past this, members get the rule-based answer at once. */
 const MAX_QUEUE = 4;
-/** Memory llama.cpp needs beyond the model file (context, buffers), plus room for the bot itself. */
-const MEMORY_HEADROOM_BYTES = 1_200_000_000;
+/** Memory llama.cpp needs beyond the model file: context, buffers and some room to spare. */
+const MEMORY_HEADROOM_BYTES = 1_000_000_000;
 
 class LocalLanguageModel {
   private state: ModelState = "idle";
@@ -52,12 +52,13 @@ class LocalLanguageModel {
   private queue: Promise<unknown> = Promise.resolve();
   private waiting = 0;
   private stopped = false;
+  private loading?: Promise<void>;
 
   public constructor(
     private readonly config: ChatbotAiConfig,
     private readonly log: ModelLog,
     private readonly engine: ModelEngine = llamaCppEngine(),
-    private readonly memoryLimit: () => Promise<number | null> = containerMemoryLimit,
+    private readonly memoryLimit: () => Promise<{ limit: number; used: number } | null> = containerMemory,
   ) {}
 
   public get status(): ModelState {
@@ -72,10 +73,24 @@ class LocalLanguageModel {
   public warmUp(): void {
     if (this.state !== "idle" || this.stopped) return;
     this.state = "downloading";
-    void this.start().catch((error: unknown) => {
+    this.loading = this.start().catch((error: unknown) => {
       this.state = "failed";
       this.log.warn(`The chatbot's AI model is off; it keeps answering with its own rules. ${error instanceof Error ? error.message : String(error)}`);
     });
+  }
+
+  /**
+   * Waits up to `maxWaitMs` for a download or load in progress, so a message that arrives while
+   * the model is loading gets the model's answer. True when the model is ready.
+   */
+  public async whenReady(maxWaitMs: number): Promise<boolean> {
+    if (this.state === "ready") return true;
+    this.warmUp();
+    if (!this.loading || this.state === "failed") return false;
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([this.loading, new Promise<void>((resolve) => { timer = setTimeout(resolve, maxWaitMs); })]);
+    clearTimeout(timer);
+    return this.ready;
   }
 
   /** The model's answer, or null when it isn't ready, is busy, or took too long. */
@@ -115,9 +130,12 @@ class LocalLanguageModel {
     if (this.config.sha256) await verifyChecksum(file, this.config.sha256);
 
     const size = (await stat(file)).size;
-    const limit = await this.memoryLimit();
-    if (limit !== null && size + MEMORY_HEADROOM_BYTES > limit) {
-      throw new Error(`The model needs about ${gigabytes(size + MEMORY_HEADROOM_BYTES)} of memory, but the bot only has ${gigabytes(limit)}. Give the server more memory or use CHATBOT_AI_MODEL=small.`);
+    const memory = await this.memoryLimit();
+    // The model has to fit next to everything the bot already uses, or the container would run
+    // out of memory and be restarted (taking the model with it).
+    const free = memory ? memory.limit - memory.used : null;
+    if (free !== null && size + MEMORY_HEADROOM_BYTES > free) {
+      throw new Error(`The model needs about ${gigabytes(size + MEMORY_HEADROOM_BYTES)} of free memory, but only ${gigabytes(Math.max(0, free))} of the server's ${gigabytes(memory!.limit)} is free. Give the server more memory or use CHATBOT_AI_MODEL=small.`);
     }
     if (this.stopped) return;
     this.state = "loading";
@@ -149,12 +167,16 @@ async function verifyChecksum(file: string, expected: string): Promise<void> {
   await rename(temp, marker);
 }
 
-/** The container's memory limit (cgroup v2, then v1), or null when there is none to read. */
-async function containerMemoryLimit(): Promise<number | null> {
-  for (const file of ["/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"]) {
+/** The container's memory limit and what it already uses (cgroup v2, then v1), or null when there is no limit. */
+async function containerMemory(): Promise<{ limit: number; used: number } | null> {
+  const read = async (file: string): Promise<number | null> => {
     const value = (await readFile(file, "utf8").catch(() => "")).trim();
     const bytes = Number(value);
-    if (value && value !== "max" && Number.isFinite(bytes) && bytes > 0 && bytes < 2 ** 50) return bytes;
+    return value && value !== "max" && Number.isFinite(bytes) && bytes > 0 && bytes < 2 ** 50 ? bytes : null;
+  };
+  for (const [limitFile, usedFile] of [["/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.current"], ["/sys/fs/cgroup/memory/memory.limit_in_bytes", "/sys/fs/cgroup/memory/memory.usage_in_bytes"]] as const) {
+    const limit = await read(limitFile);
+    if (limit !== null) return { limit, used: (await read(usedFile)) ?? process.memoryUsage().rss };
   }
   return null;
 }
@@ -187,7 +209,9 @@ function llamaCppEngine(): ModelEngine {
     async load(file, options) {
       const { getLlama, LlamaChatSession, LlamaLogLevel } = await library();
       const llama = await getLlama({ gpu: false, build: "never", logLevel: LlamaLogLevel.error });
-      const model = await llama.loadModel({ modelPath: file, gpuLayers: 0 });
+      // Read the whole model into memory instead of mapping the file, so the system can't page it
+      // out while the bot is idle and the next answer never waits for it to come back from disk.
+      const model = await llama.loadModel({ modelPath: file, gpuLayers: 0, useMmap: false });
       const context = await model.createContext({ contextSize: options.contextSize, threads: options.threads, sequences: 1 });
       const sequence = context.getSequence();
       return {
@@ -214,5 +238,5 @@ function llamaCppEngine(): ModelEngine {
   };
 }
 
-export { LocalLanguageModel, cleanOutput, containerMemoryLimit };
+export { LocalLanguageModel, cleanOutput, containerMemory };
 export type { ChatTurn, LoadedModel, ModelEngine, ModelRequest, ModelState };
