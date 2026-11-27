@@ -2,6 +2,26 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [2.0.3] - 2026-11-27
+
+### Added
+
+- A homemade chatbot with its own memory and feelings. It runs entirely inside the bot with no outside AI or API key. Ping the bot, reply to one of its answers, or use `/chat ask` to talk to it; a ping always gets a reply. It answers server questions from the FAQ panel, explains which command does what, and looks up your level, the level and Solari leaderboards, the next Coriolis storm, the game server status and what's new in the latest release. It also does quick math, dice, coin flips and small talk, and says so when it doesn't know something.
+- The chatbot learns from chat. When a member answers someone's question in a public channel (with a reply, or within 3 minutes), it remembers the question and answer in PostgreSQL, so it keeps them after restarts. When someone later asks something it knows, it answers by itself after a 15-second head start for members, and stays quiet if anyone else answers first or it isn't confident. Learned answers link back to the original message. Deleting a message makes it forget what it learned from it, `/chat optout` stops it learning from you and forgets what it learned from you, and staff can review and remove what it learned with `/chat learned`, `/chat unlearn` and `/chat purge`. Staff can also teach it answers directly with `/chat teach`.
+- The chatbot has feelings. Kindness cheers it up, rudeness gets it down (it is hurt, never rude back, and keeps helping), and its mood settles back to calm over a few hours. It answers "how are you?" by how it feels, greets members it likes more warmly, and `/chat mood` shows its mood. Mood and rapport are saved, so they survive restarts.
+- The chatbot can look things up online. When it doesn't know an answer, or when you say "search for …", it checks the game wiki, DuckDuckGo instant answers (strict safe search) and Wikipedia, and replies with a short summary and a source link. These are free and need no key. It only sends a search phrase to those fixed sites, never opens links members post, refuses explicit or harmful searches, caches results and is limited to 20 lookups a minute. Settings: `CHATBOT_WEB`, `CHATBOT_WEB_WIKI_URL`, `CHATBOT_WEB_PER_MINUTE`, `CHATBOT_WEB_AUTO` (off, so unasked answers stay offline).
+- Chatbot settings: `CHATBOT_ACCESS` (everyone by default), `CHATBOT_CHANNEL_IDS`, `CHATBOT_LEARN`, `CHATBOT_LEARN_CHANNEL_IDS`, `CHATBOT_LEARN_LIMIT`, `CHATBOT_AUTO_REPLY`, `CHATBOT_AUTO_CHANNEL_IDS`, `CHATBOT_AUTO_CONFIDENCE`, `CHATBOT_AUTO_DELAY_SECONDS` and `CHATBOT_AUTO_COOLDOWN_SECONDS`. See `guides/chatbot.md`.
+
+### Fixed
+
+- An automatic update could stop with `Conflict: package-lock.json (modified locally since it was installed)`. npm rewrites that file by itself (for example during an egg reinstall), so it is not a change you made. The updater now always replaces `package-lock.json` and `npm-shrinkwrap.json` with the release's copy instead of stopping. Your own edited files are still protected as before.
+
+- Every console line now keeps the shared layout. A message longer than the console (120 columns inside Pterodactyl, which does not report its width) continues on indented lines under its own scope instead of wrapping under the timestamp, so the metrics line stays readable, and scopes longer than the 12-character column print a short name (`SHARD MANAGER` is now `SHARDS`). The plain `[updater] Update to 2.0.2 is healthy.` line came from the 2.0.1 update supervisor that installed 2.0.2; from 2.0.2 on, the supervisor prints in the shared style.
+
+### Upgrading
+
+- A server stuck on 2.0.1 with this conflict runs the 2.0.1 updater, which does not have this fix yet. Delete `package-lock.json` in the panel's File Manager and restart the server once; the update then installs the newest release and its lockfile.
+
 ## [2.0.2] - 2026-11-27
 
 ### Added

@@ -13,6 +13,7 @@
 | [Staff applications](staff-applications.md)              | Application panel and review flow                                         |
 | [Honeypot](honeypot.md)                                  | Spam-trap channels and their consequences                                 |
 | [Suggestion assistant](suggestions.md)                   | Suggestion forum tagging, status panel, summaries and feature linking     |
+| [Chatbot](chatbot.md)                                    | Homemade chatbot: what it knows, who can use it, teaching it answers      |
 | [Poker Activity](poker.md)                               | Launching the dashboard's Hold'em Activity                                |
 | [Convoy](convoy.md)                                      | Server resource graphs                                                    |
 | [Changelog synchronization](changelog-synchronization.md) | Release announcements from the dashboard's changelog API                 |

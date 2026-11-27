@@ -126,6 +126,10 @@ Every user-facing Discord panel shares one modern visual language: an indigo acc
 
 Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required) to let the bot manage a suggestions forum without any paid AI service: it tags new posts, replies to the suggester, lists similar posts, summarizes long discussions and adds a staff-only status panel (Planned, Working on it, Back burner, Not doing, Added) to each post. It also follows the GitHub repositories by itself and moves matching suggestions to Planned, In Progress and Implemented as issues, pull requests and releases appear, while staff buttons stay as overrides. `/suggestions feature start` and `/suggestions feature done` do the same by hand. See [the setup guide](suggestions.md).
 
+## Chatbot
+
+The bot has its own homemade chatbot with no outside AI. Ping the bot, reply to one of its answers or use `/chat ask`. It answers from the FAQ panel, the `/help` command list, live levels, the level and Solari leaderboards, the Coriolis storm schedule, game server status and the latest release notes, does quick math and dice, and says so when it doesn't know. It learns questions and answers from public chat, answers questions by itself when it is confident (after giving members a head start), looks unknown topics up online (game wiki, DuckDuckGo instant answers and Wikipedia, with a source link), and has a mood and per-member rapport that change with how it is treated. Learned answers, taught answers (`/chat teach`) and its mood are kept in PostgreSQL. Members can opt out with `/chat optout`, deleted messages are forgotten, and staff manage what it learned with `/chat learned`, `/chat unlearn` and `/chat purge`. See [the chatbot guide](chatbot.md).
+
 ## Honeypot moderation
 
 Optional automatic spam traps are available through `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, and `HONEYPOT_ACTION` (default `ban`). Leave the channel IDs empty to disable. The trap removes non-staff messages, applies the configured action, and logs outcomes. See [the setup guide](honeypot.md) for channel permissions, exemptions, and testing.

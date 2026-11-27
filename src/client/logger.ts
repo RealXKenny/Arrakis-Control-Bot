@@ -110,6 +110,24 @@ const SCOPE_COLORS: Record<string, string> = Object.freeze({
   default: COLORS.white,
 });
 
+/** Short console names for scopes wider than the 12-character column. Colours stay keyed by the full scope. */
+const SCOPE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  "SHARD MANAGER": "SHARDS",
+  "VERSION ANNOUNCEMENTS": "RELEASE NEWS",
+  "DISCORD ADAPTER": "DISCORD API",
+  "DISCORD AUDIT": "AUDIT",
+  "DISCORD AUDIT LOG": "AUDIT LOG",
+  "BLUEPRINT PANEL": "BLUEPRINTS",
+  "CORIOLIS STORM": "CORIOLIS",
+  "SEASON CLAIMS": "CLAIMS",
+  "MESSAGE ARCHIVE": "ARCHIVE",
+  "TICKET ARCHIVE": "TRANSCRIPTS",
+});
+const SCOPE_WIDTH = 12;
+/** Visible width of `date time  ● LEVEL SCOPE        │ `, where every message line starts. */
+const MESSAGE_COLUMN = 19 + 2 + 7 + 1 + SCOPE_WIDTH + 1 + 2;
+const MAX_WRAPPED_LINES = 6;
+
 const secretKeyPattern = /(password|token|secret|cookie|authorization|session|api[-_]?key|access[-_]?token|private[-_]?key|certificate|^ca$|^cert$|^key$|tls[-_]?(ca|cert|key))/i;
 const CLEAR_TERMINAL = "\u001B[2J\u001B[3J\u001B[H";
 const DEFAULT_PRODUCTION_COLUMNS = 120;
@@ -276,7 +294,7 @@ function terminalColumns(level: LogLevel): number | undefined {
   const fallback = process.stdout.columns ?? process.stderr.columns;
   const environment = Number(process.env.COLUMNS);
   return [primary, fallback, environment].find((value) => Number.isInteger(value) && Number(value) > 1)
-    ?? (process.env.NODE_ENV === "production" ? DEFAULT_PRODUCTION_COLUMNS : undefined);
+    ?? (process.env.NODE_ENV === "production" || process.env.P_SERVER_UUID?.trim() ? DEFAULT_PRODUCTION_COLUMNS : undefined);
 }
 
 /**
@@ -303,13 +321,42 @@ function shouldClearConsole(env: NodeJS.ProcessEnv = process.env, isTTY = Boolea
 type Painter = (color: string, text: string) => string;
 
 /** One console entry in the dashboard's layout: `date time  ● LEVEL SCOPE │ message · key = value`. */
-function formatConsoleEntry(scope: string, level: LogLevel, message: string, details: unknown, paint: Painter, at = new Date()): string {
+function formatConsoleEntry(scope: string, level: LogLevel, message: string, details: unknown, paint: Painter, at = new Date(), columns?: number): string {
   const scopeColor = SCOPE_COLORS[scope] ?? SCOPE_COLORS.default;
-  const output = `${paint(COLORS.dim, formatTimestamp(at))}  ${paint(LEVEL_COLORS[level], `${LEVEL_ICONS[level]} ${level.padEnd(5)}`)} ${paint(scopeColor, scope.padEnd(12))} ${paint(COLORS.dim, "│")} ${oneLine(printable(message)).slice(0, 500)}`;
+  const room = columns && Number.isInteger(columns) ? columns - 1 - MESSAGE_COLUMN : Infinity;
+  const [first = "", ...rest] = wrapMessage(oneLine(printable(message)).slice(0, 500), room);
+  const continuation = rest.map((chunk) => `${" ".repeat(MESSAGE_COLUMN - 2)}${paint(COLORS.dim, "│")} ${chunk}`);
+  const output = [`${paint(COLORS.dim, formatTimestamp(at))}  ${paint(LEVEL_COLORS[level], `${LEVEL_ICONS[level]} ${level.padEnd(5)}`)} ${paint(scopeColor, scopeLabel(scope).padEnd(SCOPE_WIDTH))} ${paint(COLORS.dim, "│")} ${first}`, ...continuation].join("\n");
   const rows = formatDetails(redact(details), paint);
   if (rows.length === 0) return output;
-  if (rows.length === 1 && visibleLength(rows[0]!) <= 100) return `${output} ${paint(COLORS.dim, "·")} ${rows[0]}`;
+  const last = rest.at(-1) ?? first;
+  if (rows.length === 1 && visibleLength(rows[0]!) <= Math.min(100, room - last.length - 3)) return `${output} ${paint(COLORS.dim, "·")} ${rows[0]}`;
   return `${output}\n${rows.map((row) => `    ${paint(COLORS.dim, "↳")} ${row}`).join("\n")}`;
+}
+
+/** The scope as printed: a short label for long scopes, never wider than the column. */
+function scopeLabel(scope: string): string {
+  return (SCOPE_LABELS[scope] ?? scope).slice(0, SCOPE_WIDTH);
+}
+
+/**
+ * Splits a long message into lines that fit beside the prefix, breaking after `|`, `·`, `,` or a space, so a
+ * narrow console shows the whole line under its own scope instead of wrapping into the next column.
+ */
+function wrapMessage(message: string, room: number): string[] {
+  if (!Number.isFinite(room) || room < 20 || message.length <= room) return [message];
+  const lines: string[] = [];
+  let rest = message;
+  while (rest.length > room && lines.length < MAX_WRAPPED_LINES - 1) {
+    const window = rest.slice(0, room + 1);
+    const breakAt = Math.max(window.lastIndexOf(" | "), window.lastIndexOf(" · "));
+    const cut = breakAt > room / 3 ? breakAt : Math.max(window.lastIndexOf(", ") + 1, window.lastIndexOf(" "));
+    const end = cut > room / 3 ? cut : room;
+    lines.push(rest.slice(0, end).trimEnd());
+    rest = rest.slice(end).replace(/^\s*[|·]?\s*/u, "");
+  }
+  lines.push(rest.length > room ? `${rest.slice(0, room - 1)}…` : rest);
+  return lines;
 }
 
 interface Logger {
@@ -335,8 +382,8 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
       return;
     }
 
-    const output = formatConsoleEntry(scope, level, message, details, paint);
     const columns = terminalColumns(level);
+    const output = formatConsoleEntry(scope, level, message, details, paint, new Date(), columns);
     // Dev note: The terminal may be narrow, but the log line has taken a solemn vow not to wander.
     const fittedOutput = output.split("\n").map((line) => fitConsoleLine(line, columns)).join("\n");
 
@@ -519,6 +566,6 @@ function formatTimestamp(date: Date): string {
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
 }
 
-export { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, formatConsoleEntry, scopedLogger, shouldClearConsole, shouldUseColor };
+export { compactSapphireMessage, scopeLabel, wrapMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, formatConsoleEntry, scopedLogger, shouldClearConsole, shouldUseColor };
 
 export type { Logger };

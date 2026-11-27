@@ -7,6 +7,7 @@ import { loadMusicConfig, type MusicConfig } from "./music";
 import { loadLevelRoleConfig, type LevelRoleConfig } from "./leveling";
 import { loadStaffApplicationConfig, type StaffApplicationConfig } from "./staffApplications";
 import { loadSuggestionConfig, type SuggestionConfig } from "./suggestions";
+import { loadChatbotConfig, type ChatbotConfig } from "./chatbot";
 import { DashboardChangelogClient } from "../http/dashboard/DashboardChangelogClient";
 
 dotenv.config({
@@ -25,6 +26,7 @@ interface EnvironmentConfig {
   levelRoles: Readonly<LevelRoleConfig>;
   staffApplications?: StaffApplicationConfig;
   suggestions?: SuggestionConfig;
+  chatbot?: ChatbotConfig;
   /** Read-only token for the suggestion autopilot. Never logged. */
   suggestionsGitHubToken?: string;
   discordToken: string;
@@ -214,6 +216,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     levelRoles: loadLevelRoleConfig(process.env),
     staffApplications,
     suggestions,
+    chatbot: loadChatbotConfig(process.env),
     suggestionsGitHubToken: process.env.SUGGESTIONS_GITHUB_TOKEN?.trim() || undefined,
     discordToken,
     clientId: process.env.CLIENT_ID,

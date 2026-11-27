@@ -43,6 +43,10 @@ import { SuggestionRepository } from "../infrastructure/database/suggestions/Sug
 import { SuggestionService } from "../modules/community/suggestions/SuggestionService";
 import { SuggestionAutopilot } from "../modules/community/suggestions/SuggestionAutopilot";
 import { GitHubActivityClient } from "../infrastructure/http/github/GitHubActivityClient";
+import type { ChatbotConfig } from "../infrastructure/config/chatbot";
+import { ChatbotRepository } from "../infrastructure/database/chatbot/ChatbotRepository";
+import { ChatbotService } from "../modules/community/chatbot/ChatbotService";
+import { WebLookupClient } from "../infrastructure/http/web/WebLookupClient";
 
 type BotClient = ArrakisClient;
 
@@ -57,6 +61,7 @@ interface BotConfig {
   staffApplications?: StaffApplicationConfig;
   suggestions?: SuggestionConfig;
   suggestionsGitHubToken?: string;
+  chatbot?: ChatbotConfig;
   logLevel?: string;
   duneConsoleApiKey: string;
   duneConsoleTimeoutMs?: number;
@@ -131,7 +136,7 @@ function createBotApplication(config: BotConfig) {
   systemLogger.info("[01] Loading commands, events and integrations.");
 
   configLogger.info(
-    `Links:${client.discordAdapter ? "on" : "off"} | Chat:${client.chatBridge ? "on" : "off"} | Voice:${client.voiceRooms ? "on" : "off"} | Music:${client.music ? "on" : "off"} | Levels:${client.leveling ? "on" : "off"} | Suggestions:${client.suggestions ? "on" : "off"} | Archive:${client.messageArchive ? "on" : "off"} | Honeypot:${client.honeypot ? client.honeypot.config.action : "off"}`,
+    `Links:${client.discordAdapter ? "on" : "off"} | Chat:${client.chatBridge ? "on" : "off"} | Voice:${client.voiceRooms ? "on" : "off"} | Music:${client.music ? "on" : "off"} | Levels:${client.leveling ? "on" : "off"} | Suggestions:${client.suggestions ? "on" : "off"} | Chatbot:${client.chatbot ? client.chatbot.config.access : "off"} | Archive:${client.messageArchive ? "on" : "off"} | Honeypot:${client.honeypot ? client.honeypot.config.action : "off"}`,
   );
   configLogger.info(client.honeypot ? `Honeypot enabled: action=${client.honeypot.config.action}, channel=${client.honeypot.config.channelId}.` : "Honeypot disabled: configure HONEYPOT_CHANNEL_ID and HONEYPOT_LOG_CHANNEL_ID to enable the panel.");
 
@@ -152,6 +157,7 @@ function createBotApplication(config: BotConfig) {
       await client.leveling?.initialize();
       await client.staffApplications?.initialize();
       await client.suggestions?.initialize();
+      await client.chatbot?.initialize();
       await client.messageArchive?.initialize();
     }, {
       shouldStop: () => isShuttingDown,
@@ -191,6 +197,7 @@ function createBotApplication(config: BotConfig) {
     const stopMusic = client.music?.stop() ?? Promise.resolve();
     client.leveling?.stop();
     client.suggestions?.stop();
+    client.chatbot?.stop();
     await cleanupResources(
       [
         { name: "RabbitMQ chat bridge", run: () => client.chatBridge?.stop() },
@@ -307,6 +314,16 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
       threshold: config.suggestions.autopilotThreshold,
     }, suggestionLog));
   }
+  const chatbotLogger = createLogger("CHATBOT", config.logLevel);
+  client.chatbot = config.chatbot ? new ChatbotService(client, config.chatbot, client.tickets ? new ChatbotRepository(client.tickets.pool) : undefined, {
+    info: (message: string) => chatbotLogger.info(message),
+    warn: (message: string) => chatbotLogger.warn(message),
+    error: (message: string, error?: unknown) => chatbotLogger.error(message, error),
+  }, Date.now, config.chatbot.web ? new WebLookupClient({
+    wikiUrl: config.chatbot.webWikiUrl,
+    perMinute: config.chatbot.webPerMinute,
+    userAgent: `ArrakisControlBot/${getBotVersion()} (Discord community bot)`,
+  }) : undefined) : undefined;
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music =
     config.music && client.tickets

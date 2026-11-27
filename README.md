@@ -38,6 +38,7 @@ Built on Sapphire Framework 5 and discord.js 14, with PostgreSQL for persistent 
 | Set up the honeypot, Poker Activity or Convoy      | [Honeypot](guides/honeypot.md) · [Poker](guides/poker.md) · [Convoy](guides/convoy.md) |
 | Post release notes to Discord                      | [Changelog synchronization](guides/changelog-synchronization.md)               |
 | Manage a suggestions forum                         | [Suggestion assistant](guides/suggestions.md)                                  |
+| Talk to the bot and teach it answers               | [Chatbot](guides/chatbot.md)                                                   |
 | Review security and scale                          | [Security audit](guides/security-audit.md) · [Single-guild scale plan](guides/single-guild-scale-plan.md) |
 
 All guides are listed in [guides/README.md](guides/README.md).
@@ -72,6 +73,10 @@ All guides are listed in [guides/README.md](guides/README.md).
   long discussions and gives staff a status panel (Planned, Working on it, Back burner, Not doing, Added) in every post.
   It follows the GitHub repositories by itself and moves suggestions forward as work is planned, built and released.
   Runs locally with no paid AI service.
+- **Homemade chatbot:** ping the bot, reply to it or use `/chat ask`. It answers from the FAQ, the command list, live
+  levels, leaderboards, storms and server status, what staff teach it, and what it learns from members answering each
+  other. It answers questions in chat by itself when confident, looks things up online (game wiki, DuckDuckGo, Wikipedia)
+  when it doesn't know, and has a mood that remembers how people treat it. No outside AI.
 
 ### Moderation and records
 

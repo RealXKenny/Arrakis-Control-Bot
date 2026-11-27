@@ -1357,6 +1357,176 @@
       "user_editable": true,
       "rules": "nullable|string",
       "field_type": "text"
+    },
+    {
+      "name": "Chatbot Enabled",
+      "description": "Optional bot setting (CHATBOT_ENABLED). See .env.example in the repository.",
+      "env_variable": "CHATBOT_ENABLED",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Access",
+      "description": "Optional bot setting (CHATBOT_ACCESS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_ACCESS",
+      "default_value": "everyone",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Role Ids",
+      "description": "Optional bot setting (CHATBOT_ROLE_IDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_ROLE_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Channel Ids",
+      "description": "Optional bot setting (CHATBOT_CHANNEL_IDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_CHANNEL_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Cooldown Seconds",
+      "description": "Optional bot setting (CHATBOT_COOLDOWN_SECONDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_COOLDOWN_SECONDS",
+      "default_value": "3",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Learn",
+      "description": "Optional bot setting (CHATBOT_LEARN). See .env.example in the repository.",
+      "env_variable": "CHATBOT_LEARN",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Learn Channel Ids",
+      "description": "Optional bot setting (CHATBOT_LEARN_CHANNEL_IDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_LEARN_CHANNEL_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Learn Limit",
+      "description": "Optional bot setting (CHATBOT_LEARN_LIMIT). See .env.example in the repository.",
+      "env_variable": "CHATBOT_LEARN_LIMIT",
+      "default_value": "5000",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Auto Reply",
+      "description": "Optional bot setting (CHATBOT_AUTO_REPLY). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AUTO_REPLY",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Auto Channel Ids",
+      "description": "Optional bot setting (CHATBOT_AUTO_CHANNEL_IDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AUTO_CHANNEL_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Auto Confidence",
+      "description": "Optional bot setting (CHATBOT_AUTO_CONFIDENCE). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AUTO_CONFIDENCE",
+      "default_value": "0.5",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Auto Delay Seconds",
+      "description": "Optional bot setting (CHATBOT_AUTO_DELAY_SECONDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AUTO_DELAY_SECONDS",
+      "default_value": "15",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Auto Cooldown Seconds",
+      "description": "Optional bot setting (CHATBOT_AUTO_COOLDOWN_SECONDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_AUTO_COOLDOWN_SECONDS",
+      "default_value": "60",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web",
+      "description": "Optional bot setting (CHATBOT_WEB). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web Wiki Url",
+      "description": "Optional bot setting (CHATBOT_WEB_WIKI_URL). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB_WIKI_URL",
+      "default_value": "https://dune.fandom.com",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web Per Minute",
+      "description": "Optional bot setting (CHATBOT_WEB_PER_MINUTE). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB_PER_MINUTE",
+      "default_value": "20",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Web Auto",
+      "description": "Optional bot setting (CHATBOT_WEB_AUTO). See .env.example in the repository.",
+      "env_variable": "CHATBOT_WEB_AUTO",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
     }
   ]
 }
