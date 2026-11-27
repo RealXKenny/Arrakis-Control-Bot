@@ -15,9 +15,20 @@ interface SuggestionConfig {
   autoSummaryMessages: number;
   /** Most older posts read from Discord into the index at startup. */
   backfillLimit: number;
+  /** Post the assistant panel and missing tags under older posts once, without pinging anyone. */
+  catchUp: boolean;
+  /** Read the GitHub repositories and move statuses without staff input. */
+  autopilot: boolean;
+  /** `owner/name` repositories the autopilot reads. */
+  githubRepos: readonly string[];
+  githubIntervalMinutes: number;
+  /** Cosine similarity from 0 to 1 a GitHub item needs before it moves a suggestion. */
+  autopilotThreshold: number;
 }
 
 const DISCORD_ID = /^\d{17,20}$/;
+const GITHUB_REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
+const DEFAULT_GITHUB_REPOS = ["RealXKenny/Arrakis-Control-Bot", "RealXKenny/Arrakis-Control-Dashboard"];
 
 function loadSuggestionConfig(env: NodeJS.ProcessEnv): SuggestionConfig | undefined {
   const forumChannelId = env.SUGGESTIONS_FORUM_CHANNEL_ID?.trim();
@@ -36,7 +47,22 @@ function loadSuggestionConfig(env: NodeJS.ProcessEnv): SuggestionConfig | undefi
     duplicateThreshold: parseRange(env.SUGGESTIONS_DUPLICATE_THRESHOLD, 0.35, 0.1, 0.95, "SUGGESTIONS_DUPLICATE_THRESHOLD"),
     autoSummaryMessages: parseInteger(env.SUGGESTIONS_AUTO_SUMMARY_MESSAGES, 50, 0, 1_000, "SUGGESTIONS_AUTO_SUMMARY_MESSAGES"),
     backfillLimit: parseInteger(env.SUGGESTIONS_BACKFILL_LIMIT, 500, 0, 5_000, "SUGGESTIONS_BACKFILL_LIMIT"),
+    catchUp: parseFlag(env.SUGGESTIONS_CATCHUP, true, "SUGGESTIONS_CATCHUP"),
+    autopilot: parseFlag(env.SUGGESTIONS_AUTOPILOT, true, "SUGGESTIONS_AUTOPILOT"),
+    githubRepos: Object.freeze(parseRepositories(env.SUGGESTIONS_GITHUB_REPOS)),
+    githubIntervalMinutes: parseInteger(env.SUGGESTIONS_GITHUB_INTERVAL_MINUTES, 15, 5, 1_440, "SUGGESTIONS_GITHUB_INTERVAL_MINUTES"),
+    autopilotThreshold: parseRange(env.SUGGESTIONS_AUTOPILOT_THRESHOLD, 0.3, 0.1, 0.95, "SUGGESTIONS_AUTOPILOT_THRESHOLD"),
   });
+}
+
+function parseRepositories(value: string | undefined): string[] {
+  const trimmed = value?.trim();
+  if (!trimmed) return [...DEFAULT_GITHUB_REPOS];
+  const repositories = [...new Set(trimmed.split(",").map((entry) => entry.trim()).filter(Boolean))];
+  if (repositories.length > 10 || repositories.some((entry) => !GITHUB_REPOSITORY.test(entry) || entry.includes(".."))) {
+    throw new Error("SUGGESTIONS_GITHUB_REPOS must be up to 10 comma-separated owner/name repositories.");
+  }
+  return repositories;
 }
 
 function parseFlag(value: string | undefined, fallback: boolean, name: string): boolean {

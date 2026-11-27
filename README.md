@@ -70,6 +70,7 @@ All guides are listed in [guides/README.md](guides/README.md).
 - **Release announcements** for the bot and the dashboard, bot first, from the dashboard's changelog API.
 - **Suggestion forum assistant:** tags new suggestions, replies to the suggester, finds similar posts, summarizes
   long discussions and gives staff a status panel (Planned, Working on it, Back burner, Not doing, Added) in every post.
+  It follows the GitHub repositories by itself and moves suggestions forward as work is planned, built and released.
   Runs locally with no paid AI service.
 
 ### Moderation and records

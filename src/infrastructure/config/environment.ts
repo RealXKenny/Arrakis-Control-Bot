@@ -25,6 +25,8 @@ interface EnvironmentConfig {
   levelRoles: Readonly<LevelRoleConfig>;
   staffApplications?: StaffApplicationConfig;
   suggestions?: SuggestionConfig;
+  /** Read-only token for the suggestion autopilot. Never logged. */
+  suggestionsGitHubToken?: string;
   discordToken: string;
   clientId?: string;
   guildId?: string;
@@ -212,6 +214,7 @@ function loadEnvironment(requiredKeys: readonly string[] = []): Readonly<Environ
     levelRoles: loadLevelRoleConfig(process.env),
     staffApplications,
     suggestions,
+    suggestionsGitHubToken: process.env.SUGGESTIONS_GITHUB_TOKEN?.trim() || undefined,
     discordToken,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,

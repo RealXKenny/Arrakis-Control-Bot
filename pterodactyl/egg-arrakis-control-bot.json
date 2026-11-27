@@ -22,7 +22,7 @@
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/bash\nset -euo pipefail\n\n# Reinstalling over an existing installation must never overwrite, reset or re-permission the operator's files\n# (.env, certificates, custom folders). Existing installs are updated by the automatic updater at startup, which checks\n# every file for local changes first. To start over, empty the server's files deliberately first.\nif [ -e /mnt/server/package.json ]; then\n  echo \"An existing installation was found in /home/container. Nothing was changed: the automatic updater installs new releases at startup without touching custom files.\"\n  exit 0\nfi\n\napt-get update\napt-get install --yes --no-install-recommends ca-certificates curl jq tar coreutils findutils python3 make g++ pkg-config libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev\nrm -rf /var/lib/apt/lists/*\n\nwork_dir=$(mktemp -d)\ntrap 'rm -rf \"$work_dir\"' EXIT\nrelease_file=\"$work_dir/release.json\"\narchive_file=\"$work_dir/source.tar.gz\"\napi='https://api.github.com/repos/RealXKenny/Arrakis-Control-Bot/releases'\n\n# RELEASE_TAG pins an exact version (for example v2.1.0). Empty or \"latest\" installs the newest release.\ntag=\"${RELEASE_TAG:-latest}\"\n# Matched as one whole string: a multi-line value cannot slip a valid first line past a line-based grep.\ntag_pattern='^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$'\nif [ \"$tag\" = \"latest\" ] || [ -z \"$tag\" ]; then\n  release_url=\"$api/latest\"\nelif [[ \"$tag\" =~ $tag_pattern ]]; then\n  release_url=\"$api/tags/$tag\"\nelse\n  echo \"RELEASE_TAG must be latest or a version such as v2.1.0.\" >&2\n  exit 1\nfi\n\ncurl --fail --silent --show-error --location --retry 3 --header 'Accept: application/vnd.github+json' --header 'X-GitHub-Api-Version: 2022-11-28' \"$release_url\" --output \"$release_file\"\n\n# Releases publish a source archive and its SHA-256 as assets. The archive is verified before anything in it runs.\nrelease_tag=$(jq --exit-status --raw-output 'select(.draft == false and .prerelease == false) | .tag_name' \"$release_file\")\n[[ \"$release_tag\" =~ $tag_pattern ]] || { echo \"Invalid release tag.\" >&2; exit 1; }\nif [ \"$tag\" != \"latest\" ] && [ -n \"$tag\" ] && [ \"$tag\" != \"$release_tag\" ]; then\n  echo \"Release tag did not match the requested version.\" >&2\n  exit 1\nfi\nversion=\"${release_tag#v}\"\nasset_name=\"arrakis-control-bot-$version.tar.gz\"\nasset_count=$(jq --raw-output --arg name \"$asset_name\" '[.assets[]? | select(.name == $name)] | length' \"$release_file\")\nsum_count=$(jq --raw-output --arg name \"$asset_name.sha256\" '[.assets[]? | select(.name == $name)] | length' \"$release_file\")\nif [ \"$asset_count\" -gt 1 ] || [ \"$sum_count\" -gt 1 ]; then\n  echo \"The release contains duplicate archive assets.\" >&2\n  exit 1\nfi\nasset_url=$(jq --raw-output --arg name \"$asset_name\" '[.assets[]? | select(.name == $name) | .browser_download_url] | if length == 1 then .[0] else empty end' \"$release_file\")\nsum_url=$(jq --raw-output --arg name \"$asset_name.sha256\" '[.assets[]? | select(.name == $name) | .browser_download_url] | if length == 1 then .[0] else empty end' \"$release_file\")\n\nif [ -n \"$asset_url\" ] && [ -n \"$sum_url\" ]; then\n  [ \"$asset_url\" = \"https://github.com/RealXKenny/Arrakis-Control-Bot/releases/download/$release_tag/$asset_name\" ] || exit 1\n  [ \"$sum_url\" = \"$asset_url.sha256\" ] || exit 1\n  curl --fail --silent --show-error --location --retry 3 \"$asset_url\" --output \"$archive_file\"\n  curl --fail --silent --show-error --location --retry 3 \"$sum_url\" --output \"$work_dir/source.sha256\"\n  expected=$(awk '{print $1}' \"$work_dir/source.sha256\" | head -n 1)\n  printf '%s' \"$expected\" | grep -Eq '^[0-9a-f]{64}$'\n  echo \"$expected  $archive_file\" | sha256sum --check --status\n  echo \"Source archive checksum verified.\"\nelif [ -z \"$asset_url\" ] && [ -z \"$sum_url\" ] && [ \"${ALLOW_UNVERIFIED_RELEASE:-false}\" = \"true\" ]; then\n  # Releases created before checksums were published install only when the operator explicitly accepts that.\n  echo \"WARNING: ALLOW_UNVERIFIED_RELEASE is true; installing the unverified GitHub source tarball.\" >&2\n  download_url=$(jq --exit-status --raw-output '.tarball_url // empty' \"$release_file\")\n  [ \"$download_url\" = \"https://api.github.com/repos/RealXKenny/Arrakis-Control-Bot/tarball/$release_tag\" ] || exit 1\n  curl --fail --silent --show-error --location --retry 3 \"$download_url\" --output \"$archive_file\"\nelse\n  # Fail closed: a release without a complete archive and checksum pair is not installed.\n  echo \"This release has no complete published checksum, so it cannot be verified. Install a newer release, or set ALLOW_UNVERIFIED_RELEASE=true to accept an unverified older one.\" >&2\n  exit 1\nfi\n\n# Inspect the archive before anything is written: plain files and directories only (the project tracks no links),\n# and no absolute or parent-directory paths. Here-strings avoid pipelines, so pipefail cannot hide a match.\nmember_types=$(tar -tvzf \"$archive_file\" | cut -c1)\nmember_names=$(tar -tzf \"$archive_file\")\nif grep -Eq '^[^-d]' <<< \"$member_types\"; then\n  echo \"The release archive contains links or special files, which a release never needs; refusing to extract it.\" >&2\n  exit 1\nfi\nif grep -Eq '(^/|(^|/)\\.\\.(/|$))' <<< \"$member_names\"; then\n  echo \"The release archive contains absolute or parent-directory paths; refusing to extract it.\" >&2\n  exit 1\nfi\n\nmkdir -p /mnt/server\n# Refuse existing symbolic links that could redirect extraction outside the install directory.\nbad_link=$(find /mnt/server -type l -exec sh -c 'for link; do target=$(readlink -f \"$link\"); case \"$target\" in /mnt/server|/mnt/server/*) ;; *) echo \"$link\" ;; esac; done' sh {} + | head -n 1)\nif [ -n \"$bad_link\" ]; then\n  echo \"The installation directory contains a symbolic link that points outside it.\" >&2\n  exit 1\nfi\ntar -xzf \"$archive_file\" --strip-components=1 --no-same-owner --no-same-permissions -C /mnt/server\ncd /mnt/server\n# Canvas requires its native install step; run package scripts only as the unprivileged node user.\nchown -R 1000:1000 /mnt/server\nsu -s /bin/bash node -c 'cd /mnt/server && npm ci --no-audit --no-fund && npm run build && npm prune --omit=dev --no-audit --no-fund && node -e \"require(process.argv[1])\" canvas'\n",
+      "script": "#!/bin/bash\nset -euo pipefail\n\n# Reinstalling over an existing installation must never overwrite, reset or re-permission the operator's files\n# (.env, certificates, custom folders). Existing installs are updated by the automatic updater at startup, which checks\n# every file for local changes first. To start over, empty the server's files deliberately first.\nupdater_dir='scripts/updater'\nbootstrap=false\nif [ -e /mnt/server/package.json ]; then\n  if [ -e \"/mnt/server/$updater_dir/supervisor.mjs\" ]; then\n    echo \"An existing installation was found in /home/container. Nothing was changed: the automatic updater installs new releases at startup without touching custom files.\"\n    exit 0\n  fi\n  # An install from before automatic updates (2.0.0) has no updater to move it forward. Add only the updater files and\n  # its settings; every existing file stays as it is, and the updater upgrades the rest at the next start.\n  bootstrap=true\n  echo \"An installation from before automatic updates was found. Adding the automatic updater only; no existing file is changed.\"\nfi\n\napt-get update\napt-get install --yes --no-install-recommends ca-certificates curl jq tar coreutils findutils python3 make g++ pkg-config libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev\nrm -rf /var/lib/apt/lists/*\n\nwork_dir=$(mktemp -d)\ntrap 'rm -rf \"$work_dir\"' EXIT\nrelease_file=\"$work_dir/release.json\"\narchive_file=\"$work_dir/source.tar.gz\"\napi='https://api.github.com/repos/RealXKenny/Arrakis-Control-Bot/releases'\n\n# RELEASE_TAG pins an exact version (for example v2.1.0). Empty or \"latest\" installs the newest release.\ntag=\"${RELEASE_TAG:-latest}\"\n# Matched as one whole string: a multi-line value cannot slip a valid first line past a line-based grep.\ntag_pattern='^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$'\nif [ \"$tag\" = \"latest\" ] || [ -z \"$tag\" ]; then\n  release_url=\"$api/latest\"\nelif [[ \"$tag\" =~ $tag_pattern ]]; then\n  release_url=\"$api/tags/$tag\"\nelse\n  echo \"RELEASE_TAG must be latest or a version such as v2.1.0.\" >&2\n  exit 1\nfi\n\ncurl --fail --silent --show-error --location --retry 3 --header 'Accept: application/vnd.github+json' --header 'X-GitHub-Api-Version: 2022-11-28' \"$release_url\" --output \"$release_file\"\n\n# Releases publish a source archive and its SHA-256 as assets. The archive is verified before anything in it runs.\nrelease_tag=$(jq --exit-status --raw-output 'select(.draft == false and .prerelease == false) | .tag_name' \"$release_file\")\n[[ \"$release_tag\" =~ $tag_pattern ]] || { echo \"Invalid release tag.\" >&2; exit 1; }\nif [ \"$tag\" != \"latest\" ] && [ -n \"$tag\" ] && [ \"$tag\" != \"$release_tag\" ]; then\n  echo \"Release tag did not match the requested version.\" >&2\n  exit 1\nfi\nversion=\"${release_tag#v}\"\nasset_name=\"arrakis-control-bot-$version.tar.gz\"\nasset_count=$(jq --raw-output --arg name \"$asset_name\" '[.assets[]? | select(.name == $name)] | length' \"$release_file\")\nsum_count=$(jq --raw-output --arg name \"$asset_name.sha256\" '[.assets[]? | select(.name == $name)] | length' \"$release_file\")\nif [ \"$asset_count\" -gt 1 ] || [ \"$sum_count\" -gt 1 ]; then\n  echo \"The release contains duplicate archive assets.\" >&2\n  exit 1\nfi\nasset_url=$(jq --raw-output --arg name \"$asset_name\" '[.assets[]? | select(.name == $name) | .browser_download_url] | if length == 1 then .[0] else empty end' \"$release_file\")\nsum_url=$(jq --raw-output --arg name \"$asset_name.sha256\" '[.assets[]? | select(.name == $name) | .browser_download_url] | if length == 1 then .[0] else empty end' \"$release_file\")\n\nif [ -n \"$asset_url\" ] && [ -n \"$sum_url\" ]; then\n  [ \"$asset_url\" = \"https://github.com/RealXKenny/Arrakis-Control-Bot/releases/download/$release_tag/$asset_name\" ] || exit 1\n  [ \"$sum_url\" = \"$asset_url.sha256\" ] || exit 1\n  curl --fail --silent --show-error --location --retry 3 \"$asset_url\" --output \"$archive_file\"\n  curl --fail --silent --show-error --location --retry 3 \"$sum_url\" --output \"$work_dir/source.sha256\"\n  expected=$(awk '{print $1}' \"$work_dir/source.sha256\" | head -n 1)\n  printf '%s' \"$expected\" | grep -Eq '^[0-9a-f]{64}$'\n  echo \"$expected  $archive_file\" | sha256sum --check --status\n  echo \"Source archive checksum verified.\"\nelif [ -z \"$asset_url\" ] && [ -z \"$sum_url\" ] && [ \"${ALLOW_UNVERIFIED_RELEASE:-false}\" = \"true\" ]; then\n  # Releases created before checksums were published install only when the operator explicitly accepts that.\n  echo \"WARNING: ALLOW_UNVERIFIED_RELEASE is true; installing the unverified GitHub source tarball.\" >&2\n  download_url=$(jq --exit-status --raw-output '.tarball_url // empty' \"$release_file\")\n  [ \"$download_url\" = \"https://api.github.com/repos/RealXKenny/Arrakis-Control-Bot/tarball/$release_tag\" ] || exit 1\n  curl --fail --silent --show-error --location --retry 3 \"$download_url\" --output \"$archive_file\"\nelse\n  # Fail closed: a release without a complete archive and checksum pair is not installed.\n  echo \"This release has no complete published checksum, so it cannot be verified. Install a newer release, or set ALLOW_UNVERIFIED_RELEASE=true to accept an unverified older one.\" >&2\n  exit 1\nfi\n\n# Inspect the archive before anything is written: plain files and directories only (the project tracks no links),\n# and no absolute or parent-directory paths. Here-strings avoid pipelines, so pipefail cannot hide a match.\nmember_types=$(tar -tvzf \"$archive_file\" | cut -c1)\nmember_names=$(tar -tzf \"$archive_file\")\nif grep -Eq '^[^-d]' <<< \"$member_types\"; then\n  echo \"The release archive contains links or special files, which a release never needs; refusing to extract it.\" >&2\n  exit 1\nfi\nif grep -Eq '(^/|(^|/)\\.\\.(/|$))' <<< \"$member_names\"; then\n  echo \"The release archive contains absolute or parent-directory paths; refusing to extract it.\" >&2\n  exit 1\nfi\n\nif [ \"$bootstrap\" = true ]; then\n  release_dir=\"$work_dir/release\"\n  mkdir -p \"$release_dir\"\n  tar -xzf \"$archive_file\" --strip-components=1 --no-same-owner --no-same-permissions -C \"$release_dir\"\n  if ! jq --exit-status '.arrakisRelease | objects' \"$release_dir/package.json\" > \"$work_dir/release-config.json\" || [ ! -f \"$release_dir/$updater_dir/supervisor.mjs\" ]; then\n    echo \"This release does not include the automatic updater, so it cannot be added. Nothing was changed.\" >&2\n    exit 1\n  fi\n  # Nothing is written through a symbolic link: each target must resolve to itself inside the install directory.\n  for dir in \"$updater_dir\" .arrakis; do\n    if [ \"$(readlink -m \"/mnt/server/$dir\")\" != \"$(readlink -m /mnt/server)/$dir\" ]; then\n      echo \"/home/container/$dir leads through a symbolic link; refusing to add the updater. Nothing was changed.\" >&2\n      exit 1\n    fi\n  done\n  mkdir -p \"/mnt/server/$updater_dir\" /mnt/server/.arrakis\n  chown 1000:1000 \"/mnt/server/$updater_dir\" /mnt/server/.arrakis\n  added='{}'\n  for source in \"$release_dir/$updater_dir\"/*; do\n    [ -f \"$source\" ] || continue\n    name=\"$updater_dir/$(basename \"$source\")\"\n    # Never replace a file that is already there.\n    if [ -e \"/mnt/server/$name\" ] || [ -L \"/mnt/server/$name\" ]; then continue; fi\n    cp \"$source\" \"/mnt/server/$name\"\n    chown 1000:1000 \"/mnt/server/$name\"\n    added=$(jq --arg name \"$name\" --arg hash \"$(sha256sum \"/mnt/server/$name\" | awk '{print $1}')\" '. + {($name): $hash}' <<< \"$added\")\n  done\n  if [ ! -e /mnt/server/.arrakis/bootstrap.json ] && [ ! -L /mnt/server/.arrakis/bootstrap.json ]; then\n    jq --null-input --slurpfile release \"$work_dir/release-config.json\" --argjson files \"$added\" '{release: $release[0], files: $files}' > /mnt/server/.arrakis/bootstrap.json\n    chown 1000:1000 /mnt/server/.arrakis/bootstrap.json\n  fi\n  echo \"Automatic updater added. Set the startup command to: cd /home/container && exec node $updater_dir/supervisor.mjs (Admin > Servers > Startup), then start the server. It installs the newest release at startup and keeps .env, certificates and your own files.\"\n  exit 0\nfi\n\nmkdir -p /mnt/server\n# Refuse existing symbolic links that could redirect extraction outside the install directory.\nbad_link=$(find /mnt/server -type l -exec sh -c 'for link; do target=$(readlink -f \"$link\"); case \"$target\" in /mnt/server|/mnt/server/*) ;; *) echo \"$link\" ;; esac; done' sh {} + | head -n 1)\nif [ -n \"$bad_link\" ]; then\n  echo \"The installation directory contains a symbolic link that points outside it.\" >&2\n  exit 1\nfi\ntar -xzf \"$archive_file\" --strip-components=1 --no-same-owner --no-same-permissions -C /mnt/server\ncd /mnt/server\n# Canvas requires its native install step; run package scripts only as the unprivileged node user.\nchown -R 1000:1000 /mnt/server\nsu -s /bin/bash node -c 'cd /mnt/server && npm ci --no-audit --no-fund && npm run build && npm prune --omit=dev --no-audit --no-fund && node -e \"require(process.argv[1])\" canvas'\n",
       "container": "node:24-bookworm",
       "entrypoint": "bash"
     }
@@ -839,6 +839,16 @@
       "field_type": "text"
     },
     {
+      "name": "Log Color",
+      "description": "Console colours: auto (terminal or Pterodactyl), always or never.",
+      "env_variable": "LOG_COLOR",
+      "default_value": "auto",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:auto,always,never",
+      "field_type": "text"
+    },
+    {
       "name": "Dashboard HTTPS Origin",
       "description": "HTTPS dashboard origin for Bot/Dashboard release announcements.",
       "env_variable": "DASHBOARD_URL",
@@ -1189,6 +1199,26 @@
       "field_type": "text"
     },
     {
+      "name": "Auto Update Signal Url",
+      "description": "Optional dashboard release signal (https://your-dashboard/api/v2/updates/signal). With it, a new release installs within seconds of being published instead of at the next scheduled check.",
+      "env_variable": "AUTO_UPDATE_SIGNAL_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:512|regex:/^https:\\/\\//",
+      "field_type": "text"
+    },
+    {
+      "name": "Auto Update Signal Seconds",
+      "description": "Seconds between release-signal checks (10-3600).",
+      "env_variable": "AUTO_UPDATE_SIGNAL_SECONDS",
+      "default_value": "30",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:10|max:3600",
+      "field_type": "text"
+    },
+    {
       "name": "Suggestions Forum Channel ID",
       "description": "Optional bot setting (SUGGESTIONS_FORUM_CHANNEL_ID). See .env.example in the repository.",
       "env_variable": "SUGGESTIONS_FORUM_CHANNEL_ID",
@@ -1263,6 +1293,66 @@
       "description": "Optional bot setting (SUGGESTIONS_BACKFILL_LIMIT). See .env.example in the repository.",
       "env_variable": "SUGGESTIONS_BACKFILL_LIMIT",
       "default_value": "500",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Catchup",
+      "description": "Optional bot setting (SUGGESTIONS_CATCHUP). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_CATCHUP",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Autopilot",
+      "description": "Follow the GitHub repositories and move suggestion statuses automatically.",
+      "env_variable": "SUGGESTIONS_AUTOPILOT",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Github Repos",
+      "description": "Comma-separated owner/name repositories the suggestion autopilot reads.",
+      "env_variable": "SUGGESTIONS_GITHUB_REPOS",
+      "default_value": "RealXKenny/Arrakis-Control-Bot,RealXKenny/Arrakis-Control-Dashboard",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Github Token",
+      "description": "Optional read-only GitHub token for the suggestion autopilot. Never needs write access.",
+      "env_variable": "SUGGESTIONS_GITHUB_TOKEN",
+      "default_value": "",
+      "user_viewable": false,
+      "user_editable": false,
+      "rules": "nullable|string|max:255",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Github Interval Minutes",
+      "description": "Optional bot setting (SUGGESTIONS_GITHUB_INTERVAL_MINUTES). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_GITHUB_INTERVAL_MINUTES",
+      "default_value": "15",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Autopilot Threshold",
+      "description": "Optional bot setting (SUGGESTIONS_AUTOPILOT_THRESHOLD). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_AUTOPILOT_THRESHOLD",
+      "default_value": "0.3",
       "user_viewable": true,
       "user_editable": true,
       "rules": "nullable|string",

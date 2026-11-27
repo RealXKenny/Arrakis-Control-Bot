@@ -49,4 +49,24 @@ describe("assistant replies", () => {
       expect(value).toBeLessThan(1);
     }
   });
+
+  it("words automatic moves differently and links the GitHub evidence", () => {
+    const evidence = { kind: "release" as const, title: "v2.0.2 [$&]", url: "https://github.com/o/r/releases/v2.0.2" };
+    const manual = composeStatusReply("implemented", { seed: "t", title: "Spice tracker", authorId: "123456789012345678" });
+    const automatic = composeStatusReply("implemented", { seed: "t", title: "Spice tracker", authorId: "123456789012345678", evidence });
+    expect(automatic).not.toBe(manual);
+    expect(automatic).toContain("(<https://github.com/o/r/releases/v2.0.2>)");
+    expect(automatic).toContain("$&");
+    const openers = new Set(Array.from({ length: 30 }, (_, index) => composeStatusReply("in_progress", { seed: String(index), title: "Spice tracker", evidence: { ...evidence, kind: "pull" } }).split("\n")[0]));
+    expect(openers.size).toBeGreaterThan(2);
+  });
+
+  it("quotes a detail from the post and asks a follow-up on short posts", () => {
+    const long = composeNewPostReply({ seed: "a", title: "Spice tracker", body: "Guilds could log every harvest with the amount and location. That would help plan refinery runs.", authorId: "123456789012345678", categories: ["game"] });
+    expect(long).toMatch(/“[^”]*(harvest|refinery)[^”]*”/);
+    const short = composeNewPostReply({ seed: "a", title: "Spice tracker", body: "pls", authorId: "123456789012345678", categories: ["game"] });
+    expect(short).toContain("?");
+    const close = composeNewPostReply({ seed: "a", title: "Spice tracker", body: "", relatedCount: 1, closestTitle: "Track spice" });
+    expect(close).toContain("**Track spice**");
+  });
 });

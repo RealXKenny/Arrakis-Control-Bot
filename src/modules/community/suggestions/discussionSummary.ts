@@ -1,4 +1,4 @@
-import { tokenize } from "./textAnalysis";
+import { normalizeText, stem, tokenize } from "./textAnalysis";
 
 /**
  * Extractive discussion summary: no generated prose, only the most central sentences that
@@ -23,6 +23,8 @@ interface DiscussionSummary {
   opposeCount: number;
   keyPoints: KeyPoint[];
   topTerms: string[];
+  /** The same topics as members wrote them, for sentences. */
+  topWords: string[];
   firstAt?: Date;
   lastAt?: Date;
 }
@@ -66,6 +68,7 @@ function summarizeDiscussion(messages: readonly DiscussionMessage[]): Discussion
   // Term weight = how many different members used it, so one loud member cannot set the topic.
   const authorsByTerm = new Map<string, Set<string>>();
   const candidates: { authorId: string; text: string; tokens: Set<string>; order: number }[] = [];
+  const surfaces = new Map<string, Map<string, number>>();
 
   ordered.forEach((message, order) => {
     const stance = messageStance(message.content);
@@ -74,6 +77,12 @@ function summarizeDiscussion(messages: readonly DiscussionMessage[]): Discussion
       const authors = authorsByTerm.get(token) ?? new Set<string>();
       authors.add(message.authorId);
       authorsByTerm.set(token, authors);
+    }
+    for (const word of normalizeText(message.content).split(/[^\p{L}\p{N}]+/u)) {
+      if (word.length < 3 || word.length > 30) continue;
+      const forms = surfaces.get(stem(word)) ?? new Map<string, number>();
+      forms.set(word, (forms.get(word) ?? 0) + 1);
+      surfaces.set(stem(word), forms);
     }
     for (const sentence of splitSentences(message.content)) {
       const tokens = new Set(tokenize(sentence));
@@ -108,10 +117,32 @@ function summarizeDiscussion(messages: readonly DiscussionMessage[]): Discussion
     opposeCount: [...stances.values()].filter((stance) => stance === "oppose").length,
     keyPoints: picked.map((candidate) => ({ authorId: candidate.authorId, text: clip(candidate.text) })),
     topTerms,
+    topWords: topTerms.map((term) => [...(surfaces.get(term)?.entries() ?? [])].sort((left, right) => right[1] - left[1] || left[0].length - right[0].length)[0]?.[0] ?? term),
     firstAt: ordered[0]?.createdAt,
     lastAt: ordered.at(-1)?.createdAt,
   };
 }
 
-export { messageStance, splitSentences, summarizeDiscussion };
+/** The summary told in a few plain sentences, the way a person would recap a thread. */
+function describeDiscussion(summary: DiscussionSummary): string {
+  if (summary.messageCount === 0) return "Nobody has replied yet, so there is nothing to sum up.";
+  const people = summary.participantCount === 1 ? "one member" : `${summary.participantCount} members`;
+  const sentences = [`${capitalize(people)} ${summary.participantCount === 1 ? "has" : "have"} written ${summary.messageCount === 1 ? "one message" : `${summary.messageCount} messages`} so far.`];
+  const { supportCount: support, opposeCount: oppose } = summary;
+  if (support && !oppose) sentences.push(support === 1 ? "The one clear opinion is in favour." : `Everyone who took a side is in favour (${support}).`);
+  else if (oppose && !support) sentences.push(oppose === 1 ? "The one clear opinion is against it." : `Everyone who took a side is against it (${oppose}).`);
+  else if (support > oppose * 2) sentences.push(`Most are in favour: ${support} for and ${oppose} against.`);
+  else if (oppose > support * 2) sentences.push(`Most are against it: ${oppose} against and ${support} for.`);
+  else if (support || oppose) sentences.push(`Opinion is split: ${support} for and ${oppose} against.`);
+  else sentences.push("Nobody has clearly said for or against yet.");
+  const words = summary.topWords.slice(0, 3).map((word) => `**${word}**`);
+  if (words.length) sentences.push(`The talk keeps coming back to ${words.length === 1 ? words[0] : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`}.`);
+  return sentences.join(" ");
+}
+
+function capitalize(value: string): string {
+  return value ? `${value[0]!.toUpperCase()}${value.slice(1)}` : value;
+}
+
+export { describeDiscussion, messageStance, splitSentences, summarizeDiscussion };
 export type { DiscussionMessage, DiscussionSummary, KeyPoint };

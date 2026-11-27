@@ -27,10 +27,16 @@ describe("suggestion panels", () => {
     within({ toJSON: () => json });
   });
 
+  it("lists linked GitHub work", () => {
+    const text = JSON.stringify(createAssistantPanel({ reply: "Hi", related: [], work: [{ kind: "release", title: "v2.0.2 [beta]", url: "https://github.com/o/r/releases/v2.0.2" }] }).toJSON());
+    expect(text).toContain("On GitHub");
+    expect(text).toContain("Release: [v2.0.2 beta](<https://github.com/o/r/releases/v2.0.2>)");
+  });
+
   it("stays inside Discord limits with long content", () => {
-    within(createAssistantPanel({ reply: "r".repeat(5_000), related, featureName: "f".repeat(200) }));
+    within(createAssistantPanel({ reply: "r".repeat(5_000), related, featureName: "f".repeat(200), work: Array.from({ length: 5 }, () => ({ kind: "pull", title: "w".repeat(300), url: "https://github.com/o/r/pull/1" })) }));
     within(createSimilarPanel("t".repeat(500), related));
-    within(createSummaryPanel("t".repeat(500), { messageCount: 300, participantCount: 50, supportCount: 20, opposeCount: 3, keyPoints: Array.from({ length: 4 }, () => ({ authorId: "123456789012345678", text: "p".repeat(180) })), topTerms: ["a", "b"], firstAt: new Date(), lastAt: new Date() }));
+    within(createSummaryPanel("t".repeat(500), { messageCount: 300, participantCount: 50, supportCount: 20, opposeCount: 3, keyPoints: Array.from({ length: 4 }, () => ({ authorId: "123456789012345678", text: "p".repeat(180) })), topTerms: ["a", "b"], topWords: ["a", "b"], firstAt: new Date(), lastAt: new Date() }));
     within(createOutcomePanel("Done", "intro", Array.from({ length: 40 }, (_, index) => ({ threadId: String(index), ok: index % 2 === 0, detail: "failed" }))));
   });
 
