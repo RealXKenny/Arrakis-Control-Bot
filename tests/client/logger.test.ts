@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LogLevel } from "@sapphire/framework";
 
-import { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine } from "../../src/client/logger";
+import { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, shouldUseColor } from "../../src/client/logger";
 
 function stripAnsi(value: string): string {
   return value
@@ -26,7 +26,7 @@ describe("Sapphire logger adapter", () => {
     logger.info("ApplicationCommandRegistries:", "Initializing...");
 
     expect(output).toHaveLength(1);
-    expect(stripAnsi(String(output[0]?.[0]))).toMatch(/^\[\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} [AP]M\] ● \[INFO\] \[BOT\] ApplicationCommandRegistries: Initializing\.\.\.$/);
+    expect(stripAnsi(String(output[0]?.[0]))).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} {2}● INFO {2}BOT {10}│ ApplicationCommandRegistries: Initializing\.\.\.$/);
   });
 
   it("honors the configured Sapphire log threshold", () => {
@@ -46,8 +46,8 @@ describe("Sapphire logger adapter", () => {
 
     logger.scope("GATEWAY").info("Connected.");
 
-    expect(output).toHaveBeenCalledWith(expect.stringContaining("[INFO] [GATEWAY] Connected."));
-    expect(output.mock.calls.flat().join(" ")).not.toContain("[SAPPHIRE] Connected.");
+    expect(output).toHaveBeenCalledWith(expect.stringContaining("● INFO  GATEWAY      │ Connected."));
+    expect(output.mock.calls.flat().join(" ")).not.toContain("SAPPHIRE");
   });
 
   it("compacts Sapphire's global command overwrite report to one useful line", () => {
@@ -98,7 +98,27 @@ describe("startup presentation", () => {
     expect(output.mock.calls.flat().join("\n")).not.toContain(String.fromCharCode(27));
     expect(output.mock.calls.flat().join("\n")).toContain("Dune: Awakening Bot");
     expect(write).toHaveBeenCalledWith("\u001B[2J\u001B[3J\u001B[H");
-    expect(warning).toHaveBeenCalledWith(expect.stringContaining("▲ [WARN] [BOT] Music unavailable; retrying."));
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining("▲ WARN  BOT          │ Music unavailable; retrying."));
+  });
+
+  it("matches the dashboard layout with coloured level and scope", () => {
+    vi.stubEnv("LOG_COLOR", "always");
+    const output = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    createLogger("SUGGESTIONS", "INFO").info("Index ready.", { posts: 2 });
+    const line = String(output.mock.calls[0]?.[0]);
+    expect(line).toContain("\u001B[32m● INFO \u001B[0m");
+    expect(line).toContain("\u001B[95mSUGGESTIONS \u001B[0m");
+    expect(stripAnsi(line)).toMatch(/│ Index ready\. · posts = 2$/);
+  });
+
+  it("chooses colour for terminals and Pterodactyl, with LOG_COLOR overrides", () => {
+    expect(shouldUseColor({}, true)).toBe(true);
+    expect(shouldUseColor({}, false)).toBe(false);
+    expect(shouldUseColor({ P_SERVER_UUID: "uuid" }, false)).toBe(true);
+    expect(shouldUseColor({ P_SERVER_UUID: "uuid", NO_COLOR: "1" }, false)).toBe(false);
+    expect(shouldUseColor({ FORCE_COLOR: "0" }, true)).toBe(false);
+    expect(shouldUseColor({ LOG_COLOR: "never" }, true)).toBe(false);
+    expect(shouldUseColor({ LOG_COLOR: "always", NO_COLOR: "1" }, false)).toBe(true);
   });
 
   it("does not print the startup banner at warning-only verbosity", () => {
@@ -118,7 +138,7 @@ describe("startup presentation", () => {
       credentials: { accessToken: "do-not-print", label: "Arrakis Control" },
     });
 
-    expect(output).toHaveBeenCalledWith(expect.stringContaining('· {"userId":"123","credentials":{"accessToken":"[REDACTED]","label":"Arrakis Control"}}'));
+    expect(output).toHaveBeenCalledWith(expect.stringContaining("│ Authenticated. · user id = 123  ·  credentials / access token = [REDACTED]  ·  credentials / label = Arrakis Control"));
     expect(output.mock.calls.flat().join(" ")).not.toContain("do-not-print");
   });
 
@@ -152,6 +172,6 @@ describe("startup presentation", () => {
     vi.stubEnv("NODE_ENV", "development");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     createLogger("REQUEST", "INFO").warn("Request failed.", { route: "/x", error: new Error("boom") });
-    expect(String(warn.mock.calls[0]?.[0])).toContain('{"route":"/x","error":"Error: boom"}');
+    expect(String(warn.mock.calls[0]?.[0])).toContain("route = /x  ·  error = Error: boom");
   });
 });

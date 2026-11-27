@@ -15,7 +15,7 @@ describe("SuggestionRepository", () => {
     query.mockResolvedValue({ rows: [] });
     await new SuggestionRepository(pool as never).initialize();
     const sql = String(query.mock.calls[0]?.[0]);
-    for (const table of ["suggestion_posts", "suggestion_features", "suggestion_feature_links"]) expect(sql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
+    for (const table of ["suggestion_posts", "suggestion_features", "suggestion_feature_links", "suggestion_work_links"]) expect(sql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
     expect(sql).not.toMatch(/DROP|TRUNCATE/i);
   });
 
@@ -51,5 +51,18 @@ describe("SuggestionRepository", () => {
     query.mockResolvedValue({ rows: [] });
     await new SuggestionRepository(pool as never).listFeatures("guild", "100%_done", 25);
     expect(query.mock.calls[0]?.[1]).toEqual(["guild", "100\\%\\_done", 25]);
+  });
+
+  it("stores GitHub work links with bounded text and finds merged work a release has not shipped", async () => {
+    query.mockResolvedValue({ rows: [{ thread_id: "t" }] });
+    const repository = new SuggestionRepository(pool as never);
+    const mergedAt = new Date("2026-11-20T00:00:00Z");
+    await repository.saveWorkLink({ threadId: "t", itemKey: "pull:o/r:1", repo: "o/r", kind: "pull", title: "x".repeat(400), url: "https://github.com/o/r/pull/1", status: "in_progress", at: mergedAt, mergedAt });
+    expect(String((query.mock.calls[0]?.[1] as unknown[])[4])).toHaveLength(200);
+    await expect(repository.unshippedThreadIds("o/r", mergedAt, 50)).resolves.toEqual(["t"]);
+    const [sql, params] = query.mock.calls[1] as [string, unknown[]];
+    expect(sql).toContain("merged_at <= $2");
+    expect(sql).toContain("shipped.status = 'implemented'");
+    expect(params).toEqual(["o/r", mergedAt, 50]);
   });
 });

@@ -12,7 +12,8 @@ describe("suggestion assistant configuration", () => {
   it("uses sensible defaults", () => {
     expect(loadSuggestionConfig(env)).toEqual({
       guildId: env.GUILD_ID, forumChannelId: env.SUGGESTIONS_FORUM_CHANNEL_ID, autoTag: true, panel: true, notifyAuthor: true, createMissingTags: true,
-      duplicateThreshold: 0.35, autoSummaryMessages: 50, backfillLimit: 500,
+      duplicateThreshold: 0.35, autoSummaryMessages: 50, backfillLimit: 500, catchUp: true, autopilot: true,
+      githubRepos: ["RealXKenny/Arrakis-Control-Bot", "RealXKenny/Arrakis-Control-Dashboard"], githubIntervalMinutes: 15, autopilotThreshold: 0.3,
     });
   });
 
@@ -30,5 +31,13 @@ describe("suggestion assistant configuration", () => {
     for (const value of ["0.05", "1", "NaN"]) expect(() => loadSuggestionConfig({ ...env, SUGGESTIONS_DUPLICATE_THRESHOLD: value })).toThrow("SUGGESTIONS_DUPLICATE_THRESHOLD");
     for (const value of ["-1", "2.5", "1001"]) expect(() => loadSuggestionConfig({ ...env, SUGGESTIONS_AUTO_SUMMARY_MESSAGES: value })).toThrow("SUGGESTIONS_AUTO_SUMMARY_MESSAGES");
     expect(() => loadSuggestionConfig({ ...env, SUGGESTIONS_BACKFILL_LIMIT: "5001" })).toThrow("SUGGESTIONS_BACKFILL_LIMIT");
+    for (const value of ["owner", "a/b/c", "../x/y", "o/r?x=1"]) expect(() => loadSuggestionConfig({ ...env, SUGGESTIONS_GITHUB_REPOS: value })).toThrow("SUGGESTIONS_GITHUB_REPOS");
+    for (const value of ["4", "1441", "7.5"]) expect(() => loadSuggestionConfig({ ...env, SUGGESTIONS_GITHUB_INTERVAL_MINUTES: value })).toThrow("SUGGESTIONS_GITHUB_INTERVAL_MINUTES");
+  });
+
+  it("reads the autopilot settings", () => {
+    expect(loadSuggestionConfig({
+      ...env, SUGGESTIONS_AUTOPILOT: "false", SUGGESTIONS_CATCHUP: "false", SUGGESTIONS_GITHUB_REPOS: " a/b , a/b, c-d/e.f ", SUGGESTIONS_GITHUB_INTERVAL_MINUTES: "60", SUGGESTIONS_AUTOPILOT_THRESHOLD: "0.5",
+    })).toMatchObject({ autopilot: false, catchUp: false, githubRepos: ["a/b", "c-d/e.f"], githubIntervalMinutes: 60, autopilotThreshold: 0.5 });
   });
 });

@@ -124,7 +124,7 @@ Every user-facing Discord panel shares one modern visual language: an indigo acc
 
 ## Suggestion forum assistant
 
-Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required) to let the bot manage a suggestions forum without any paid AI service: it tags new posts, replies to the suggester, lists similar posts, summarizes long discussions and adds a staff-only status panel (Planned, Working on it, Back burner, Not doing, Added) to each post. `/suggestions feature start` and `/suggestions feature done` move every suggestion a piece of work covers to In Progress and then Implemented. See [the setup guide](suggestions.md).
+Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required) to let the bot manage a suggestions forum without any paid AI service: it tags new posts, replies to the suggester, lists similar posts, summarizes long discussions and adds a staff-only status panel (Planned, Working on it, Back burner, Not doing, Added) to each post. It also follows the GitHub repositories by itself and moves matching suggestions to Planned, In Progress and Implemented as issues, pull requests and releases appear, while staff buttons stay as overrides. `/suggestions feature start` and `/suggestions feature done` do the same by hand. See [the setup guide](suggestions.md).
 
 ## Honeypot moderation
 

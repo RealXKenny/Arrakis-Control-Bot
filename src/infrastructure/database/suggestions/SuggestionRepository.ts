@@ -26,6 +26,19 @@ interface SuggestionFeature {
   linkedCount: number;
 }
 
+interface SuggestionWorkLink {
+  threadId: string;
+  /** Stable GitHub item key, such as `pull:Owner/Repo:12`. */
+  itemKey: string;
+  repo: string;
+  kind: string;
+  title: string;
+  url: string;
+  status: string;
+  at: Date;
+  mergedAt: Date | null;
+}
+
 interface SuggestionStorage {
   initialize(): Promise<void>;
   listPosts(guildId: string, forumId: string, limit: number): Promise<SuggestionPost[]>;
@@ -40,6 +53,11 @@ interface SuggestionStorage {
   linkedThreadIds(featureId: string): Promise<string[]>;
   featureForThread(guildId: string, threadId: string): Promise<SuggestionFeature | null>;
   markImplemented(guildId: string, featureId: string, referenceUrl: string | null): Promise<SuggestionFeature | null>;
+  workLinkStatus(threadId: string, itemKey: string): Promise<string | null>;
+  saveWorkLink(link: SuggestionWorkLink): Promise<void>;
+  workLinks(threadId: string, limit: number): Promise<SuggestionWorkLink[]>;
+  /** Suggestions linked to work merged in `repo` before `before` that no release has shipped yet. */
+  unshippedThreadIds(repo: string, before: Date, limit: number): Promise<string[]>;
 }
 
 interface PostRow extends QueryResultRow {
@@ -52,6 +70,18 @@ interface PostRow extends QueryResultRow {
   tag_ids: string[] | null;
   panel_message_id: string | null;
   created_at: Date | string;
+}
+
+interface WorkLinkRow extends QueryResultRow {
+  thread_id: string;
+  item_key: string;
+  repo: string;
+  kind: string;
+  title: string;
+  url: string;
+  status: string;
+  at: Date | string;
+  merged_at: Date | string | null;
 }
 
 interface FeatureRow extends QueryResultRow {
@@ -110,6 +140,20 @@ class SuggestionRepository implements SuggestionStorage {
         PRIMARY KEY (feature_id, thread_id)
       );
       CREATE INDEX IF NOT EXISTS suggestion_feature_links_thread ON suggestion_feature_links (thread_id);
+      CREATE TABLE IF NOT EXISTS suggestion_work_links (
+        thread_id TEXT NOT NULL,
+        item_key TEXT NOT NULL,
+        repo TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        url TEXT NOT NULL,
+        status TEXT NOT NULL,
+        at TIMESTAMPTZ NOT NULL,
+        merged_at TIMESTAMPTZ,
+        linked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (thread_id, item_key)
+      );
+      CREATE INDEX IF NOT EXISTS suggestion_work_links_repo ON suggestion_work_links (repo, merged_at);
     `);
   }
 
@@ -202,6 +246,47 @@ class SuggestionRepository implements SuggestionStorage {
     );
     return result.rows[0] ? mapFeature(result.rows[0]) : null;
   }
+
+  public async workLinkStatus(threadId: string, itemKey: string): Promise<string | null> {
+    const result = await this.pool.query<{ status: string }>("SELECT status FROM suggestion_work_links WHERE thread_id = $1 AND item_key = $2", [threadId, itemKey]);
+    return result.rows[0]?.status ?? null;
+  }
+
+  public async saveWorkLink(link: SuggestionWorkLink): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO suggestion_work_links (thread_id, item_key, repo, kind, title, url, status, at, merged_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (thread_id, item_key) DO UPDATE SET title = EXCLUDED.title, status = EXCLUDED.status, at = EXCLUDED.at,
+         merged_at = COALESCE(EXCLUDED.merged_at, suggestion_work_links.merged_at), linked_at = NOW()`,
+      [link.threadId, link.itemKey.slice(0, 200), link.repo, link.kind, link.title.slice(0, 200), link.url.slice(0, 500), link.status, link.at, link.mergedAt],
+    );
+  }
+
+  public async workLinks(threadId: string, limit: number): Promise<SuggestionWorkLink[]> {
+    const result = await this.pool.query<WorkLinkRow>(
+      "SELECT thread_id, item_key, repo, kind, title, url, status, at, merged_at FROM suggestion_work_links WHERE thread_id = $1 ORDER BY at DESC LIMIT $2",
+      [threadId, limit],
+    );
+    return result.rows.map(mapWorkLink);
+  }
+
+  public async unshippedThreadIds(repo: string, before: Date, limit: number): Promise<string[]> {
+    const result = await this.pool.query<{ thread_id: string }>(
+      `SELECT DISTINCT link.thread_id FROM suggestion_work_links link
+       WHERE link.repo = $1 AND link.merged_at IS NOT NULL AND link.merged_at <= $2
+         AND NOT EXISTS (SELECT 1 FROM suggestion_work_links shipped WHERE shipped.thread_id = link.thread_id AND shipped.status = 'implemented')
+       LIMIT $3`,
+      [repo, before, limit],
+    );
+    return result.rows.map((row) => row.thread_id);
+  }
+}
+
+function mapWorkLink(row: WorkLinkRow): SuggestionWorkLink {
+  return {
+    threadId: row.thread_id, itemKey: row.item_key, repo: row.repo, kind: row.kind, title: row.title, url: row.url, status: row.status,
+    at: toDate(row.at), mergedAt: row.merged_at === null ? null : toDate(row.merged_at),
+  };
 }
 
 function escapeLike(value: string): string {
@@ -242,4 +327,4 @@ function mapFeature(row: FeatureRow): SuggestionFeature {
 }
 
 export { SuggestionRepository };
-export type { SuggestionFeature, SuggestionPost, SuggestionStorage };
+export type { SuggestionFeature, SuggestionPost, SuggestionStorage, SuggestionWorkLink };

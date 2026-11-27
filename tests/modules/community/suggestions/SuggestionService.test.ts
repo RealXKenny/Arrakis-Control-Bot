@@ -3,13 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import type { SuggestionConfig } from "../../../../src/infrastructure/config/suggestions";
 import type { SuggestionFeature, SuggestionPost, SuggestionStorage } from "../../../../src/infrastructure/database/suggestions/SuggestionRepository";
 import { SuggestionError, SuggestionService } from "../../../../src/modules/community/suggestions/SuggestionService";
+import type { WorkItem } from "../../../../src/modules/community/suggestions/githubActivity";
 
 const GUILD = "100000000000000001";
 const FORUM = "100000000000000002";
 const AUTHOR = "100000000000000003";
 const STAFF = "100000000000000004";
 
-const config: SuggestionConfig = { guildId: GUILD, forumChannelId: FORUM, autoTag: true, panel: true, notifyAuthor: true, createMissingTags: true, duplicateThreshold: 0.2, autoSummaryMessages: 3, backfillLimit: 50 };
+const config: SuggestionConfig = { guildId: GUILD, forumChannelId: FORUM, autoTag: true, panel: true, notifyAuthor: true, createMissingTags: true, duplicateThreshold: 0.2, autoSummaryMessages: 3, backfillLimit: 50,
+  catchUp: false, autopilot: true, githubRepos: ["RealXKenny/Arrakis-Control-Bot"], githubIntervalMinutes: 15, autopilotThreshold: 0.2 };
 
 function createForum(names = ["Idea", "Game", "Server", "Under Review", "Planned", "In Progress", "Back Burner", "Not Doing", "Implemented"]) {
   return {
@@ -59,12 +61,16 @@ function createStorage(): SuggestionStorage & { saved: Map<string, SuggestionPos
     linkedThreadIds: vi.fn().mockResolvedValue([]),
     featureForThread: vi.fn().mockResolvedValue(null),
     markImplemented: vi.fn().mockResolvedValue({ ...feature, status: "implemented" }),
+    workLinkStatus: vi.fn().mockResolvedValue(null),
+    saveWorkLink: vi.fn().mockResolvedValue(undefined),
+    workLinks: vi.fn().mockResolvedValue([]),
+    unshippedThreadIds: vi.fn().mockResolvedValue([]),
   };
 }
 
 function createService(forum = createForum(), threads: Record<string, unknown> = {}) {
   const storage = createStorage();
-  const client = { channels: { cache: new Map([[FORUM, forum]]), fetch: vi.fn((id: string) => Promise.resolve(id === FORUM ? forum : threads[id] ?? null)) } };
+  const client = { user: { id: "100000000000000099" }, channels: { cache: new Map([[FORUM, forum]]), fetch: vi.fn((id: string) => Promise.resolve(id === FORUM ? forum : threads[id] ?? null)) } };
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const service = new SuggestionService(client as never, config, storage, logger, () => Promise.resolve());
   return { service, storage, logger, client };
@@ -187,5 +193,70 @@ describe("SuggestionService", () => {
     expect(thread.sent).toHaveLength(1);
     await service.handleMessage(message(7));
     expect(thread.sent).toHaveLength(1);
+  });
+
+  describe("GitHub autopilot", () => {
+    const work = (overrides: Partial<WorkItem> = {}): WorkItem => ({
+      key: "pull:o/r:5", repo: "o/r", kind: "pull", title: "Desert heat toggle for roleplay", text: "Desert heat toggle for roleplay", url: "https://github.com/o/r/pull/5",
+      status: "in_progress", at: new Date("2026-11-10T00:00:00Z"), mergedAt: null, ongoing: true, ...overrides,
+    });
+
+    async function ready(applied: string[] = []) {
+      const forum = createForum();
+      const thread = createThread(forum, "200000000000000020", "Desert heat toggle", "Turn on desert heat for roleplay", applied);
+      const context = createService(forum, { [thread.id]: thread });
+      await context.service.handleThreadCreate(thread as never, true);
+      return { ...context, thread };
+    }
+
+    it("matches GitHub work by wording or by a direct link", async () => {
+      const { service, thread } = await ready();
+      expect(service.matchWork(work(), 0.2)).toEqual([{ threadId: thread.id, explicit: false }]);
+      expect(service.matchWork(work({ text: "heat" }), 0.2)).toEqual([]);
+      expect(service.matchWork(work({ text: `Closes https://discord.com/channels/${GUILD}/${thread.id}` }), 0.2)).toEqual([{ threadId: thread.id, explicit: true }]);
+    });
+
+    it("moves a suggestion forward with a GitHub link and pings only the suggester", async () => {
+      const { service, storage, thread } = await ready();
+      await expect(service.applyWork(thread.id, work(), false)).resolves.toBe("moved");
+      expect(thread.appliedTags[0]).toBe("tag-in-progress");
+      const notice = thread.sent.at(-1);
+      expect(notice?.allowedMentions).toEqual({ parse: [], users: [AUTHOR] });
+      expect(notice?.content).toContain("(<https://github.com/o/r/pull/5>)");
+      expect(storage.saveWorkLink).toHaveBeenCalledWith(expect.objectContaining({ threadId: thread.id, itemKey: "pull:o/r:5", status: "in_progress" }));
+    });
+
+    it("acts on each link once and never overrides a staff decision", async () => {
+      const { service, storage, thread } = await ready();
+      vi.mocked(storage.workLinkStatus).mockResolvedValueOnce("in_progress");
+      await expect(service.applyWork(thread.id, work(), false)).resolves.toBe("skipped");
+      await service.setStatus(thread as never, "not_doing", { actorId: STAFF });
+      const sent = thread.sent.length;
+      await expect(service.applyWork(thread.id, work({ key: "release:o/r:v2:0", kind: "release", status: "implemented", ongoing: false, at: new Date("2026-12-01T00:00:00Z") }), false)).resolves.toBe("linked");
+      expect(thread.appliedTags[0]).toBe("tag-not-doing");
+      expect(thread.sent).toHaveLength(sent);
+    });
+
+    it("ignores finished work from before the suggestion was posted", async () => {
+      const { service, thread } = await ready();
+      await expect(service.applyWork(thread.id, work({ ongoing: false, at: new Date("2026-10-01T00:00:00Z") }), false)).resolves.toBe("skipped");
+      await expect(service.applyWork(thread.id, work({ ongoing: false, at: new Date("2026-10-01T00:00:00Z") }), true)).resolves.toBe("moved");
+    });
+  });
+
+  it("catches up older posts with tags and a panel without pinging anyone", async () => {
+    const forum = createForum();
+    const thread = createThread(forum, "200000000000000030", "Server restart schedule", "Please restart the server every night to fix lag");
+    thread.archived = true;
+    forum.threads.fetchActive.mockResolvedValue({ threads: new Map([[thread.id, thread]]) });
+    const { service, storage } = createService(forum, { [thread.id]: thread });
+    await (service as unknown as { prepareForum(): Promise<boolean> }).prepareForum();
+    await expect(service.catchUp()).resolves.toBe(1);
+    expect(thread.appliedTags).toEqual(expect.arrayContaining(["tag-server", "tag-under-review"]));
+    expect(thread.sent).toHaveLength(1);
+    expect(thread.sent[0]?.allowedMentions).toEqual({ parse: [] });
+    expect(thread.setArchived).toHaveBeenLastCalledWith(true, expect.any(String));
+    expect(storage.updatePanelMessage).toHaveBeenCalledWith(thread.id, "msg-1");
+    await expect(service.catchUp()).resolves.toBe(0);
   });
 });

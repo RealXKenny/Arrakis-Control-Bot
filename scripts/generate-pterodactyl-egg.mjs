@@ -160,6 +160,7 @@ const SECRET_VARIABLES = new Set([
   "RABBITMQ_URL",
   "LAVALINK_PASSWORD",
   "AUTO_UPDATE_GITHUB_TOKEN",
+  "SUGGESTIONS_GITHUB_TOKEN",
 ]);
 
 /** Validation for settings with a fixed shape; everything else stays a free string validated by the bot at startup. */
@@ -172,6 +173,8 @@ const RULES = {
   AUTO_UPDATE_WINDOW_UTC: "nullable|string|regex:/^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$/",
   AUTO_UPDATE_HEALTH_SECONDS: "required|integer|min:30|max:900",
   AUTO_UPDATE_GITHUB_TOKEN: "nullable|string|max:255",
+  SUGGESTIONS_GITHUB_TOKEN: "nullable|string|max:255",
+  LOG_COLOR: "required|string|in:auto,always,never",
 };
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -220,6 +223,10 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     AUTO_UPDATE_WINDOW_UTC: "Optional HH:MM-HH:MM UTC window for background installs, for example 03:00-05:00. Empty allows any time.",
     AUTO_UPDATE_HEALTH_SECONDS: "Seconds a new version must stay up after starting before it is kept (30-900).",
     AUTO_UPDATE_GITHUB_TOKEN: "Optional read-only GitHub token for release downloads. Never needs write access.",
+    LOG_COLOR: "Console colours: auto (terminal or Pterodactyl), always or never.",
+    SUGGESTIONS_AUTOPILOT: "Follow the GitHub repositories and move suggestion statuses automatically.",
+    SUGGESTIONS_GITHUB_REPOS: "Comma-separated owner/name repositories the suggestion autopilot reads.",
+    SUGGESTIONS_GITHUB_TOKEN: "Optional read-only GitHub token for the suggestion autopilot. Never needs write access.",
   };
   const name = labels[key] ?? key.split("_").map((word) => word === "ID" ? "ID" : word[0] + word.slice(1).toLowerCase()).join(" ");
   return {

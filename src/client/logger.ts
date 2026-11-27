@@ -82,6 +82,12 @@ const SCOPE_COLORS: Record<string, string> = Object.freeze({
   TICKETS: COLORS.green,
   "CORIOLIS STORM": COLORS.brightOrange,
   DASHBOARD: COLORS.brightOrange,
+  SUGGESTIONS: COLORS.brightMagenta,
+  HONEYPOT: COLORS.red,
+  SECURITY: COLORS.red,
+  METRICS: COLORS.cyan,
+  LEVELING: COLORS.brightGreen,
+  "MESSAGE ARCHIVE": COLORS.yellow,
   default: COLORS.white,
 });
 
@@ -142,15 +148,47 @@ function findError(details: unknown): Error | undefined {
   return undefined;
 }
 
-function formatDetails(details: unknown): string {
-  if (details === undefined) return "";
-  if (typeof details === "string") return details;
-
-  try {
-    return JSON.stringify(details);
-  } catch {
-    return String(details);
+/** Readable `key = value` fields, as the dashboard console prints them, instead of transport-shaped JSON. */
+function formatDetails(details: unknown, paint: (color: string, text: string) => string): string[] {
+  if (details === undefined) return [];
+  if (typeof details === "string") return details.trim() ? [oneLine(details)] : [];
+  const fields: string[] = [];
+  const seen = new WeakSet<object>();
+  function visit(value: unknown, path = "", depth = 0): void {
+    if (value === undefined || fields.length >= 40) return;
+    if (value && typeof value === "object") {
+      if (seen.has(value) || depth > 5) return;
+      seen.add(value);
+      if (Array.isArray(value) && value.some((item) => item && typeof item === "object")) {
+        value.slice(0, 20).forEach((item, index) => visit(item, `${path} / ${index + 1}`, depth + 1));
+        return;
+      }
+      if (!Array.isArray(value)) {
+        for (const [key, child] of Object.entries(value).slice(0, 40)) visit(child, path ? `${path} / ${key}` : key, depth + 1);
+        return;
+      }
+    }
+    const label = oneLine(path.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase());
+    const text = oneLine(Array.isArray(value) ? value.map((item) => String(item)).join(", ") : String(value ?? "—")).slice(0, 500);
+    const color = value === "[REDACTED]" ? COLORS.dim : typeof value === "number" ? COLORS.brightCyan : COLORS.white;
+    fields.push(`${label ? `${paint(COLORS.dim, label)} ${paint(COLORS.dim, "=")} ` : ""}${paint(color, text)}`);
   }
+  visit(details);
+  const rows: string[] = [];
+  let row: string[] = [];
+  let width = 0;
+  for (const field of fields) {
+    const length = visibleLength(field);
+    if (row.length && (width + length > 100 || row.length >= 4)) {
+      rows.push(row.join(paint(COLORS.dim, "  ·  ")));
+      row = [];
+      width = 0;
+    }
+    row.push(field);
+    width += length + 5;
+  }
+  if (row.length) rows.push(row.join(paint(COLORS.dim, "  ·  ")));
+  return rows;
 }
 
 function oneLine(value: string): string {
@@ -208,6 +246,33 @@ function terminalColumns(level: LogLevel): number | undefined {
     ?? (process.env.NODE_ENV === "production" ? DEFAULT_PRODUCTION_COLUMNS : undefined);
 }
 
+/**
+ * Colour policy for console output. `LOG_COLOR=always|never` wins, then the NO_COLOR and
+ * FORCE_COLOR conventions. In `auto` mode colour is on for a terminal and inside a Pterodactyl
+ * container, whose web console renders ANSI even though the update supervisor pipes our output.
+ */
+function shouldUseColor(env: NodeJS.ProcessEnv, isTTY: boolean): boolean {
+  const mode = env.LOG_COLOR?.trim().toLowerCase() || "auto";
+  if (mode === "always" || mode === "true") return true;
+  if (mode === "never" || mode === "false") return false;
+  if (env.NO_COLOR !== undefined || env.TERM === "dumb") return false;
+  if (env.FORCE_COLOR !== undefined) return env.FORCE_COLOR !== "0";
+  // Dev note: The supervisor pipes our stdout, but the panel still loves a little spice in its colours.
+  return isTTY || Boolean(env.P_SERVER_UUID?.trim());
+}
+
+type Painter = (color: string, text: string) => string;
+
+/** One console entry in the dashboard's layout: `date time  ● LEVEL SCOPE │ message · key = value`. */
+function formatConsoleEntry(scope: string, level: LogLevel, message: string, details: unknown, paint: Painter, at = new Date()): string {
+  const scopeColor = SCOPE_COLORS[scope] ?? SCOPE_COLORS.default;
+  const output = `${paint(COLORS.dim, formatTimestamp(at))}  ${paint(LEVEL_COLORS[level], `${LEVEL_ICONS[level]} ${level.padEnd(5)}`)} ${paint(scopeColor, scope.padEnd(12))} ${paint(COLORS.dim, "│")} ${oneLine(message)}`;
+  const rows = formatDetails(redact(details), paint);
+  if (rows.length === 0) return output;
+  if (rows.length === 1 && visibleLength(rows[0]!) <= 100) return `${output} ${paint(COLORS.dim, "·")} ${rows[0]}`;
+  return `${output}\n${rows.map((row) => `    ${paint(COLORS.dim, "↳")} ${row}`).join("\n")}`;
+}
+
 interface Logger {
   header(title: string, subtitle?: string): void;
   debug(message: string, details?: unknown): void;
@@ -222,9 +287,8 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
 
   const threshold = LEVELS[normalizedLevel] ?? LEVELS.INFO;
 
-  const colorEnabled = process.env.NO_COLOR === undefined && process.env.TERM !== "dumb" && (process.env.FORCE_COLOR !== undefined ? process.env.FORCE_COLOR !== "0" : Boolean(process.stdout.isTTY));
+  const colorEnabled = shouldUseColor(process.env, Boolean(process.stdout.isTTY));
   const paint = (color: string, text: string): string => (colorEnabled ? `${color}${text}${COLORS.reset}` : text);
-  const scopeColor = SCOPE_COLORS[scope] ?? SCOPE_COLORS.default;
 
   function write(level: LogLevel, message: string, details?: unknown): void {
     // Dev note: Quiet logs are not shy; they simply missed the threshold.
@@ -232,12 +296,10 @@ function createLogger(scope: string, minimumLevel: string = process.env.LOG_LEVE
       return;
     }
 
-    const timestamp = formatTimestamp(new Date());
-    const output = `${paint(COLORS.dim, `[${timestamp}]`)} ${paint(LEVEL_COLORS[level], `${LEVEL_ICONS[level]} [${level}]`)} ${paint(scopeColor, `[${scope}]`)} ${oneLine(message)}`;
-    const line = oneLine(formatDetails(redact(details)));
-    const formattedOutput = line ? `${output} ${paint(COLORS.dim, "·")} ${line}` : output;
+    const output = formatConsoleEntry(scope, level, message, details, paint);
+    const columns = terminalColumns(level);
     // Dev note: The terminal may be narrow, but the log line has taken a solemn vow not to wander.
-    const fittedOutput = fitConsoleLine(formattedOutput, terminalColumns(level));
+    const fittedOutput = output.split("\n").map((line) => fitConsoleLine(line, columns)).join("\n");
 
     if (level === "ERROR" || level === "FATAL") {
       // Dev note: Errors use stderr because even logs need healthy boundaries.
@@ -410,17 +472,14 @@ const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "2-digit",
   minute: "2-digit",
   second: "2-digit",
-  hour12: true,
+  hourCycle: "h23",
 });
 
 function formatTimestamp(date: Date): string {
-  const parts = timestampFormatter.formatToParts(date);
-
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-
-  return `${values.month}/${values.day}/${values.year} ` + `${values.hour}:${values.minute}:${values.second} ` + `${values.dayPeriod}`;
+  const values = Object.fromEntries(timestampFormatter.formatToParts(date).map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
 }
 
-export { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, scopedLogger };
+export { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, formatConsoleEntry, scopedLogger, shouldUseColor };
 
 export type { Logger };

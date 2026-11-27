@@ -8,6 +8,7 @@ import { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/Dis
 import { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import { DiscordAuditLogger } from "../modules/audit/DiscordAuditLogger";
 import { createLogger, createSapphireLogger } from "./logger";
+import { getBotVersion } from "../infrastructure/config/version";
 import { InMemoryRateLimitStore, RateLimiter } from "../infrastructure/rate-limit/InMemoryRateLimiter";
 import { TicketRepository, type DatabasePoolOptions } from "../infrastructure/database/tickets/TicketRepository";
 import { ArrakisClient } from "./ArrakisClient";
@@ -40,6 +41,8 @@ import type { HoneypotConfig } from "../infrastructure/config/honeypot";
 import type { SuggestionConfig } from "../infrastructure/config/suggestions";
 import { SuggestionRepository } from "../infrastructure/database/suggestions/SuggestionRepository";
 import { SuggestionService } from "../modules/community/suggestions/SuggestionService";
+import { SuggestionAutopilot } from "../modules/community/suggestions/SuggestionAutopilot";
+import { GitHubActivityClient } from "../infrastructure/http/github/GitHubActivityClient";
 
 type BotClient = ArrakisClient;
 
@@ -53,6 +56,7 @@ interface BotConfig {
   levelRoles: Readonly<LevelRoleConfig>;
   staffApplications?: StaffApplicationConfig;
   suggestions?: SuggestionConfig;
+  suggestionsGitHubToken?: string;
   logLevel?: string;
   duneConsoleApiKey: string;
   duneConsoleTimeoutMs?: number;
@@ -98,7 +102,7 @@ function createBotApplication(config: BotConfig) {
   const storageLogger = createLogger("STORAGE", config.logLevel);
   const discordLogger = createLogger("DISCORD", config.logLevel);
 
-  systemLogger.header("ARRAKIS CONTROL", "Dune: Awakening Bot");
+  systemLogger.header(`ARRAKIS CONTROL v${getBotVersion()}`, "Dune: Awakening Bot");
 
   const client = createClient(config.logLevel);
   const metricsLogger = createLogger("METRICS", config.logLevel);
@@ -289,13 +293,20 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
   client.leveling = config.levelingEnabled && client.tickets ? new LevelingService(client, new LevelRepository(client.tickets.backgroundPool), config.levelRoles, (message, error) => levelingLogger.error(message, error)) : undefined;
   client.staffApplications = config.staffApplications && client.tickets ? new StaffApplicationService(client, new StaffApplicationRepository(client.tickets.pool), config.staffApplications) : undefined;
   const suggestionLogger = createLogger("SUGGESTIONS", config.logLevel);
-  client.suggestions = config.suggestions && client.tickets
-    ? new SuggestionService(client, config.suggestions, new SuggestionRepository(client.tickets.pool), {
-      info: (message) => suggestionLogger.info(message),
-      warn: (message) => suggestionLogger.warn(message),
-      error: (message, error) => suggestionLogger.error(message, error),
-    })
-    : undefined;
+  const suggestionLog = {
+    info: (message: string) => suggestionLogger.info(message),
+    warn: (message: string) => suggestionLogger.warn(message),
+    error: (message: string, error?: unknown) => suggestionLogger.error(message, error),
+  };
+  const suggestionStorage = client.tickets ? new SuggestionRepository(client.tickets.pool) : undefined;
+  client.suggestions = config.suggestions && suggestionStorage ? new SuggestionService(client, config.suggestions, suggestionStorage, suggestionLog) : undefined;
+  if (client.suggestions && suggestionStorage && config.suggestions?.autopilot && config.suggestions.githubRepos.length) {
+    client.suggestions.attach(new SuggestionAutopilot(client.suggestions, new GitHubActivityClient(config.suggestionsGitHubToken), suggestionStorage, {
+      repos: config.suggestions.githubRepos,
+      intervalMs: config.suggestions.githubIntervalMinutes * 60_000,
+      threshold: config.suggestions.autopilotThreshold,
+    }, suggestionLog));
+  }
   if (config.music && !client.tickets) throw new Error("DATABASE_URL is required to persist music playback.");
   client.music =
     config.music && client.tickets

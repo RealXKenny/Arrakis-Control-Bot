@@ -28,7 +28,17 @@ interface AssistantPanelInput {
   related: readonly RelatedPost[];
   updatedBy?: string;
   featureName?: string;
+  /** GitHub work the assistant linked to this suggestion, newest first. */
+  work?: readonly PanelWorkLink[];
 }
+
+interface PanelWorkLink {
+  kind: string;
+  title: string;
+  url: string;
+}
+
+const WORK_LABELS: Readonly<Record<string, string>> = Object.freeze({ issue: "Issue", pull: "Pull request", commit: "Commit", release: "Release" });
 
 const STATUS_BUTTON_STYLES: Readonly<Record<SuggestionStatus, ButtonStyle>> = Object.freeze({
   under_review: ButtonStyle.Secondary,
@@ -84,6 +94,10 @@ function createAssistantPanel(input: AssistantPanelInput): ContainerBuilder {
       input.featureName ? `**Feature:** ${escapeMarkdown(truncateDiscordText(input.featureName, 80, "…"))}` : undefined,
     ].filter(Boolean).join("\n")));
   if (input.related.length) container.addTextDisplayComponents((text) => text.setContent(`**Possibly related**\n${relatedLines(input.related.slice(0, 3)).join("\n")}`));
+  const work = input.work ?? [];
+  if (work.length) {
+    container.addTextDisplayComponents((text) => text.setContent(`**On GitHub**\n${work.slice(0, 3).map((item) => `- ${WORK_LABELS[item.kind] ?? "Link"}: [${escapeMarkdown(truncateDiscordText(item.title.replace(/[[\]]/g, ""), 80, "…"))}](<${item.url}>)`).join("\n")}`));
+  }
   container
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
     .addTextDisplayComponents((text) => text.setContent([
@@ -186,4 +200,4 @@ export {
   FEATURE_MENU_PREFIX, PANEL_HEADING, SIMILAR_BUTTON_ID, STATUS_BUTTON_PREFIX, STATUS_HELP, SUMMARY_BUTTON_ID,
   createAssistantPanel, createFeatureListPanel, createFeatureMatchPanel, createOutcomePanel, createSimilarPanel, createSummaryPanel, isAssistantPanelContent, statusLabel,
 };
-export type { AssistantPanelInput, FeatureCandidate, LinkOutcome, RelatedPost };
+export type { AssistantPanelInput, FeatureCandidate, LinkOutcome, PanelWorkLink, RelatedPost };

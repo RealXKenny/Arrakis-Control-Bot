@@ -839,6 +839,16 @@
       "field_type": "text"
     },
     {
+      "name": "Log Color",
+      "description": "Console colours: auto (terminal or Pterodactyl), always or never.",
+      "env_variable": "LOG_COLOR",
+      "default_value": "auto",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:auto,always,never",
+      "field_type": "text"
+    },
+    {
       "name": "Dashboard HTTPS Origin",
       "description": "HTTPS dashboard origin for Bot/Dashboard release announcements.",
       "env_variable": "DASHBOARD_URL",
@@ -1263,6 +1273,66 @@
       "description": "Optional bot setting (SUGGESTIONS_BACKFILL_LIMIT). See .env.example in the repository.",
       "env_variable": "SUGGESTIONS_BACKFILL_LIMIT",
       "default_value": "500",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Catchup",
+      "description": "Optional bot setting (SUGGESTIONS_CATCHUP). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_CATCHUP",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Autopilot",
+      "description": "Follow the GitHub repositories and move suggestion statuses automatically.",
+      "env_variable": "SUGGESTIONS_AUTOPILOT",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Github Repos",
+      "description": "Comma-separated owner/name repositories the suggestion autopilot reads.",
+      "env_variable": "SUGGESTIONS_GITHUB_REPOS",
+      "default_value": "RealXKenny/Arrakis-Control-Bot,RealXKenny/Arrakis-Control-Dashboard",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Github Token",
+      "description": "Optional read-only GitHub token for the suggestion autopilot. Never needs write access.",
+      "env_variable": "SUGGESTIONS_GITHUB_TOKEN",
+      "default_value": "",
+      "user_viewable": false,
+      "user_editable": false,
+      "rules": "nullable|string|max:255",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Github Interval Minutes",
+      "description": "Optional bot setting (SUGGESTIONS_GITHUB_INTERVAL_MINUTES). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_GITHUB_INTERVAL_MINUTES",
+      "default_value": "15",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Autopilot Threshold",
+      "description": "Optional bot setting (SUGGESTIONS_AUTOPILOT_THRESHOLD). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_AUTOPILOT_THRESHOLD",
+      "default_value": "0.3",
       "user_viewable": true,
       "user_editable": true,
       "rules": "nullable|string",

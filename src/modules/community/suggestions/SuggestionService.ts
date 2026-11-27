@@ -2,7 +2,8 @@ import { ChannelType, DiscordAPIError, MessageFlags, type AnyThreadChannel, type
 import type { SuggestionConfig } from "../../../infrastructure/config/suggestions";
 import type { SuggestionFeature, SuggestionPost, SuggestionStorage } from "../../../infrastructure/database/suggestions/SuggestionRepository";
 import { messageStance, summarizeDiscussion, type DiscussionMessage, type DiscussionSummary } from "./discussionSummary";
-import { STATUS_MARKERS, composeNewPostReply, composeStatusReply } from "./replyComposer";
+import { canAdvance, happenedAfter, referencedThreadIds, type WorkItem } from "./githubActivity";
+import { STATUS_MARKERS, composeNewPostReply, composeStatusReply, type ReplyEvidence } from "./replyComposer";
 import { classifySuggestion } from "./suggestionClassifier";
 import { createAssistantPanel, createSummaryPanel, type FeatureCandidate, type LinkOutcome, type RelatedPost } from "./suggestionPanels";
 import {
@@ -22,7 +23,16 @@ interface StatusChange {
   note?: string;
   featureName?: string;
   referenceUrl?: string;
+  evidence?: ReplyEvidence;
 }
+
+/** Runs beside the service; started once the forum is ready and stopped with it. */
+interface SuggestionCompanion {
+  start(): void;
+  stop(): void;
+}
+
+type WorkOutcome = "moved" | "linked" | "skipped";
 
 /** A failure whose message is safe to show to the member who asked. */
 class SuggestionError extends Error {}
@@ -36,6 +46,10 @@ const FEATURE_PRESELECT_SCORE = 0.2;
 const UNKNOWN_MESSAGE = 10008;
 const STARTER_RETRY_DELAYS_MS = [0, 1_500, 4_000];
 const CLOSED_STATUSES: ReadonlySet<SuggestionStatus> = new Set(["implemented", "not_doing"]);
+const CATCH_UP_DELAY_MS = 1_500;
+const PANEL_WORK_LINKS = 3;
+/** A match needs this many shared words, so one rare word never moves a suggestion. */
+const MIN_SHARED_TERMS = 2;
 
 class SuggestionService {
   private readonly index = new TfIdfIndex();
@@ -44,6 +58,7 @@ class SuggestionService {
   private readonly busyThreads = new Set<string>();
   private preparing = false;
   private stopped = false;
+  private companion?: SuggestionCompanion;
 
   public constructor(
     private readonly client: Client,
@@ -63,18 +78,25 @@ class SuggestionService {
     for (const post of rows) this.remember(post);
   }
 
-  /** Create missing status tags and index older posts in the background after login. */
+  /** The GitHub autopilot, when enabled. It starts after the forum is indexed. */
+  public attach(companion: SuggestionCompanion): void {
+    this.companion = companion;
+  }
+
+  /** Create missing status tags, index older posts and catch them up in the background after login. */
   public start(): void {
     if (this.preparing) return;
     this.preparing = true;
     this.stopped = false;
     void this.prepareForum()
+      .then((ready) => { if (ready && !this.stopped) this.companion?.start(); })
       .catch((error: unknown) => this.logger.error("Unable to prepare the suggestion forum.", error))
       .finally(() => { this.preparing = false; });
   }
 
   public stop(): void {
     this.stopped = true;
+    this.companion?.stop();
   }
 
   public isSuggestionThread(channel: Channel | null | undefined): channel is AnyThreadChannel {
@@ -201,6 +223,7 @@ class SuggestionService {
         featureName: change.featureName,
         referenceUrl: change.referenceUrl,
         actorId: change.note ? change.actorId : undefined,
+        evidence: change.evidence,
       });
       await thread.send({ content, allowedMentions: this.config.notifyAuthor && post.authorId ? { parse: [], users: [post.authorId] } : { parse: [] } });
       await this.refreshPanel(thread, post, tags, change.actorId, change.featureName);
@@ -257,6 +280,94 @@ class SuggestionService {
     return this.storage.listFeatures(guildId, query, limit);
   }
 
+  /** Suggestions a GitHub item names directly or reads like, strongest first. */
+  public matchWork(item: Pick<WorkItem, "text">, minScore: number, limit = 3): { threadId: string; explicit: boolean }[] {
+    const explicit = referencedThreadIds(item.text, this.config.guildId).filter((threadId) => this.posts.has(threadId));
+    const tokens = tokenize(item.text);
+    const terms = new Set(tokens);
+    if (terms.size < MIN_SHARED_TERMS) return explicit.map((threadId) => ({ threadId, explicit: true }));
+    const similar = this.index.similar(tokens, { limit, minScore, exclude: new Set(explicit) }).filter((result) => {
+      const post = this.posts.get(result.id);
+      if (!post) return false;
+      let shared = 0;
+      for (const term of new Set(postTokens(post))) if (terms.has(term) && ++shared >= MIN_SHARED_TERMS) return true;
+      return false;
+    });
+    return [...explicit.map((threadId) => ({ threadId, explicit: true })), ...similar.map((result) => ({ threadId: result.id, explicit: false }))];
+  }
+
+  /**
+   * Link GitHub work to a suggestion and move its status forward when the work says so. A link is
+   * acted on once per status, so staff can still move a post back by hand and it stays there, and
+   * Back Burner, Not Doing and Added are never changed.
+   */
+  public async applyWork(threadId: string, item: WorkItem, explicit: boolean): Promise<WorkOutcome> {
+    const post = this.posts.get(threadId);
+    if (!post || (!explicit && !happenedAfter(item, post.createdAt))) return "skipped";
+    if (await this.storage.workLinkStatus(threadId, item.key) === item.status) return "skipped";
+    const tags = this.cachedTags();
+    const current = tags ? currentStatus(post.tagIds, tags) : undefined;
+    const link = { threadId, itemKey: item.key, repo: item.repo, kind: item.kind, title: item.title, url: item.url, status: item.status, at: item.at, mergedAt: item.mergedAt };
+    const channel = await this.client.channels.fetch(threadId).catch(() => null);
+    if (!this.isSuggestionThread(channel)) return "skipped";
+
+    if (!canAdvance(current, item.status) || !tags?.statuses.has(item.status) || channel.locked) {
+      await this.storage.saveWorkLink(link);
+      await this.refreshPanel(channel, post, resolveForumTags(forumOf(channel)?.availableTags ?? []), undefined).catch(() => undefined);
+      return "linked";
+    }
+    const wasArchived = channel.archived === true;
+    await this.storage.saveWorkLink(link);
+    try {
+      await this.setStatus(channel, item.status, { actorId: this.client.user?.id ?? "", evidence: { kind: item.kind, title: item.title, url: item.url } });
+    } catch (error: unknown) {
+      // Mark the link unsettled so the next pass tries this move again.
+      await this.storage.saveWorkLink({ ...link, status: "retry" }).catch(() => undefined);
+      throw error;
+    }
+    if (wasArchived && item.status === "implemented") await channel.setArchived(true, "Suggestion shipped").catch(() => undefined);
+    return "moved";
+  }
+
+  /**
+   * One pass over indexed posts that have no assistant panel yet: add missing category and
+   * status tags, post the panel without pinging anyone, and put archived posts back to sleep.
+   */
+  public async catchUp(limit = this.config.backfillLimit): Promise<number> {
+    const forum = await this.client.channels.fetch(this.config.forumChannelId).catch(() => null);
+    if (forum?.type !== ChannelType.GuildForum || !this.config.panel) return 0;
+    const pending = [...this.posts.values()].filter((post) => !post.panelMessageId).slice(0, limit);
+    let done = 0;
+    for (const post of pending) {
+      if (this.stopped) break;
+      const channel = await this.client.channels.fetch(post.threadId).catch(() => null);
+      if (!this.isSuggestionThread(channel) || channel.locked) continue;
+      const wasArchived = channel.archived === true;
+      try {
+        const tags = resolveForumTags(forum.availableTags);
+        let applied = [...channel.appliedTags];
+        if (this.config.autoTag) {
+          if (categoriesOf(applied, tags).length === 0) applied = withCategories(applied, classifySuggestion(post.title, post.body, this.index, (id) => this.labelsFor(id, tags), post.threadId), tags);
+          if (!currentStatus(applied, tags) && tags.statuses.has("under_review")) applied = withStatus(applied, "under_review", tags);
+        }
+        if (!sameTags(applied, channel.appliedTags)) await channel.edit({ appliedTags: applied, ...(wasArchived ? { archived: false } : {}), reason: "Suggestion assistant caught up an older post" });
+        else if (wasArchived) await channel.setArchived(false, "Suggestion assistant caught up an older post");
+        post.tagIds = applied;
+        this.remember(post);
+        await this.storage.upsertPost(post);
+        await this.refreshPanel(channel, post, tags);
+        done += 1;
+      } catch (error: unknown) {
+        this.logger.warn(`Unable to catch up suggestion ${post.threadId}. ${describe(error)}`);
+      } finally {
+        if (wasArchived) await channel.setArchived(true, "Suggestion assistant caught up an older post").catch(() => undefined);
+      }
+      await this.wait(CATCH_UP_DELAY_MS);
+    }
+    if (done) this.logger.info(`Caught up ${done} older suggestion(s) with tags and a panel.`);
+    return done;
+  }
+
   private async applyToThread(threadId: string, status: SuggestionStatus, change: StatusChange): Promise<LinkOutcome> {
     try {
       const channel = await this.client.channels.fetch(threadId).catch(() => null);
@@ -291,9 +402,10 @@ class SuggestionService {
     const related = this.related(post.threadId, 3);
     const categories = categoriesOf(post.tagIds, tags);
     const linkedFeature = featureName ?? (await this.storage.featureForThread(post.guildId, post.threadId).catch(() => null))?.name;
+    const work = await this.storage.workLinks(post.threadId, PANEL_WORK_LINKS).catch(() => []);
     const reply = composeNewPostReply({ seed: post.threadId, title: post.title, body: post.body, authorId: post.authorId ?? undefined, categories: categories.length ? categories : ["idea"], relatedCount: related.length });
     return {
-      components: [createAssistantPanel({ reply, status: currentStatus(post.tagIds, tags), related, updatedBy: actorId, featureName: linkedFeature })],
+      components: [createAssistantPanel({ reply, status: currentStatus(post.tagIds, tags), related, updatedBy: actorId, featureName: linkedFeature, work })],
       flags: MessageFlags.IsComponentsV2 as const,
     };
   }
@@ -365,14 +477,16 @@ class SuggestionService {
     return messages;
   }
 
-  private async prepareForum(): Promise<void> {
+  private async prepareForum(): Promise<boolean> {
     const channel = await this.client.channels.fetch(this.config.forumChannelId).catch(() => null);
     if (channel?.type !== ChannelType.GuildForum) {
       this.logger.warn("SUGGESTIONS_FORUM_CHANNEL_ID is not a forum channel the bot can see; the suggestion assistant is idle.");
-      return;
+      return false;
     }
     if (this.config.createMissingTags) await this.ensureStatusTags(channel);
     await this.backfill(channel);
+    if (this.config.catchUp) await this.catchUp();
+    return true;
   }
 
   /** Add any missing status tags. Status tags are moderated so only staff can apply them. */
@@ -451,4 +565,4 @@ function describe(error: unknown): string {
 }
 
 export { SuggestionError, SuggestionService };
-export type { StatusChange, SuggestionLogger };
+export type { StatusChange, SuggestionCompanion, SuggestionLogger, WorkOutcome };
