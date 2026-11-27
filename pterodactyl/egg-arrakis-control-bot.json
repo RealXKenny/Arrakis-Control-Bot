@@ -1357,6 +1357,56 @@
       "user_editable": true,
       "rules": "nullable|string",
       "field_type": "text"
+    },
+    {
+      "name": "Chatbot Enabled",
+      "description": "Optional bot setting (CHATBOT_ENABLED). See .env.example in the repository.",
+      "env_variable": "CHATBOT_ENABLED",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Access",
+      "description": "Optional bot setting (CHATBOT_ACCESS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_ACCESS",
+      "default_value": "staff",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Role Ids",
+      "description": "Optional bot setting (CHATBOT_ROLE_IDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_ROLE_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Channel Ids",
+      "description": "Optional bot setting (CHATBOT_CHANNEL_IDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_CHANNEL_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chatbot Cooldown Seconds",
+      "description": "Optional bot setting (CHATBOT_COOLDOWN_SECONDS). See .env.example in the repository.",
+      "env_variable": "CHATBOT_COOLDOWN_SECONDS",
+      "default_value": "3",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
     }
   ]
 }

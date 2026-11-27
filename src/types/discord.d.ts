@@ -15,6 +15,7 @@ import type { LevelingService } from "../modules/community/leveling/LevelingServ
 import type { StaffApplicationService } from "../modules/community/applications/StaffApplicationService";
 import type { SuggestionService } from "../modules/community/suggestions/SuggestionService";
 import type { MessageArchiveService } from "../modules/audit/MessageArchiveService";
+import type { ChatbotService } from "../modules/community/chatbot/ChatbotService";
 
 declare module "discord.js" {
   interface Client {
@@ -26,6 +27,7 @@ declare module "discord.js" {
     leveling?: LevelingService;
     staffApplications?: StaffApplicationService;
     suggestions?: SuggestionService;
+    chatbot?: ChatbotService;
     messageArchive?: MessageArchiveService;
     voiceRooms?: VoiceService;
     chatBridge?: DiscordGameChatBridge;

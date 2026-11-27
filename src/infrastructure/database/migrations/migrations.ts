@@ -32,6 +32,23 @@ const MIGRATIONS: readonly Migration[] = [
         END $$`);
     },
   },
+  {
+    version: 3,
+    name: "chatbot answers taught by staff",
+    up: async (client) => {
+      // Same table the ChatbotRepository initializer creates; both are idempotent.
+      await client.query(`CREATE TABLE IF NOT EXISTS chatbot_answers (
+        id BIGSERIAL PRIMARY KEY,
+        guild_id TEXT NOT NULL,
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        uses INTEGER NOT NULL DEFAULT 0
+      )`);
+      await client.query("CREATE INDEX IF NOT EXISTS chatbot_answers_guild_idx ON chatbot_answers (guild_id, id)");
+    },
+  },
 ];
 
 export { MIGRATIONS };

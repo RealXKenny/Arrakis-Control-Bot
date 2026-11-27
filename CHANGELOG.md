@@ -4,6 +4,10 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ## [2.0.3] - 2026-11-27
 
+### Added
+
+- A homemade chatbot. Mention the bot, reply to one of its answers, or use `/chat ask` to talk to it. It runs entirely inside the bot with no outside AI or API key. It answers server questions from the FAQ panel, explains which command does what, and looks up your level, the level and Solari leaderboards, the next Coriolis storm, the game server status and what's new in the latest release. It also does quick math, dice, coin flips and small talk, and says so when it doesn't know something. Staff teach it new answers with `/chat teach` (list them with `/chat taught`, remove one with `/chat forget`). It is staff-only by default: set `CHATBOT_ACCESS` to `roles` or `everyone` to open it up, and `CHATBOT_CHANNEL_IDS` to limit where it answers mentions. Replies never ping anyone. See `guides/chatbot.md`.
+
 ### Fixed
 
 - An automatic update could stop with `Conflict: package-lock.json (modified locally since it was installed)`. npm rewrites that file by itself (for example during an egg reinstall), so it is not a change you made. The updater now always replaces `package-lock.json` and `npm-shrinkwrap.json` with the release's copy instead of stopping. Your own edited files are still protected as before.

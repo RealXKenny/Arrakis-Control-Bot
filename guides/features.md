@@ -126,6 +126,10 @@ Every user-facing Discord panel shares one modern visual language: an indigo acc
 
 Set `SUGGESTIONS_FORUM_CHANNEL_ID` (PostgreSQL required) to let the bot manage a suggestions forum without any paid AI service: it tags new posts, replies to the suggester, lists similar posts, summarizes long discussions and adds a staff-only status panel (Planned, Working on it, Back burner, Not doing, Added) to each post. It also follows the GitHub repositories by itself and moves matching suggestions to Planned, In Progress and Implemented as issues, pull requests and releases appear, while staff buttons stay as overrides. `/suggestions feature start` and `/suggestions feature done` do the same by hand. See [the setup guide](suggestions.md).
 
+## Chatbot
+
+The bot has its own homemade chatbot with no outside AI. Mention the bot, reply to one of its answers or use `/chat ask`. It answers from the FAQ panel, the `/help` command list, live levels, the level and Solari leaderboards, the Coriolis storm schedule, game server status and the latest release notes, does quick math and dice, and says so when it doesn't know. Staff teach it new answers with `/chat teach` (PostgreSQL required). It is staff-only by default; `CHATBOT_ACCESS` opens it to listed roles or everyone, and `CHATBOT_CHANNEL_IDS` limits where mentions are answered. See [the chatbot guide](chatbot.md).
+
 ## Honeypot moderation
 
 Optional automatic spam traps are available through `HONEYPOT_CHANNEL_ID`, `HONEYPOT_LOG_CHANNEL_ID`, and `HONEYPOT_ACTION` (default `ban`). Leave the channel IDs empty to disable. The trap removes non-staff messages, applies the configured action, and logs outcomes. See [the setup guide](honeypot.md) for channel permissions, exemptions, and testing.

@@ -15,6 +15,7 @@ import type { LevelingService } from "../modules/community/leveling/LevelingServ
 import type { StaffApplicationService } from "../modules/community/applications/StaffApplicationService";
 import type { SuggestionService } from "../modules/community/suggestions/SuggestionService";
 import type { MessageArchiveService } from "../modules/audit/MessageArchiveService";
+import type { ChatbotService } from "../modules/community/chatbot/ChatbotService";
 
 import type { ConvoyClient } from "../infrastructure/http/convoy/ConvoyClient";
 import type { DiscordAdapterClient } from "../infrastructure/http/discord-adapter/DiscordAdapterClient";
@@ -36,6 +37,7 @@ class ArrakisClient extends SapphireClient {
   public leveling?: LevelingService;
   public staffApplications?: StaffApplicationService;
   public suggestions?: SuggestionService;
+  public chatbot?: ChatbotService;
   public messageArchive?: MessageArchiveService;
   public voiceRooms?: VoiceService;
   public chatBridge?: DiscordGameChatBridge;
