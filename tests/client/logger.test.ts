@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LogLevel } from "@sapphire/framework";
 
-import { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, formatConsoleEntry, shouldClearConsole, shouldUseColor } from "../../src/client/logger";
+import { compactSapphireMessage, scopeLabel, wrapMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, formatConsoleEntry, shouldClearConsole, shouldUseColor } from "../../src/client/logger";
 
 function stripAnsi(value: string): string {
   return value
@@ -75,15 +75,17 @@ describe("startup presentation", () => {
     expect(String(output.mock.calls[0]?.[0])).not.toContain("\n");
   });
 
-  it("uses a safe production width when a container does not expose its terminal size", () => {
+  it("wraps to a safe production width when a container does not expose its terminal size", () => {
     vi.stubEnv("NO_COLOR", "1");
     vi.stubEnv("NODE_ENV", "production");
     const output = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
     createLogger("CONFIG", "INFO").info("service enabled ".repeat(20));
 
-    expect(Array.from(String(output.mock.calls[0]?.[0]))).toHaveLength(119);
-    expect(String(output.mock.calls[0]?.[0])).toMatch(/…$/);
+    const lines = String(output.mock.calls[0]?.[0]).split("\n");
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) expect(Array.from(line).length).toBeLessThan(120);
+    expect(lines.map((line) => line.slice(44)).join(" ").split("service enabled").length - 1).toBe(20);
   });
 
   it("keeps redirected logs plain and preserves warning severity", () => {
@@ -186,5 +188,22 @@ describe("startup presentation", () => {
     const cycle: Record<string, unknown> = { privateKey: "x" };
     cycle.self = cycle;
     expect(formatConsoleEntry("BOT", "INFO", "Cycle", cycle, (_color, text) => text)).toContain("[Circular]");
+  });
+
+  it("keeps long scopes inside the scope column and wraps long messages under their own scope", () => {
+    expect(scopeLabel("SHARD MANAGER")).toBe("SHARDS");
+    expect(scopeLabel("A VERY LONG UNKNOWN SCOPE")).toHaveLength(12);
+    const plain = (_color: string, text: string): string => text;
+    const at = new Date("2026-11-27T17:00:00Z");
+    expect(formatConsoleEntry("SHARD MANAGER", "INFO", "Discord shard 0 is ready.", undefined, plain, at)).toBe("2026-11-27 12:00:00  ● INFO  SHARDS       │ Discord shard 0 is ready.");
+
+    const metrics = "ready=yes | ping=45ms | loop p99=23ms max=307ms | heap=35MB rss=184MB | db=up (interactive 0/1 busy, 0 waiting; background 0/1 busy, 0 waiting) | archive buffer=0 | cached messages=46 | 429s=0";
+    const lines = formatConsoleEntry("METRICS", "INFO", metrics, undefined, plain, at, 120).split("\n");
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) expect(line.length).toBeLessThan(120);
+    expect(lines[1]).toMatch(/^ {42}│ \S/);
+    expect(lines.map((line) => line.slice(44)).join(" | ").replace(/ \| /g, "|")).toBe(metrics.replace(/ \| /g, "|"));
+    expect(wrapMessage("short", 75)).toEqual(["short"]);
+    expect(wrapMessage("x".repeat(1000), 75).at(-1)).toMatch(/…$/);
   });
 });

@@ -86,7 +86,7 @@ describe("egg secrets and configuration sync", () => {
       );
     const code = source(path.join(root, "src")).map((file) => fs.readFileSync(file, "utf8")).join("\n");
     const internal = new Set(["NODE_ENV", "BOT_VERSION", "SHARDS", "DISCORD_SHARD_ID"]);
-    const read = new Set([...code.matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)].map((match) => match[1]).filter((key) => !internal.has(key) && !/^(TERM|COLUMNS|NO_COLOR|FORCE_COLOR)$/.test(key)));
+    const read = new Set([...code.matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)].map((match) => match[1]).filter((key) => !internal.has(key) && !/^(TERM|COLUMNS|NO_COLOR|FORCE_COLOR|P_SERVER_UUID)$/.test(key)));
     const offered = new Set(egg.variables.map((variable) => variable.env_variable));
     expect([...read].filter((key) => !offered.has(key))).toEqual([]);
     const deployment = new Set(["RELEASE_TAG", "ALLOW_UNVERIFIED_RELEASE"]);
