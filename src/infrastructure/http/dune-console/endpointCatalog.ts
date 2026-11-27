@@ -75,6 +75,7 @@ const ENDPOINT_CATALOG = Object.freeze([
   { method: "GET", route: "/api/players/{playerId}/vehicles", description: "Get vehicles owned by or shared with the player, including the player's access relationship" },
   { method: "GET", route: "/api/players/{playerId}/currency", description: "Get player currency totals" },
   { method: "GET", route: "/api/players/{playerId}/solaris-coin", description: "Get Solaris Coin total" },
+  { method: "GET", route: "/api/dungeons/leaderboard", description: "Get the fastest dungeon run per dungeon and difficulty" },
   { method: "GET", route: "/api/players/{playerId}/factions", description: "Get faction reputation" },
   { method: "GET", route: "/api/players/{playerId}/intel", description: "Get intel data" },
   { method: "GET", route: "/api/players/{playerId}/specs", description: "Get skill specializations" },
