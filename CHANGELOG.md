@@ -16,6 +16,7 @@ All notable changes to Arrakis Control Bot are documented here.
 - The chatbot now works out what you're actually asking about before it searches. "Who is IShowSpeed from youtube google it" looks up IShowSpeed instead of returning the list of most-subscribed YouTube channels, and phrases like "google", "search for", "who is" and "the youtuber" no longer end up in the search.
 - Web answers are only given when the page is really about what you asked; otherwise the chatbot says it couldn't find anything clear. Answers are shorter and read more like a reply in chat.
 - The chatbot never answers the same message twice.
+- An update that started but never printed its ready line left the update supervisor waiting forever, so that server stopped checking for updates until it was restarted. The supervisor now rolls such a version back after twice `AUTO_UPDATE_HEALTH_SECONDS`. This is what kept dashboards that went from 2.0.1 to 2.0.2 from updating again (2.0.2 never printed the ready line the egg waits for); the updater is shared with the dashboard.
 
 ## [2.0.3] - 2026-11-27
 
