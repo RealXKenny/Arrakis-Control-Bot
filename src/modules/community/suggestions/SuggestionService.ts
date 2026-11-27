@@ -3,6 +3,7 @@ import type { SuggestionConfig } from "../../../infrastructure/config/suggestion
 import type { SuggestionFeature, SuggestionPost, SuggestionStorage } from "../../../infrastructure/database/suggestions/SuggestionRepository";
 import { messageStance, summarizeDiscussion, type DiscussionMessage, type DiscussionSummary } from "./discussionSummary";
 import { canAdvance, happenedAfter, referencedThreadIds, type WorkItem } from "./githubActivity";
+import { composeConversationReply, detectIntent } from "./suggestionConversation";
 import { STATUS_MARKERS, composeNewPostReply, composeStatusReply, type ReplyEvidence } from "./replyComposer";
 import { classifySuggestion } from "./suggestionClassifier";
 import { createAssistantPanel, createSummaryPanel, type FeatureCandidate, type LinkOutcome, type RelatedPost } from "./suggestionPanels";
@@ -48,8 +49,13 @@ const STARTER_RETRY_DELAYS_MS = [0, 1_500, 4_000];
 const CLOSED_STATUSES: ReadonlySet<SuggestionStatus> = new Set(["implemented", "not_doing"]);
 const CATCH_UP_DELAY_MS = 1_500;
 const PANEL_WORK_LINKS = 3;
+const CLOSE_MATCH_SCORE = 0.5;
 /** A match needs this many shared words, so one rare word never moves a suggestion. */
 const MIN_SHARED_TERMS = 2;
+/** One answer per member per post in this window, and a few per post per minute, so nobody can make the bot spam. */
+const CONVERSATION_MEMBER_COOLDOWN_MS = 15_000;
+const CONVERSATION_THREAD_LIMIT = 5;
+const CONVERSATION_WINDOW_MS = 60_000;
 
 class SuggestionService {
   private readonly index = new TfIdfIndex();
@@ -59,6 +65,8 @@ class SuggestionService {
   private preparing = false;
   private stopped = false;
   private companion?: SuggestionCompanion;
+  private readonly lastAnswer = new Map<string, number>();
+  private readonly threadAnswers = new Map<string, number[]>();
 
   public constructor(
     private readonly client: Client,
@@ -161,8 +169,10 @@ class SuggestionService {
 
   /** Post a summary each time a busy discussion passes another multiple of the configured replies. */
   public async handleMessage(message: Message): Promise<void> {
+    if (message.author.bot || message.webhookId || !this.isSuggestionThread(message.channel)) return;
+    if (this.isAddressedToMe(message)) await this.answer(message, message.channel);
     const every = this.config.autoSummaryMessages;
-    if (every <= 0 || message.author.bot || message.webhookId || !this.isSuggestionThread(message.channel)) return;
+    if (every <= 0) return;
     const thread = message.channel;
     const bucket = Math.floor((thread.messageCount ?? 0) / every);
     const previous = this.summaryBuckets.get(thread.id);
@@ -172,6 +182,40 @@ class SuggestionService {
     const summary = await this.summarize(thread);
     if (summary.keyPoints.length === 0) return;
     await thread.send({ components: [createSummaryPanel(thread.name, summary)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+  }
+
+  private isAddressedToMe(message: Message): boolean {
+    const botId = this.client.user?.id;
+    if (!botId) return false;
+    return message.mentions.users.has(botId) || message.mentions.repliedUser?.id === botId;
+  }
+
+  /** Answer a member who mentioned the assistant or replied to it in a suggestion post. */
+  private async answer(message: Message, thread: AnyThreadChannel): Promise<void> {
+    const now = Date.now();
+    const memberKey = `${thread.id}:${message.author.id}`;
+    if (now - (this.lastAnswer.get(memberKey) ?? 0) < CONVERSATION_MEMBER_COOLDOWN_MS) return;
+    const recent = (this.threadAnswers.get(thread.id) ?? []).filter((at) => now - at < CONVERSATION_WINDOW_MS);
+    if (recent.length >= CONVERSATION_THREAD_LIMIT) return;
+    this.lastAnswer.set(memberKey, now);
+    this.threadAnswers.set(thread.id, [...recent, now]);
+    if (this.lastAnswer.size > 5_000) this.lastAnswer.clear();
+
+    const intent = detectIntent(message.content);
+    const post = this.posts.get(thread.id) ?? this.buildPost(thread, await this.fetchStarter(thread, [0]));
+    const tags = this.cachedTags();
+    const content = composeConversationReply(intent, {
+      seed: `${thread.id}:${message.id}`,
+      askerId: message.author.id,
+      title: post.title,
+      body: post.body,
+      authorId: post.authorId ?? undefined,
+      status: tags ? currentStatus([...thread.appliedTags], tags) : undefined,
+      work: intent === "status" ? await this.storage.workLinks(thread.id, PANEL_WORK_LINKS).catch(() => []) : [],
+      related: intent === "similar" ? this.search(postTokens(post), 3, Math.min(0.15, this.config.duplicateThreshold), new Set([thread.id])) : [],
+      summary: intent === "summary" || intent === "opinion" ? await this.summarize(thread).catch(() => undefined) : undefined,
+    });
+    await message.reply({ content, allowedMentions: { parse: [], users: [message.author.id], repliedUser: false } });
   }
 
   public related(threadId: string, limit = 5, minScore = this.config.duplicateThreshold): RelatedPost[] {
@@ -403,7 +447,7 @@ class SuggestionService {
     const categories = categoriesOf(post.tagIds, tags);
     const linkedFeature = featureName ?? (await this.storage.featureForThread(post.guildId, post.threadId).catch(() => null))?.name;
     const work = await this.storage.workLinks(post.threadId, PANEL_WORK_LINKS).catch(() => []);
-    const reply = composeNewPostReply({ seed: post.threadId, title: post.title, body: post.body, authorId: post.authorId ?? undefined, categories: categories.length ? categories : ["idea"], relatedCount: related.length });
+    const reply = composeNewPostReply({ seed: post.threadId, title: post.title, body: post.body, authorId: post.authorId ?? undefined, categories: categories.length ? categories : ["idea"], relatedCount: related.length, closestTitle: related[0] && related[0].score >= CLOSE_MATCH_SCORE ? related[0].title : undefined });
     return {
       components: [createAssistantPanel({ reply, status: currentStatus(post.tagIds, tags), related, updatedBy: actorId, featureName: linkedFeature, work })],
       flags: MessageFlags.IsComponentsV2 as const,

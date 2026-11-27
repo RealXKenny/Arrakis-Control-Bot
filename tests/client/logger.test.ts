@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LogLevel } from "@sapphire/framework";
 
-import { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, shouldUseColor } from "../../src/client/logger";
+import { compactSapphireMessage, createLogger, describeError, createSapphireLogger, fitConsoleLine, formatConsoleEntry, shouldClearConsole, shouldUseColor } from "../../src/client/logger";
 
 function stripAnsi(value: string): string {
   return value
@@ -97,7 +97,8 @@ describe("startup presentation", () => {
     logger.warn("Music unavailable; retrying.");
     expect(output.mock.calls.flat().join("\n")).not.toContain(String.fromCharCode(27));
     expect(output.mock.calls.flat().join("\n")).toContain("Dune: Awakening Bot");
-    expect(write).toHaveBeenCalledWith("\u001B[2J\u001B[3J\u001B[H");
+    // Like the dashboard, the console is not cleared when colours are off.
+    expect(write).not.toHaveBeenCalledWith("\u001B[2J\u001B[3J\u001B[H");
     expect(warning).toHaveBeenCalledWith(expect.stringContaining("▲ WARN  BOT          │ Music unavailable; retrying."));
   });
 
@@ -173,5 +174,17 @@ describe("startup presentation", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     createLogger("REQUEST", "INFO").warn("Request failed.", { route: "/x", error: new Error("boom") });
     expect(String(warn.mock.calls[0]?.[0])).toContain("route = /x  ·  error = Error: boom");
+  });
+
+  it("shares the dashboard console style line for line", () => {
+    vi.stubEnv("NO_COLOR", "1");
+    expect(shouldClearConsole({ P_SERVER_UUID: "uuid" }, false)).toBe(true);
+    expect(shouldClearConsole({ P_SERVER_UUID: "uuid", LOG_COLOR: "never" }, true)).toBe(false);
+    // The dashboard's test suite checks this exact line too, so both consoles stay the same.
+    const line = formatConsoleEntry("SUGGESTIONS", "WARN", "Autopilot paused", { resetIn: 60, repo: "o/r" }, (_color, text) => text, new Date("2026-11-27T17:00:00Z"));
+    expect(line).toBe("2026-11-27 12:00:00  ▲ WARN  SUGGESTIONS  │ Autopilot paused · reset in = 60  ·  repo = o/r");
+    const cycle: Record<string, unknown> = { privateKey: "x" };
+    cycle.self = cycle;
+    expect(formatConsoleEntry("BOT", "INFO", "Cycle", cycle, (_color, text) => text)).toContain("[Circular]");
   });
 });

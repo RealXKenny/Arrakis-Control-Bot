@@ -60,4 +60,13 @@ describe("assistant replies", () => {
     const openers = new Set(Array.from({ length: 30 }, (_, index) => composeStatusReply("in_progress", { seed: String(index), title: "Spice tracker", evidence: { ...evidence, kind: "pull" } }).split("\n")[0]));
     expect(openers.size).toBeGreaterThan(2);
   });
+
+  it("quotes a detail from the post and asks a follow-up on short posts", () => {
+    const long = composeNewPostReply({ seed: "a", title: "Spice tracker", body: "Guilds could log every harvest with the amount and location. That would help plan refinery runs.", authorId: "123456789012345678", categories: ["game"] });
+    expect(long).toMatch(/“[^”]*(harvest|refinery)[^”]*”/);
+    const short = composeNewPostReply({ seed: "a", title: "Spice tracker", body: "pls", authorId: "123456789012345678", categories: ["game"] });
+    expect(short).toContain("?");
+    const close = composeNewPostReply({ seed: "a", title: "Spice tracker", body: "", relatedCount: 1, closestTitle: "Track spice" });
+    expect(close).toContain("**Track spice**");
+  });
 });

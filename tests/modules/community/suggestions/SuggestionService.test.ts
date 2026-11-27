@@ -184,7 +184,7 @@ describe("SuggestionService", () => {
       ["a", { id: "a", author: { id: "1", bot: false }, system: false, content: "Desert heat makes water management matter a lot more.", createdAt: new Date(1) }],
       ["b", { id: "b", author: { id: "2", bot: false }, system: false, content: "Desert heat and water management would slow new players.", createdAt: new Date(2) }],
     ]));
-    const message = (count: number) => { thread.messageCount = count; return { author: { bot: false }, webhookId: null, channel: thread } as never; };
+    const message = (count: number) => { thread.messageCount = count; return { author: { bot: false }, webhookId: null, channel: thread, mentions: { users: new Map(), repliedUser: null } } as never; };
     await service.handleMessage(message(4));
     expect(thread.sent).toHaveLength(0);
     await service.handleMessage(message(5));
@@ -258,5 +258,42 @@ describe("SuggestionService", () => {
     expect(thread.setArchived).toHaveBeenLastCalledWith(true, expect.any(String));
     expect(storage.updatePanelMessage).toHaveBeenCalledWith(thread.id, "msg-1");
     await expect(service.catchUp()).resolves.toBe(0);
+  });
+
+  describe("conversation", () => {
+    const BOT = "100000000000000099";
+    function ask(thread: ReturnType<typeof createThread>, content: string, author = "100000000000000007") {
+      const reply = vi.fn().mockResolvedValue(undefined);
+      return { reply, message: { reply, id: `m-${content.length}`, content, author: { id: author, bot: false }, webhookId: null, channel: thread, mentions: { users: new Map([[BOT, {}]]), repliedUser: null } } };
+    }
+
+    it("answers a status question with the current status and linked GitHub work, pinging only the asker", async () => {
+      const forum = createForum();
+      const { service, storage } = createService(forum);
+      const thread = createThread(forum, "200000000000000040", "Desert heat toggle", "Turn on desert heat for roleplay", ["tag-in-progress"]);
+      vi.mocked(storage.workLinks).mockResolvedValue([{ threadId: thread.id, itemKey: "pull:o/r:5", repo: "o/r", kind: "pull", title: "Heat toggle", url: "https://github.com/o/r/pull/5", status: "in_progress", at: new Date(), mergedAt: null }]);
+      const { message, reply } = ask(thread, `<@${BOT}> any update on this?`);
+      await service.handleMessage(message as never);
+      const payload = reply.mock.calls[0]?.[0] as { content: string; allowedMentions: unknown };
+      expect(payload.content).toContain("🔨");
+      expect(payload.content).toContain("(<https://github.com/o/r/pull/5>)");
+      expect(payload.allowedMentions).toEqual({ parse: [], users: ["100000000000000007"], repliedUser: false });
+    });
+
+    it("ignores messages not meant for it and rate-limits each member", async () => {
+      const forum = createForum();
+      const { service } = createService(forum);
+      const thread = createThread(forum, "200000000000000041", "Desert heat toggle", "Turn on desert heat");
+      const plain = ask(thread, "any update?");
+      plain.message.mentions.users = new Map();
+      await service.handleMessage(plain.message as never);
+      expect(plain.reply).not.toHaveBeenCalled();
+      const first = ask(thread, `<@${BOT}> thanks!`);
+      const second = ask(thread, `<@${BOT}> hello again`);
+      await service.handleMessage(first.message as never);
+      await service.handleMessage(second.message as never);
+      expect(first.reply).toHaveBeenCalledTimes(1);
+      expect(second.reply).not.toHaveBeenCalled();
+    });
   });
 });

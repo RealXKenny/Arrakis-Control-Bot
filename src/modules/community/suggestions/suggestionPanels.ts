@@ -4,7 +4,7 @@ import {
 import type { SuggestionFeature } from "../../../infrastructure/database/suggestions/SuggestionRepository";
 import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 import { PANEL_COLORS, panelFooter, panelHeading } from "../../../shared/discord/panelStyle";
-import type { DiscussionSummary } from "./discussionSummary";
+import { describeDiscussion, type DiscussionSummary } from "./discussionSummary";
 import { STATUS_MARKERS } from "./replyComposer";
 import { PANEL_STATUSES, STATUS_DEFINITIONS, type SuggestionStatus } from "./suggestionTags";
 
@@ -131,9 +131,8 @@ function createSummaryPanel(title: string, summary: DiscussionSummary): Containe
     .addTextDisplayComponents((text) => text.setContent(truncateDiscordText([
       panelHeading("Discussion summary", 3),
       `**${escapeMarkdown(truncateDiscordText(title, 120, "…"))}**`,
-      `${summary.messageCount} messages from ${summary.participantCount} members${window}`,
-      `**Opinion:** ${stance}`,
-      summary.topTerms.length ? `**Most discussed:** ${summary.topTerms.map((term) => `\`${term}\``).join(", ")}` : undefined,
+      describeDiscussion(summary),
+      `-# ${summary.messageCount} messages from ${summary.participantCount} members${window} · ${stance}`,
       "",
       "**Key points**",
       points,

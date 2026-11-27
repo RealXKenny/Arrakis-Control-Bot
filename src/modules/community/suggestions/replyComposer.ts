@@ -1,4 +1,5 @@
 import { escapeMarkdown } from "discord.js";
+import { splitSentences } from "./discussionSummary";
 import { tokenize } from "./textAnalysis";
 import { CATEGORY_TAG_NAMES, type SuggestionCategory, type SuggestionStatus } from "./suggestionTags";
 
@@ -18,6 +19,8 @@ interface ReplyContext {
   supportCount?: number;
   participantCount?: number;
   relatedCount?: number;
+  /** Title of a very close earlier post, named in the reply. */
+  closestTitle?: string;
   note?: string;
   featureName?: string;
   referenceUrl?: string;
@@ -57,6 +60,32 @@ const NEW_POST_RELATED: Bank = [
   "A few earlier posts look related, so check them below before the discussion splits.",
   "I found posts that talk about something close to this. They're listed below.",
 ];
+const NEW_POST_DETAIL: Bank = [
+  "The part about “{detail}” is the kind of detail that helps staff picture it.",
+  "I noted this bit in particular: “{detail}”.",
+  "“{detail}” sums it up nicely.",
+  "Key point, as I read it: “{detail}”.",
+];
+const NEW_POST_CLOSEST: Bank = [
+  "The closest is **{closest}**, so take a look there too.",
+  "**{closest}** reads almost the same, so it may be worth joining forces.",
+];
+/** Asked when a post is short, so the suggester knows what would help. */
+const FOLLOW_UP_QUESTIONS: Readonly<Record<SuggestionCategory, Bank>> = Object.freeze({
+  idea: ["What problem would this solve for you?", "Could you add an example of how it would work?", "Who would use this the most?"],
+  game: ["How would this change a normal play session?", "Is there a game or server that does this well already?", "Would this be for solo players, groups or everyone?"],
+  server: ["Is this about performance, settings or something else?", "When do you notice the problem most?", "Which setting would you change, and to what?"],
+  bots: ["Which command or panel would this change?", "How would you expect the bot to respond?", "Could you describe the steps you'd take with it?"],
+  events: ["How often would you like this event to run?", "What would a winner get?", "Would this suit a weekend or a weeknight?"],
+  rules: ["What situation made you think of this rule?", "How would staff enforce it fairly?", "What should happen when someone breaks it?"],
+  cosmetic: ["Do you have a picture or example of the look you mean?", "Where would this show up?", "Which colours or style did you have in mind?"],
+});
+const SHORT_POST_LINES: Bank = [
+  "It's a short post, so a bit more detail would help:",
+  "One question to make this stronger:",
+  "To help staff weigh it up:",
+];
+
 const NEW_POST_CLOSERS: Bank = [
   "Members can add their thoughts below, and staff will review it soon.",
   "Feel free to add details or examples while staff review it.",
@@ -208,13 +237,40 @@ function capitalize(value: string): string {
   return value ? `${value[0]!.toUpperCase()}${value.slice(1)}` : value;
 }
 
+const SHORT_POST_TOKENS = 12;
+
+/** The sentence of the post that says the most beyond its title, quoted back so the reply shows it was read. */
+function keyDetail(title: string, body: string): string | undefined {
+  const titleTerms = new Set(tokenize(title));
+  let best: { text: string; score: number } | undefined;
+  for (const sentence of splitSentences(body)) {
+    const terms = new Set(tokenize(sentence));
+    if (terms.size < 4 || /https?:\/\//.test(sentence)) continue;
+    let fresh = 0;
+    for (const term of terms) if (!titleTerms.has(term)) fresh += 1;
+    const score = fresh + Math.min(terms.size, 12) / 4;
+    if (fresh >= 2 && (!best || score > best.score)) best = { text: sentence, score };
+  }
+  return best ? truncate(best.text.replace(/<[@#][!&]?\d+>/g, "").replace(/[{}]/g, "").replace(/[“”"]/g, "'").replace(/[.!?]+$/, ""), 110) : undefined;
+}
+
 /** Reply posted under a brand-new suggestion. */
 function composeNewPostReply(context: ReplyContext): string {
   const random = seededRandom(`new:${context.seed}`);
   const topic = extractTopic(context.title, context.body);
-  const lines = [pick(NEW_POST_OPENERS, random), pick(NEW_POST_FILED, random)];
-  if ((context.relatedCount ?? 0) > 0) lines.push(pick(NEW_POST_RELATED, random));
-  lines.push(pick(NEW_POST_CLOSERS, random));
+  const lines = [pick(NEW_POST_OPENERS, random)];
+  const detail = keyDetail(context.title, context.body ?? "");
+  if (detail) lines.push(pick(NEW_POST_DETAIL, random).replace("{detail}", () => escapeMarkdown(detail)));
+  lines.push(pick(NEW_POST_FILED, random));
+  if ((context.relatedCount ?? 0) > 0) {
+    lines.push(pick(NEW_POST_RELATED, random));
+    if (context.closestTitle) lines.push(pick(NEW_POST_CLOSEST, random).replace("{closest}", () => escapeMarkdown(truncate(context.closestTitle!, 70))));
+  }
+  if (tokenize(context.body ?? "").length < SHORT_POST_TOKENS) {
+    lines.push(`${pick(SHORT_POST_LINES, random)} ${pick(FOLLOW_UP_QUESTIONS[context.categories?.[0] ?? "idea"], random)}`);
+  } else {
+    lines.push(pick(NEW_POST_CLOSERS, random));
+  }
   return lines.map((line) => fill(line, context, topic)).join(" ");
 }
 

@@ -5,7 +5,7 @@ The suggestion assistant manages a Discord forum channel of community suggestion
 ## What it does
 
 - **Tags new posts.** When a member opens a post with no category tag, the assistant picks up to two of Idea, Game, Server, Bots, Events, Rules and Cosmetic, and adds Under Review. Members' own tag choices are never removed. The classifier starts from a keyword list and also learns from posts staff have already tagged, so it improves as the forum grows.
-- **Replies to the suggester.** Each new post gets a short reply that mentions the post's own topic, the tags it chose, and any similar earlier posts. Replies are put together from many phrase variations, so they read differently from post to post.
+- **Replies to the suggester.** Each new post gets a short reply that mentions the post's own topic, quotes the detail that says the most, names the tags it chose and any very similar earlier post, and asks a follow-up question when the post is short. Replies are put together from many phrase variations, so they read differently from post to post.
 - **Staff status panel.** The same reply carries the status buttons. Only staff can press them.
 
   | Button | Forum tag | Meaning |
@@ -17,6 +17,7 @@ The suggestion assistant manages a Discord forum channel of community suggestion
   | ✅ Added | Implemented | Done and live on the server. |
 
   Pressing a button swaps the status tag, refreshes the panel, and posts a short message that tells the suggester (with a mention) what changed. The message is worded for the status and the post, and mentions how many members supported it when that is relevant. The existing Approved tag is kept, except when a post goes back to review or is marked Not doing.
+- **Talks back.** Mention the bot (or reply to one of its messages) inside a suggestion post and ask in your own words: "any update?", "is this a duplicate?", "sum it up", "what do you think?", "thanks". It works out what you mean and answers from what it actually knows about the post: its status, the GitHub work it has linked, similar posts and the discussion. It never invents dates, stays neutral on whether an idea is good, and pings only the member who asked. Each member gets one answer every 15 seconds per post, and a post gets at most five answers a minute.
 - **Finds duplicates.** New posts list up to three similar posts. Anyone can press **Find similar** or run `/suggestions similar` for a longer list.
 - **Summarizes discussions.** Anyone can press **Summarize discussion** or run `/suggestions summary` to see a private summary: how many members took part, how many are in favour or against, the most discussed words, and up to four key points quoted from the discussion. By default the assistant also posts a summary publicly every 50 replies.
 - **Follows GitHub by itself (autopilot).** Every 15 minutes the assistant reads the configured GitHub repositories (read-only): open issues, open and merged pull requests, commits on the default branch, and published releases. When one matches a suggestion, it moves the suggestion forward without anyone pressing a button:
@@ -80,7 +81,7 @@ Staff means the server owner, anyone with Manage Threads, or anyone with a role 
 ## Limits
 
 - Matching is by wording, not meaning. "Desert heat" and "heat damage in the desert" match; two posts that describe the same idea in completely different words may not. Lower `SUGGESTIONS_DUPLICATE_THRESHOLD` or add keywords to `feature start` to widen the search.
-- Summaries quote what members wrote; they do not write new sentences. Support and opposition are counted from clear phrases such as "+1", "agree" or "bad idea", using each member's latest stance.
+- Summaries describe the discussion in a few plain sentences built from counts and the most used words, then quote what members wrote; they never put words in anyone's mouth. Support and opposition are counted from clear phrases such as "+1", "agree" or "bad idea", using each member's latest stance.
 - Replies are generated from phrase banks and the post's own title, so they are varied but never invent facts.
 - The index lives in memory and is rebuilt from PostgreSQL at startup.
 - The autopilot matches GitHub work by wording too, and needs at least two shared words. A pull request titled very differently from the suggestion will not match; link the suggestion in its description instead. Labels named security, private, internal, confidential or embargoed are never read, nor are bot-authored items, merge commits or release housekeeping.
