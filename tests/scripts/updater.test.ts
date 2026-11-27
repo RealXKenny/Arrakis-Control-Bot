@@ -514,7 +514,7 @@ describe('automatic update', () => {
 
 describe('release signal', () => {
   const repository = 'RealXKenny/Arrakis-Control-Bot';
-  const answer = (body: unknown, status = 200) => async () => new Response(JSON.stringify(body), { status });
+  const answer = (body: unknown, status = 200) => () => Promise.resolve(new Response(JSON.stringify(body), { status }));
 
   it('accepts only https, or http to this machine, without credentials', () => {
     expect(signalAddress('https://dash.example.com/api/v2/updates/signal')).toContain('https://dash.example.com');
