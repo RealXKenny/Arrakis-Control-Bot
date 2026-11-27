@@ -2,6 +2,13 @@
 
 All notable changes to Arrakis Control Bot are documented here.
 
+## [2.0.5] - 2026-11-27
+
+### Fixed
+
+- 2.0.4 could fail to start (and the updater rolled back to 2.0.3) when `CHATBOT_AI` was on and `CHATBOT_AI_MODEL` had a value it didn't recognise, such as a quoted `"small"`. A mistake in any chatbot AI setting now only turns the AI model off, with a warning in the console that names the setting; the bot and the rest of the chatbot start normally.
+- AI settings are read the way panels and `.env` files write them: surrounding quotes and a trailing `# comment` are ignored, `CHATBOT_AI` also accepts `1`/`0`, `yes`/`no` and `on`/`off`, and `CHATBOT_AI_MODEL` also accepts `3b`/`8b`, `hf:owner/repo:quant` and a huggingface.co file link.
+
 ## [2.0.4] - 2026-11-27
 
 ### Added

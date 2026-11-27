@@ -38,8 +38,28 @@ describe("chatbot config", () => {
     });
     expect(loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "large", CHATBOT_AI_THREADS: "12" })?.ai).toMatchObject({ modelUri: AI_MODELS.large!.uri, sha256: AI_MODELS.large!.sha256, threads: 12 });
     expect(loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "hf:someone/repo/model-Q4_K_M.gguf" })?.ai).toMatchObject({ modelUri: "hf:someone/repo/model-Q4_K_M.gguf", sha256: undefined });
-    expect(() => loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "https://evil.example/model.gguf" })).toThrow("CHATBOT_AI_MODEL");
-    expect(() => loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "hf:a/../b/model.gguf" })).toThrow("CHATBOT_AI_MODEL");
-    expect(() => loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL_SHA256: "abc" })).toThrow("CHATBOT_AI_MODEL_SHA256");
+    const off = (env: NodeJS.ProcessEnv) => {
+      const config = loadChatbotConfig({ CHATBOT_AI: "true", ...env });
+      expect(config?.ai).toBeUndefined();
+      return config?.aiWarning ?? "";
+    };
+    expect(off({ CHATBOT_AI_MODEL: "https://evil.example/model.gguf" })).toContain("CHATBOT_AI_MODEL");
+    expect(off({ CHATBOT_AI_MODEL: "hf:a/../b/model.gguf" })).toContain("CHATBOT_AI_MODEL");
+    expect(off({ CHATBOT_AI_MODEL_SHA256: "abc" })).toContain("CHATBOT_AI_MODEL_SHA256");
+    expect(off({ CHATBOT_AI_THREADS: "lots" })).toContain("CHATBOT_AI_THREADS");
+    expect(loadChatbotConfig({ CHATBOT_AI: "maybe" })?.aiWarning).toContain("CHATBOT_AI must be true or false");
+  });
+
+  it("never stops the bot over an AI setting, and reads values the way panels and .env files write them", () => {
+    const model = (value: string) => loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: value })?.ai?.modelUri;
+    expect(model('"small"')).toBe(AI_MODELS.small!.uri);
+    expect(model("'large'")).toBe(AI_MODELS.large!.uri);
+    expect(model("small # the 3B one")).toBe(AI_MODELS.small!.uri);
+    expect(model("8B")).toBe(AI_MODELS.large!.uri);
+    expect(model("hf:bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M")).toBe("hf:bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M");
+    expect(model("https://huggingface.co/someone/repo/resolve/main/model-Q4_K_M.gguf?download=true")).toBe("hf:someone/repo/model-Q4_K_M.gguf");
+    expect(loadChatbotConfig({ CHATBOT_AI: "1" })?.ai).toBeDefined();
+    expect(loadChatbotConfig({ CHATBOT_AI: "off" })?.ai).toBeUndefined();
+    expect(loadChatbotConfig({ CHATBOT_AI: "true", CHATBOT_AI_MODEL: "something else" })).toBeDefined();
   });
 });

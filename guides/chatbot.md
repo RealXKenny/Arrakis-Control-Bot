@@ -69,6 +69,8 @@ The chatbot can run a real AI model inside the bot, so it can hold a conversatio
 | `small` (default) | Llama 3.2 3B Instruct, Q4_K_M | about 2 GB | 8 GB | roughly 4 to 10 seconds |
 | `large` | Qwen 2.5 7B Instruct, Q4_K_M | about 4.7 GB | 12 GB | roughly 12 to 30 seconds |
 
+If an AI setting is wrong, only the AI model stays off: the console shows a warning naming the setting, and the bot and the rest of the chatbot run normally.
+
 Reply times are estimates and depend on the host. The bot shows "typing…" while it thinks. You can also use any other GGUF model on Hugging Face with `CHATBOT_AI_MODEL=hf:owner/repo/file.gguf`; set `CHATBOT_AI_MODEL_SHA256` so the download is checked.
 
 How it answers with the model:
@@ -152,7 +154,7 @@ A taught answer wins over the FAQ and learned answers when both match, so you ca
 | `CHATBOT_WEB_PER_MINUTE` | `20` | Most web lookups a minute for the whole bot. |
 | `CHATBOT_WEB_AUTO` | `false` | Also use the internet for unasked answers. |
 | `CHATBOT_AI` | `false` | Run the chatbot's own AI model inside the bot. |
-| `CHATBOT_AI_MODEL` | `small` | `small`, `large`, or `hf:owner/repo/file.gguf`. |
+| `CHATBOT_AI_MODEL` | `small` | `small`, `large`, `hf:owner/repo/file.gguf` or `hf:owner/repo:quant`. |
 | `CHATBOT_AI_MODEL_SHA256` | empty | SHA-256 a custom model must match (the presets have theirs). |
 | `CHATBOT_AI_MODEL_DIR` | `models` | Folder the model is kept in. |
 | `CHATBOT_AI_THREADS` | `8` | CPU threads the model may use. |

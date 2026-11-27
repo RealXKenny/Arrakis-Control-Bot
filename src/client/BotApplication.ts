@@ -318,6 +318,7 @@ function configureIntegrations(client: BotClient, config: BotConfig, onDatabaseC
   }
   const chatbotLogger = createLogger("CHATBOT", config.logLevel);
   const chatbotUserAgent = `ArrakisControlBot/${getBotVersion()} (Discord community bot)`;
+  if (config.chatbot?.aiWarning) chatbotLogger.warn(config.chatbot.aiWarning);
   client.chatbot = config.chatbot ? new ChatbotService(client, config.chatbot, client.tickets ? new ChatbotRepository(client.tickets.pool) : undefined, {
     info: (message: string) => chatbotLogger.info(message),
     warn: (message: string) => chatbotLogger.warn(message),

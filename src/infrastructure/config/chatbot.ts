@@ -34,6 +34,8 @@ interface ChatbotConfig {
   webAuto: boolean;
   /** The bot's own language model, run inside the bot process. Undefined when it is off. */
   ai?: ChatbotAiConfig;
+  /** Why the AI model is off although `CHATBOT_AI` asked for it. A bad AI setting never stops the bot. */
+  aiWarning?: string;
 }
 
 interface ChatbotAiConfig {
@@ -84,34 +86,65 @@ function loadChatbotConfig(env: NodeJS.ProcessEnv): ChatbotConfig | undefined {
     webWikiUrl: parseWikiUrl(env.CHATBOT_WEB_WIKI_URL),
     webPerMinute: parseInteger(env.CHATBOT_WEB_PER_MINUTE, 20, 1, 120, "CHATBOT_WEB_PER_MINUTE"),
     webAuto: parseFlag(env.CHATBOT_WEB_AUTO, false, "CHATBOT_WEB_AUTO"),
-    ai: parseFlag(env.CHATBOT_AI, false, "CHATBOT_AI") ? loadAiConfig(env) : undefined,
+    ...loadOptionalAi(env),
   });
+}
+
+/**
+ * The AI model is optional, so a mistake in its settings turns only the model off (with a warning
+ * logged at startup) instead of stopping the whole bot.
+ */
+function loadOptionalAi(env: NodeJS.ProcessEnv): { ai?: ChatbotAiConfig; aiWarning?: string } {
+  const flag = settingValue(env.CHATBOT_AI).toLowerCase();
+  if (!flag || ["false", "0", "no", "off"].includes(flag)) return {};
+  if (!["true", "1", "yes", "on"].includes(flag)) return { aiWarning: `CHATBOT_AI must be true or false (it is "${flag.slice(0, 40)}"), so the chatbot's AI model is off.` };
+  try {
+    return { ai: loadAiConfig(env) };
+  } catch (error: unknown) {
+    return { aiWarning: `${error instanceof Error ? error.message : String(error)} The chatbot's AI model is off until this is fixed; everything else runs normally.` };
+  }
+}
+
+/** A setting as typed in a panel or .env file: surrounding quotes and a trailing ` # comment` removed. */
+function settingValue(value: string | undefined): string {
+  return (value ?? "").replace(/\s+#.*$/, "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 }
 
 function loadAiConfig(env: NodeJS.ProcessEnv): ChatbotAiConfig {
   const model = parseAiModel(env.CHATBOT_AI_MODEL);
-  const sha256 = env.CHATBOT_AI_MODEL_SHA256?.trim().toLowerCase() || model.sha256;
+  const sha256 = settingValue(env.CHATBOT_AI_MODEL_SHA256).toLowerCase() || model.sha256;
   if (sha256 && !/^[0-9a-f]{64}$/.test(sha256)) throw new Error("CHATBOT_AI_MODEL_SHA256 must be a 64-character hex SHA-256.");
-  const modelDir = env.CHATBOT_AI_MODEL_DIR?.trim() || "models";
+  const modelDir = settingValue(env.CHATBOT_AI_MODEL_DIR) || "models";
   if (/[\p{Cc}]/u.test(modelDir)) throw new Error("CHATBOT_AI_MODEL_DIR must be a folder path.");
   return Object.freeze({
     modelUri: model.uri,
     sha256,
     modelDir,
-    threads: parseInteger(env.CHATBOT_AI_THREADS, 8, 1, 64, "CHATBOT_AI_THREADS"),
-    contextSize: parseInteger(env.CHATBOT_AI_CONTEXT, 4_096, 1_024, 32_768, "CHATBOT_AI_CONTEXT"),
-    maxTokens: parseInteger(env.CHATBOT_AI_MAX_TOKENS, 220, 32, 1_024, "CHATBOT_AI_MAX_TOKENS"),
-    timeoutSeconds: parseInteger(env.CHATBOT_AI_TIMEOUT_SECONDS, 60, 5, 600, "CHATBOT_AI_TIMEOUT_SECONDS"),
+    threads: parseInteger(settingValue(env.CHATBOT_AI_THREADS), 8, 1, 64, "CHATBOT_AI_THREADS"),
+    contextSize: parseInteger(settingValue(env.CHATBOT_AI_CONTEXT), 4_096, 1_024, 32_768, "CHATBOT_AI_CONTEXT"),
+    maxTokens: parseInteger(settingValue(env.CHATBOT_AI_MAX_TOKENS), 220, 32, 1_024, "CHATBOT_AI_MAX_TOKENS"),
+    timeoutSeconds: parseInteger(settingValue(env.CHATBOT_AI_TIMEOUT_SECONDS), 60, 5, 600, "CHATBOT_AI_TIMEOUT_SECONDS"),
   });
 }
 
-/** `small`, `large`, or a Hugging Face GGUF file (`hf:owner/repo/file.gguf`). Nothing else is downloaded. */
+/** Other names people use for the two presets. */
+const AI_MODEL_ALIASES: Readonly<Record<string, string>> = Object.freeze({ "3b": "small", llama: "small", "llama3.2": "small", default: "small", "7b": "large", "8b": "large", qwen: "large", "qwen2.5": "large", big: "large" });
+
+/**
+ * `small`, `large`, or a Hugging Face GGUF model: `hf:owner/repo/file.gguf`, `hf:owner/repo:quant`
+ * or a huggingface.co file link. Nothing outside Hugging Face is ever downloaded.
+ */
 function parseAiModel(value: string | undefined): { uri: string; sha256?: string } {
-  const raw = value?.trim() || "small";
-  const preset = AI_MODELS[raw.toLowerCase()];
+  const raw = settingValue(value) || "small";
+  const name = raw.toLowerCase();
+  const preset = AI_MODELS[AI_MODEL_ALIASES[name] ?? name];
   if (preset) return preset;
-  if (/^hf:[\w.-]+\/[\w.-]+\/(?:[\w.-]+\/)*[\w.-]+\.gguf$/i.test(raw) && !raw.includes("..")) return { uri: raw };
-  throw new Error("CHATBOT_AI_MODEL must be small, large, or a Hugging Face GGUF file such as hf:owner/repo/model.gguf.");
+  const link = /^https:\/\/huggingface\.co\/([\w.-]+)\/([\w.-]+)\/(?:resolve|blob)\/main\/((?:[\w.-]+\/)*[\w.-]+\.gguf)(?:\?download=true)?$/i.exec(raw);
+  const uri = link ? `hf:${link[1]}/${link[2]}/${link[3]}` : raw;
+  const file = /^hf:[\w.-]+\/[\w.-]+\/(?:[\w.-]+\/)*[\w.-]+\.gguf$/i.test(uri);
+  const quant = /^hf:[\w.-]+\/[\w.-]+:[\w.-]+$/i.test(uri);
+  if ((file || quant) && !uri.includes("..")) return { uri };
+  throw new Error(`CHATBOT_AI_MODEL must be small, large, or a Hugging Face GGUF model such as hf:owner/repo/model.gguf (it is "${raw.slice(0, 80)}").`);
 }
 
 const DEFAULT_WIKI_URL = "https://dune.fandom.com";
