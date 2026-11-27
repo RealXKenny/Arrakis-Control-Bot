@@ -5,6 +5,12 @@ import { describeChatConnectionError } from "./chatConnectionError";
 
 type Warn = (message: string) => void;
 
+/**
+ * `map` binds exact map keys on chat.map and can publish; `intercept` listens
+ * to every key on the broker's chat.intercept feed and is receive-only.
+ */
+export type GameChatSubscription = { kind: "map"; maps: string[] } | { kind: "intercept" };
+
 export class GameChatConnection {
   private connection?: ChannelModel;
   private channel?: ConfirmChannel;
@@ -23,6 +29,7 @@ export class GameChatConnection {
     private readonly receive: (map: string, body: Buffer) => Promise<void>,
     private readonly warn: Warn,
     private readonly info: (message: string) => void = () => undefined,
+    private readonly subscription: GameChatSubscription = { kind: "map", maps: [...new Set(config.routes.map((route) => route.map))] },
   ) {}
 
   public start(): void {
@@ -80,12 +87,18 @@ export class GameChatConnection {
       channel.on("return", (message: ConsumeMessage) => {
         this.pending.get(message.properties.messageId)?.(new Error("RabbitMQ returned an unroutable chat message."));
       });
-      stage = "checking chat.map";
-      await channel.checkExchange("chat.map");
+      const exchange = this.subscription.kind === "intercept" ? "chat.intercept" : "chat.map";
+      stage = `checking ${exchange}`;
+      await channel.checkExchange(exchange);
       stage = "creating the chat receive queue";
       const queue = await channel.assertQueue("", { exclusive: true, autoDelete: true, durable: false, arguments: { "x-max-length": 500, "x-message-ttl": 60_000 } });
-      stage = "binding the map routes";
-      for (const map of new Set(this.config.routes.map((route) => route.map))) await channel.bindQueue(queue.queue, "chat.map", map);
+      if (this.subscription.kind === "intercept") {
+        stage = "binding the chat.intercept feed";
+        await channel.bindQueue(queue.queue, exchange, "#");
+      } else {
+        stage = "binding the map routes";
+        for (const map of new Set(this.subscription.maps)) await channel.bindQueue(queue.queue, exchange, map);
+      }
       await channel.prefetch(1);
       stage = "starting the chat consumer";
       await channel.consume(queue.queue, (message) => {
@@ -104,7 +117,9 @@ export class GameChatConnection {
       const recovered = this.failures > 0 ? ` after ${this.failures} failed attempt(s)` : "";
       this.failures = 0;
       this.lastFailure = undefined;
-      this.info(`RabbitMQ chat connection ready${recovered}; map routes are bound and the consumer is active.`);
+      this.info(this.subscription.kind === "intercept"
+        ? `RabbitMQ chat.intercept listener ready${recovered}; proximity chat is being watched.`
+        : `RabbitMQ chat connection ready${recovered}; map routes are bound and the consumer is active.`);
     } catch (error: unknown) {
       this.reportFailure(`${stage}: ${describeChatConnectionError(error)}`);
       if (connection) await connection.close().catch(() => undefined);
@@ -126,6 +141,7 @@ export class GameChatConnection {
   }
 
   public publish(map: string, id: string, body: Buffer): Promise<void> {
+    if (this.subscription.kind !== "map") return Promise.reject(new Error("The chat.intercept listener is receive-only."));
     const properties: Options.Publish = {
       // Dev note: AMQP calls this a type; HTTP's MIME department is not invited.
       contentType: "Content", type: "text_chat", appId: "fls_backend",

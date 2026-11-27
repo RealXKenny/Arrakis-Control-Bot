@@ -22,20 +22,62 @@ export function encodeMapChat(funcomId: string, message: string, displayName?: s
   return { id, body: Buffer.from(JSON.stringify({ Type: "TextChat", content })) };
 }
 
-export function decodeMapChat(body: Buffer): { id: string; sender: string; text: string } | null {
+export interface GameChatMessage {
+  id: string;
+  sender: string;
+  text: string;
+  /** The game's `m_ChannelType`, e.g. `Map` or `Proximity`. */
+  channelType: string;
+}
+
+/** Channel-type spellings treated as proximity (nearby) chat. Everything else that is not `Map` is never relayed. */
+const PROXIMITY_TYPES = new Set(["proximity", "local", "nearby"]);
+
+export function isProximityChannelType(channelType: string): boolean {
+  return PROXIMITY_TYPES.has(channelType.toLowerCase());
+}
+
+/**
+ * Reads the channel type of any game chat envelope without exposing its text,
+ * so the bridge can log which chat types the broker actually carries.
+ */
+export function peekChatChannelType(body: Buffer): string | null {
   if (body.length > 64 * 1024) return null;
   try {
     const envelope: unknown = JSON.parse(body.toString("utf8"));
     if (!isRecord(envelope) || envelope.Type !== "TextChat") return null;
     const raw = envelope.content ?? envelope.Content;
     const payload: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!isRecord(payload) || payload.m_ChannelType !== "Map" || payload.m_UserNameTo) return null;
+    if (!isRecord(payload) || typeof payload.m_ChannelType !== "string") return null;
+    // Dev note: Only plain names make it into the logbook.
+    return /^[A-Za-z_]{1,32}$/.test(payload.m_ChannelType) ? payload.m_ChannelType : "(unrecognised)";
+  } catch {
+    return null;
+  }
+}
+
+/** Decodes public game chat: map messages, plus proximity messages when `allowProximity` is set. Private messages are always rejected. */
+export function decodeGameChat(body: Buffer, allowProximity: boolean): GameChatMessage | null {
+  if (body.length > 64 * 1024) return null;
+  try {
+    const envelope: unknown = JSON.parse(body.toString("utf8"));
+    if (!isRecord(envelope) || envelope.Type !== "TextChat") return null;
+    const raw = envelope.content ?? envelope.Content;
+    const payload: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!isRecord(payload) || payload.m_UserNameTo || typeof payload.m_ChannelType !== "string") return null;
+    const channelType = payload.m_ChannelType;
+    if (channelType !== "Map" && !(allowProximity && isProximityChannelType(channelType))) return null;
     const message = isRecord(payload.m_Message) ? payload.m_Message.m_UnlocalizedMessage : undefined;
     const sender = payload.m_FuncomIdFrom;
     const id = payload.m_Id;
     if (typeof sender !== "string" || !sender.trim() || typeof message !== "string" || !message.trim() || typeof id !== "string" || !id) return null;
-    return { id, sender, text: message };
+    return { id, sender, text: message, channelType };
   } catch {
     return null;
   }
+}
+
+export function decodeMapChat(body: Buffer): { id: string; sender: string; text: string } | null {
+  const chat = decodeGameChat(body, false);
+  return chat ? { id: chat.id, sender: chat.sender, text: chat.text } : null;
 }

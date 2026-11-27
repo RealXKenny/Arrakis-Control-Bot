@@ -34,7 +34,7 @@ Set `ROLE_PANEL_CHANNEL_ID` and the `ROLE_*_ID` values from `.env.example` to pu
 
 ## Discord ↔ game chat over RabbitMQ
 
-See the [complete RabbitMQ ↔ Discord setup guide](rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map.
+See the [complete RabbitMQ ↔ Discord setup guide](rabbitmq-discord.md) for remote-broker setup, TLS, authentication, database personas, seven-map routing and troubleshooting. The optional bridge supports one shared Discord channel or separate channels per map, plus opt-in, receive-only proximity chat.
 
 ## Join-to-create voice rooms
 

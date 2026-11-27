@@ -929,6 +929,36 @@
       "field_type": "text"
     },
     {
+      "name": "Chat Bridge Proximity",
+      "description": "on to relay proximity (nearby) game chat to Discord with a Proximity label. Off by default; receive-only.",
+      "env_variable": "CHAT_BRIDGE_PROXIMITY",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chat Bridge Proximity Routes",
+      "description": "Optional JSON array of {guildId, channelId, map?} for proximity chat. Empty posts it in each map's bridge channel.",
+      "env_variable": "CHAT_BRIDGE_PROXIMITY_ROUTES",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Chat Bridge Proximity Intercept",
+      "description": "on to also listen on the broker's chat.intercept feed for proximity chat (needs read permission on it).",
+      "env_variable": "CHAT_BRIDGE_PROXIMITY_INTERCEPT",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
       "name": "RabbitMQ CA File",
       "description": "Absolute path to a public CA PEM uploaded under /home/container. For example, /home/container/rabbitmq-ca.pem.",
       "env_variable": "RABBITMQ_CA_FILE",
