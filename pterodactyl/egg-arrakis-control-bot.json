@@ -950,7 +950,7 @@
     },
     {
       "name": "Chat Bridge Proximity Intercept",
-      "description": "on to also listen on the broker's chat.intercept feed for proximity chat (needs read permission on it).",
+      "description": "On by default with proximity: picks up chat.proximity copies from chat.intercept through a private filter. Set off to stop it.",
       "env_variable": "CHAT_BRIDGE_PROXIMITY_INTERCEPT",
       "default_value": "",
       "user_viewable": true,

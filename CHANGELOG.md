@@ -13,6 +13,7 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Fixed
 
+- Proximity chat is now picked up the way the game actually sends it. The game redirects proximity chat to `chat.proximity`, and the bridge now taps the broker's `chat.intercept` feed through a private headers exchange that only lets copies headed for `chat.proximity` through, so whispers, guild and party chat never reach the bot. The speaker comes from the broker-authenticated user, copies are merged so each message is posted once, and the listener is on by default once `CHAT_BRIDGE_PROXIMITY=on`. **The bot's RabbitMQ user needs new permissions** for the `arrakis-chat-filter-*` exchange and `chat.intercept`; the command is under "Proximity chat" in `guides/rabbitmq-discord.md`.
 - The chatbot's AI model answered from its own out-of-date memory ("I'm not aware of a release date for Dune Part 3"). It now searches first, for any message that isn't small talk (not only questions with a question mark): it reads the opening of the best few Wikipedia articles and the game wiki's best hits, is told to trust those over its memory, and lists the sources under its reply. It only says it doesn't know when the sources don't have the answer.
 
 - 2.0.4 could fail to start (and the updater rolled back to 2.0.3) when `CHATBOT_AI` was on and `CHATBOT_AI_MODEL` had a value it didn't recognise, such as a quoted `"small"`. A mistake in any chatbot AI setting now only turns the AI model off, with a warning in the console that names the setting; the bot and the rest of the chatbot start normally.

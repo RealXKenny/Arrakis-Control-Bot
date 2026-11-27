@@ -1,15 +1,21 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { connect, type ChannelModel, type ConfirmChannel, type ConsumeMessage, type Options } from "amqplib";
+import { connect, type ChannelModel, type ConfirmChannel, type ConsumeMessage, type MessageProperties, type Options } from "amqplib";
 import type { ChatBridgeConfig } from "../config/chatBridge";
 import { describeChatConnectionError } from "./chatConnectionError";
 
 type Warn = (message: string) => void;
 
 /**
- * `map` binds exact map keys on chat.map and can publish; `intercept` listens
- * to every key on the broker's chat.intercept feed and is receive-only.
+ * `map` binds exact map keys on chat.map and can publish. `intercept` taps the
+ * broker's chat.intercept feed through a private headers exchange that only
+ * passes copies whose `redirect_exchange` header is one of `exchanges`
+ * (for example chat.proximity), so whispers never reach the bot's queue. It is receive-only.
  */
-export type GameChatSubscription = { kind: "map"; maps: string[] } | { kind: "intercept" };
+export type GameChatSubscription = { kind: "map"; maps: string[] } | { kind: "intercept"; exchanges: string[] };
+
+/** Prefix of the bridge's private filter exchanges; the broker user needs configure/write/read on it. */
+export const CHAT_FILTER_EXCHANGE_PREFIX = "arrakis-chat-filter-";
 
 export class GameChatConnection {
   private connection?: ChannelModel;
@@ -26,7 +32,7 @@ export class GameChatConnection {
 
   public constructor(
     private readonly config: ChatBridgeConfig,
-    private readonly receive: (map: string, body: Buffer) => Promise<void>,
+    private readonly receive: (map: string, body: Buffer, properties?: MessageProperties) => Promise<void>,
     private readonly warn: Warn,
     private readonly info: (message: string) => void = () => undefined,
     private readonly subscription: GameChatSubscription = { kind: "map", maps: [...new Set(config.routes.map((route) => route.map))] },
@@ -93,8 +99,16 @@ export class GameChatConnection {
       stage = "creating the chat receive queue";
       const queue = await channel.assertQueue("", { exclusive: true, autoDelete: true, durable: false, arguments: { "x-max-length": 500, "x-message-ttl": 60_000 } });
       if (this.subscription.kind === "intercept") {
-        stage = "binding the chat.intercept feed";
-        await channel.bindQueue(queue.queue, exchange, "#");
+        // Dev note: Filter inside RabbitMQ. A bare '#' tap on our queue would also carry whispers.
+        const filter = `${CHAT_FILTER_EXCHANGE_PREFIX}${randomUUID()}`;
+        stage = "creating the private chat filter exchange";
+        await channel.assertExchange(filter, "headers", { durable: false, autoDelete: true, internal: true });
+        stage = "binding the chat filter to the receive queue";
+        for (const name of new Set(this.subscription.exchanges)) {
+          await channel.bindQueue(queue.queue, filter, "", { "x-match": "all", redirect_exchange: name });
+        }
+        stage = "binding chat.intercept to the chat filter";
+        await channel.bindExchange(filter, exchange, "#");
       } else {
         stage = "binding the map routes";
         for (const map of new Set(this.subscription.maps)) await channel.bindQueue(queue.queue, exchange, map);
@@ -103,7 +117,7 @@ export class GameChatConnection {
       stage = "starting the chat consumer";
       await channel.consume(queue.queue, (message) => {
         if (!message) { void current.close().catch(() => undefined); return; }
-        void this.receive(message.fields.routingKey, message.content)
+        void this.receive(message.fields.routingKey, message.content, message.properties)
           .then(() => { channel.ack(message); })
           .catch(() => {
             this.warn("Game chat could not be delivered to Discord; message discarded to avoid an endless retry loop.");
@@ -118,7 +132,7 @@ export class GameChatConnection {
       this.failures = 0;
       this.lastFailure = undefined;
       this.info(this.subscription.kind === "intercept"
-        ? `RabbitMQ chat.intercept listener ready${recovered}; proximity chat is being watched.`
+        ? `RabbitMQ chat.intercept listener ready${recovered}; only ${this.subscription.exchanges.join(", ")} copies are let through.`
         : `RabbitMQ chat connection ready${recovered}; map routes are bound and the consumer is active.`);
     } catch (error: unknown) {
       this.reportFailure(`${stage}: ${describeChatConnectionError(error)}`);

@@ -242,44 +242,39 @@ The directory is shared across routes and refreshed every minute, so renamed cha
 
 Proximity (nearby) chat is what players say to whoever is standing close to them in game. The bridge can relay it to Discord. It is off by default because it takes local conversations to everyone who can read the Discord channel; turn it on only if that is your server's policy and players know about it.
 
-Proximity is **receive-only**: Discord messages still go to map chat. Whispers, guild, party and any other chat type are never relayed, and a message with a recipient is always dropped.
+Proximity is **receive-only**: Discord messages still go to map chat. Whispers, guild, party and any other chat type are never relayed.
 
 ```dotenv
 # Turn it on. With nothing else set, proximity chat posts in each map's normal bridge channel.
 CHAT_BRIDGE_PROXIMITY=on
 # Optional: send proximity chat to its own channel(s) instead. Leave "map" out to catch every map.
 CHAT_BRIDGE_PROXIMITY_ROUTES='[{"guildId":"123456789012345678","channelId":"345678901234567890"}]'
-# Optional: also listen on the broker's chat.intercept feed (see below).
-CHAT_BRIDGE_PROXIMITY_INTERCEPT=off
+# On by default once proximity is on. Set off only to stop the chat.intercept listener.
+# CHAT_BRIDGE_PROXIMITY_INTERCEPT=on
 ```
 
-Setting `CHAT_BRIDGE_PROXIMITY_ROUTES` on its own also turns proximity on; `CHAT_BRIDGE_PROXIMITY=off` always wins. A route with a `map` key only gets proximity chat from that map, and that map is bound on `chat.map` even if it has no map-chat route. Proximity messages show as `**[Hagga Basin · Proximity] Player:** hello`, or `**[Proximity] Player:** hello` when the feed does not say which map it came from.
+Setting `CHAT_BRIDGE_PROXIMITY_ROUTES` on its own also turns proximity on; `CHAT_BRIDGE_PROXIMITY=off` always wins. Proximity messages show as `**[Proximity] Player:** hello`. A route with a `map` key only gets proximity chat known to come from that map; copies from `chat.intercept` carry no map, so they go to routes without one.
 
-### Where the game sends proximity chat
+### How the bridge picks up proximity chat
 
-The game is not documented here, so the bridge looks in two places and only relays messages whose `m_ChannelType` is `Proximity` (also accepted: `Local`, `Nearby`):
+The game redirects proximity chat to the `chat.proximity` exchange, and the broker's `chat.intercept` topic exchange receives a copy of every chat message with the original destination in the `redirect_exchange` header. The bridge taps that feed without ever receiving whispers:
 
-1. **`chat.map`** (always, once proximity is on): proximity messages published on a bound map key.
-2. **`chat.intercept`** (only with `CHAT_BRIDGE_PROXIMITY_INTERCEPT=on`): the broker's server-wide copy feed, bound with `#` on a separate temporary queue. The bridge user needs read access to it:
+1. It opens a separate connection with its own temporary `amq.gen-*` queue.
+2. It declares a private, auto-deleting, internal **headers** exchange named `arrakis-chat-filter-<random>`.
+3. It binds its queue to that filter with `x-match: all` and `redirect_exchange: chat.proximity`, so only proximity copies can reach it.
+4. It then binds the filter to `chat.intercept` with `#`.
+
+Filtering happens inside RabbitMQ, before anything reaches the bot. Whispers, guild and party copies are dropped by the broker; they never enter the bot's queue. The bot checks again on arrival: only `text_chat` messages redirected to `chat.proximity` with `m_ChannelType: "Proximity"` are posted. The speaker is the broker-authenticated AMQP user (`user_id`), not a field the sender wrote; the name shown is the character name looked up from the payload's Funcom ID, falling back to the name in the payload. Copies are merged by a hash of the sender and the game's message ID, so a message is posted once. The bridge's own messages are skipped. When the connection closes, the queue goes, and the filter exchange deletes itself with it.
+
+The bridge user needs permission for the filter exchange and read access to `chat.intercept`:
 
 ```bash
-docker exec dune-rmq-game rabbitmqctl set_permissions -p / '5E121CE000000004' '^amq\.gen-.*$' '^(chat\.map|amq\.gen-.*)$' '^(chat\.map|chat\.intercept|amq\.gen-.*)$'
+docker exec dune-rmq-game rabbitmqctl set_permissions -p / '5E121CE000000004' '^(amq\.gen-.*|arrakis-chat-filter-.*)$' '^(chat\.map|amq\.gen-.*|arrakis-chat-filter-.*)$' '^(chat\.map|chat\.intercept|amq\.gen-.*|arrakis-chat-filter-.*)$'
 ```
 
-This replaces the user's permissions; adapt it if the user needs more. A refused or failing intercept listener retries on its own and never stops map chat. The same message heard on both feeds is posted once.
+This replaces the user's permissions; adapt it if the user needs more. A refused or failing intercept listener retries on its own and never stops map chat; its log line names the step that failed (for example `creating the private chat filter exchange` means the configure permission is missing).
 
-**Check that your game carries it.** In 1.10.0 the bridge listened on `chat.intercept` only, and it was removed in 1.10.1 after a live test. Proximity chat may be handled by the game server itself and never reach RabbitMQ. To find out, turn proximity on (with intercept on too), restart the bot, and have someone talk in proximity chat. The bot logs each chat type the first time it sees it on each feed, without the message text, for example:
-
-```text
-Chat bridge first saw "Proximity" chat on chat.map (Hagga Basin).
-```
-
-If you only ever see `"Map"` (and other types such as `"Whisper"` or `"Guild"` on intercept) after a proximity test, your game does not send proximity chat through RabbitMQ and the bridge cannot pick it up. If a different name shows up for nearby chat, report it so it can be added. You can also inspect the broker directly while someone is online:
-
-```bash
-docker exec dune-rmq-game rabbitmqctl list_exchanges -p / name type | grep -i chat
-docker exec dune-rmq-game rabbitmqctl list_bindings -p / source_name destination_name routing_key | grep -i chat
-```
+After restarting, the log shows `RabbitMQ chat.intercept listener ready; only chat.proximity copies are let through.` The bot also logs each chat type the first time it sees it on each feed, without the message text, for example `Chat bridge first saw "Proximity" chat on chat.intercept.`
 
 ## Troubleshooting by symptom
 
