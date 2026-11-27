@@ -16,14 +16,16 @@ interface ChangelogProject {
   readonly name: string;
   /** Plain description shown on every post so readers can tell products apart. */
   readonly label: string;
+  /** Small emoji shown before the label on release posts. */
+  readonly icon: string;
   /** GitHub repository; also the receipt key in `bot_release_announcements`. */
   readonly repository: string;
   readonly accentColor: number;
 }
 
 const CHANGELOG_PROJECTS: readonly ChangelogProject[] = Object.freeze([
-  Object.freeze({ key: "bot", name: "Bot", label: "Discord bot", repository: "RealXKenny/Arrakis-Control-Bot", accentColor: PANEL_COLORS.accent }),
-  Object.freeze({ key: "dashboard", name: "Dashboard", label: "Web dashboard", repository: "RealXKenny/Arrakis-Control-Dashboard", accentColor: PANEL_COLORS.info }),
+  Object.freeze({ key: "bot", name: "Bot", label: "Discord bot", icon: "🤖", repository: "RealXKenny/Arrakis-Control-Bot", accentColor: PANEL_COLORS.accent }),
+  Object.freeze({ key: "dashboard", name: "Dashboard", label: "Web dashboard", icon: "🖥️", repository: "RealXKenny/Arrakis-Control-Dashboard", accentColor: PANEL_COLORS.info }),
 ]);
 
 function findChangelogProject(key: string): ChangelogProject | undefined {

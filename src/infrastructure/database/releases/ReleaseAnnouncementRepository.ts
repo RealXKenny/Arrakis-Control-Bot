@@ -7,6 +7,11 @@ interface ReleaseAnnouncementChannel {
   record(release: ReleaseAnnouncementRecord): Promise<void>;
   markImported(): Promise<void>;
   reset(repositories: readonly string[]): Promise<void>;
+  /** Drop one receipt, after its post was deleted on purpose during a rebuild. */
+  forget(repository: string, version: string): Promise<void>;
+  /** The release post layout this channel was last rebuilt for; 0 when it never was. */
+  layoutVersion(): Promise<number>;
+  setLayoutVersion(version: number): Promise<void>;
 }
 interface ReleaseAnnouncementStorage {
   withChannel(channelId: string, task: (channel: ReleaseAnnouncementChannel) => Promise<void>): Promise<void>;
@@ -28,7 +33,8 @@ class ReleaseAnnouncementRepository implements ReleaseAnnouncementStorage {
       message_id TEXT NOT NULL,
       announced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (channel_id, repository, version)
-    );`).then(() => undefined).catch((error: unknown) => {
+    );
+    ALTER TABLE bot_release_announcement_channels ADD COLUMN IF NOT EXISTS layout_version INTEGER NOT NULL DEFAULT 0;`).then(() => undefined).catch((error: unknown) => {
       this.initialized = undefined;
       throw error;
     });
@@ -75,6 +81,17 @@ class StoredReleaseChannel implements ReleaseAnnouncementChannel {
   }
   public async markImported(): Promise<void> {
     await this.connection.query("INSERT INTO bot_release_announcement_channels (channel_id) VALUES ($1) ON CONFLICT (channel_id) DO NOTHING", [this.channelId]);
+  }
+  public async forget(repository: string, version: string): Promise<void> {
+    await this.connection.query("DELETE FROM bot_release_announcements WHERE channel_id=$1 AND repository=$2 AND version=$3", [this.channelId, repository, version]);
+  }
+  public async layoutVersion(): Promise<number> {
+    const result = await this.connection.query<{ layout_version: number }>("SELECT layout_version FROM bot_release_announcement_channels WHERE channel_id=$1", [this.channelId]);
+    return result.rows[0]?.layout_version ?? 0;
+  }
+  public async setLayoutVersion(version: number): Promise<void> {
+    await this.connection.query(`INSERT INTO bot_release_announcement_channels (channel_id, layout_version) VALUES ($1,$2)
+      ON CONFLICT (channel_id) DO UPDATE SET layout_version=EXCLUDED.layout_version`, [this.channelId, version]);
   }
   public async reset(repositories: readonly string[]): Promise<void> {
     await this.connection.query("BEGIN");

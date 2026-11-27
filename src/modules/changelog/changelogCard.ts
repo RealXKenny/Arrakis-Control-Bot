@@ -10,7 +10,8 @@ const MAX_RELEASE_SUMMARY_TEXT = 500;
 const RELEASE_NOTES_TRUNCATED_NOTICE = "\n\n_Release notes shortened for Discord. Use **View full release notes** on the announcement._";
 /** Release notes are posted as several thread messages; past this many the last one is shortened instead. */
 const MAX_RELEASE_MESSAGES = 25;
-const THREAD_NOTICE = "-# Full release notes are in the thread below.";
+const FORUM_NOTICE = "-# 📜 The full release notes follow in this post.";
+const THREAD_NOTICE = "-# 📜 The full release notes are in the thread below.";
 /** Headline in old announcements that carried the notes themselves; repair moves those notes into a thread. */
 const LEGACY_NOTES_HEADING = "### What changed";
 const NO_RELEASE_NOTES = "No release notes provided.";
@@ -35,9 +36,37 @@ function parseReleaseMarker(message: Message): { project: ChangelogProject; vers
   return null;
 }
 
-/** Product line under the heading, so every post states which product it belongs to. */
-function productLine(project: ChangelogProject): string {
-  return `-# ${project.label} release • ${project.repository}`;
+/** Major for x.0.0, minor for x.y.0, patch otherwise; anything unparseable has no type. */
+function releaseType(version: string): "Major" | "Minor" | "Patch" | null {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version);
+  if (!match) return null;
+  if (match[3] !== "0") return "Patch";
+  return match[2] !== "0" ? "Minor" : "Major";
+}
+
+/** One subtext line under the heading: which product, what kind of release, and when. */
+function productLine(entry: ChangelogEntry): string {
+  const type = releaseType(entry.version);
+  const timestamp = Date.parse(entry.date ?? "");
+  const parts = [`${entry.project.icon} ${entry.project.label}`, type ? `${type} release` : undefined, Number.isNaN(timestamp) ? undefined : `<t:${Math.floor(timestamp / 1000)}:D>`];
+  return `-# ${parts.filter(Boolean).join("  ·  ")}`;
+}
+
+/** "✨ Added **3**  ·  🐛 Fixed **2**": a one-line overview of what the notes below contain. */
+function sectionOverview(body: string): string | null {
+  const counts: [string, number][] = [];
+  for (const line of body.split("\n")) {
+    if (line.startsWith("### ")) counts.push([line.slice(4).trim(), 0]);
+    else if (/^\s*[-*] /.test(line) && counts.length) counts[counts.length - 1][1]++;
+  }
+  const shown = counts.filter(([, count]) => count > 0);
+  if (!shown.length) return null;
+  return truncateDiscordText(shown.map(([title, count]) => `${title} **${count}**`).join("  ·  "), MAX_RELEASE_SUMMARY_TEXT, "…");
+}
+
+function githubReleaseUrl(entry: ChangelogEntry): string {
+  const tag = entry.version.startsWith("v") ? entry.version : `v${entry.version}`;
+  return `https://github.com/${entry.project.repository}/releases/tag/${encodeURIComponent(tag)}`;
 }
 
 function bannerName(entry: ChangelogEntry): string {
@@ -45,17 +74,17 @@ function bannerName(entry: ChangelogEntry): string {
 }
 
 /** The channel announcement: banner, durable heading, product, summary, date and links. The notes go in its thread. */
-function releasePayload(entry: ChangelogEntry) {
+function releasePayload(entry: ChangelogEntry, place: "forum" | "thread" = "thread") {
   const filename = bannerName(entry);
   const banner = createPanelBanner({
     artwork: "release",
     filename,
     title: `${entry.project.name} v${entry.version}`,
     subtitle: `${entry.project.label} release`,
-    detail: "Release notes",
+    detail: releaseType(entry.version) ? `${releaseType(entry.version)} release` : "Release notes",
   });
   return {
-    components: [buildReleaseCard(entry)],
+    components: [buildReleaseCard(entry, place)],
     files: [{ attachment: banner.attachment, name: filename, description: banner.description ?? undefined }],
     allowedMentions: { parse: [] as const },
   };
@@ -73,9 +102,15 @@ function releaseNoteMessages(entry: ChangelogEntry) {
   }));
 }
 
-/** Thread title for a release's notes; Discord allows 100 characters. */
-function releaseThreadName(entry: Pick<ChangelogEntry, "project" | "version">): string {
-  return truncateDiscordText(`${entry.project.name} v${entry.version} release notes`, 100, "…");
+/** Forum post (or notes thread) title: product, version and the release headline; Discord allows 100 characters. */
+function releaseThreadName(entry: Pick<ChangelogEntry, "project" | "version"> & Partial<Pick<ChangelogEntry, "summary">>): string {
+  const headline = entry.summary?.replace(/\s+/g, " ").trim();
+  return truncateDiscordText(`${entry.project.name} v${entry.version}${headline ? ` · ${headline}` : ""}`, 100, "…");
+}
+
+/** True for a post or thread title this bot gives release posts, current or older style. */
+function isReleaseThreadName(name: string): boolean {
+  return new RegExp(`^(?:${PROJECT_NAMES}) v\\d`).test(name);
 }
 
 /** True for an announcement from before notes moved to threads: its notes are in the card and may be cut short. */
@@ -91,11 +126,14 @@ function notesMessageText(message: Message | ReturnType<typeof releaseNoteMessag
 
 /** Recognize a notes message for this release (any part), so repair never touches other thread messages. */
 function isNotesMessage(message: Message, entry: Pick<ChangelogEntry, "project" | "version">): boolean {
-  return componentContents(message).some((content) => content.startsWith(`-# ${entry.project.name} v${entry.version} release notes, part `));
+  const label = `-# ${entry.project.name} v${entry.version} release notes`;
+  return componentContents(message).some((content) => content === label || content.startsWith(`${label}, part `));
 }
 
-function releaseMetadata(entry: ChangelogEntry): string {
-  return `${truncateDiscordText(entry.summary, MAX_RELEASE_SUMMARY_TEXT, "…")}\n\n**Date:** ${formatDiscordTimestamp(entry.date)}`;
+/** The release headline as a quote; an empty headline falls back to a plain line. */
+function releaseSummary(entry: ChangelogEntry): string {
+  const summary = truncateDiscordText(entry.summary.replace(/\s+/g, " ").trim(), MAX_RELEASE_SUMMARY_TEXT, "…");
+  return summary ? `> ${summary}` : "> A new release is out.";
 }
 
 function noteBudget(entry: ChangelogEntry): number {
@@ -103,7 +141,8 @@ function noteBudget(entry: ChangelogEntry): number {
 }
 
 function continuationLabel(entry: ChangelogEntry, part: number, total: number): string {
-  return `-# ${entry.project.name} v${entry.version} release notes, part ${part} of ${total}`;
+  const label = `-# ${entry.project.name} v${entry.version} release notes`;
+  return total > 1 ? `${label}, part ${part} of ${total}` : label;
 }
 
 /**
@@ -170,27 +209,34 @@ function splitReleaseNotes(notes: string, firstBudget: number, restBudget: numbe
   return kept;
 }
 
-function buildReleaseCard(entry: ChangelogEntry): ContainerBuilder {
-  return new ContainerBuilder()
+function buildReleaseCard(entry: ChangelogEntry, place: "forum" | "thread" = "thread"): ContainerBuilder {
+  const card = new ContainerBuilder()
     .setAccentColor(entry.project.accentColor)
     .addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${bannerName(entry)}`)))
     .addTextDisplayComponents((text) => text.setContent(releaseMarker(entry)))
-    .addTextDisplayComponents((text) => text.setContent(productLine(entry.project)))
-    .addTextDisplayComponents((text) => text.setContent(releaseMetadata(entry)))
+    .addTextDisplayComponents((text) => text.setContent(productLine(entry)))
+    .addTextDisplayComponents((text) => text.setContent(releaseSummary(entry)));
+  const overview = sectionOverview(entry.body);
+  if (overview) {
+    card.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
+      .addTextDisplayComponents((text) => text.setContent(`**In this release**\n${overview}`));
+  }
+  return card
     .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
-    .addTextDisplayComponents((text) => text.setContent(THREAD_NOTICE))
+    .addTextDisplayComponents((text) => text.setContent(place === "forum" ? FORUM_NOTICE : THREAD_NOTICE))
     .addActionRowComponents((row) => row.addComponents(
-      new ButtonBuilder().setLabel("View full release notes").setStyle(ButtonStyle.Link).setURL(entry.url),
-      new ButtonBuilder().setLabel(`${entry.project.name} GitHub`).setStyle(ButtonStyle.Link).setURL(`https://github.com/${entry.project.repository}`),
+      new ButtonBuilder().setLabel("Full changelog").setEmoji("📜").setStyle(ButtonStyle.Link).setURL(entry.url),
+      new ButtonBuilder().setLabel("GitHub release").setEmoji("🔗").setStyle(ButtonStyle.Link).setURL(githubReleaseUrl(entry)),
     ));
 }
 
-/** One part of a release's notes. It has no release heading, so it is never mistaken for a new post. */
+/** One part of a release's notes, with a small footer naming the release. It has no release heading, so it is never mistaken for a new post. */
 function buildNotesCard(entry: ChangelogEntry, notes: string, part: number, total: number): ContainerBuilder {
   return new ContainerBuilder()
     .setAccentColor(entry.project.accentColor)
-    .addTextDisplayComponents((text) => text.setContent(continuationLabel(entry, part, total)))
-    .addTextDisplayComponents((text) => text.setContent(notes));
+    .addTextDisplayComponents((text) => text.setContent(notes))
+    .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small).setDivider(false))
+    .addTextDisplayComponents((text) => text.setContent(continuationLabel(entry, part, total)));
 }
 
 function componentContents(message: Message): string[] {
@@ -204,9 +250,4 @@ function componentContents(message: Message): string[] {
   return contents;
 }
 
-function formatDiscordTimestamp(date: string | null): string {
-  const timestamp = Date.parse(date ?? "");
-  return Number.isNaN(timestamp) ? "Unknown" : `<t:${Math.floor(timestamp / 1000)}:F>`;
-}
-
-export { MAX_RELEASE_MESSAGES, buildReleaseCard, hasInlineNotes, isNotesMessage, notesMessageText, parseReleaseMarker, releaseMarker, releaseNoteMessages, releasePayload, releaseThreadName, splitReleaseNotes };
+export { MAX_RELEASE_MESSAGES, buildReleaseCard, hasInlineNotes, isNotesMessage, isReleaseThreadName, releaseType, notesMessageText, parseReleaseMarker, releaseMarker, releaseNoteMessages, releasePayload, releaseThreadName, splitReleaseNotes };

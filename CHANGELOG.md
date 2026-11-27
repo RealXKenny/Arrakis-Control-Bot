@@ -6,6 +6,9 @@ All notable changes to Arrakis Control Bot are documented here.
 
 ### Changed
 
+- Changelog posts now go out version by version, so the bot and dashboard posts for each release sit side by side: Bot 2.0.0, Dashboard 2.0.0, Bot 2.0.1, Dashboard 2.0.1, and so on. If a post fails, the bot stops and retries from there, so a newer release is never posted above an older one. The changelog forum is sorted by creation date to keep that order.
+- Changelog posts look cleaner: the title carries the release headline, the card shows the release type and date on one line, the headline as a quote and a short "In this release" overview (for example `✨ Added 3 · 🐛 Fixed 2`), and links to the full changelog and the GitHub release. Note sections get icons, and single-part notes no longer say "part 1 of 1".
+- On its first start, 2.0.5 deletes the release posts it made earlier in the changelog channel and posts every release again in the new order and layout. It only removes its own release posts; posts by members and its other posts are never touched. It needs Manage Threads (forum) or Manage Messages (text channel) for this; until it can delete the old posts it posts nothing new and logs what is missing.
 - The chatbot's AI model is now downloaded (if it isn't there yet) and loaded as soon as the bot starts, instead of on the first message, so it is ready before anyone asks. The bot is online and answers with its rules while it downloads.
 
 ### Fixed
