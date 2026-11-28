@@ -11,7 +11,9 @@ import {
   formatSolari,
   getSolariSnapshot,
   parseBalance,
+  parseBankCredit,
   parseSolariTotal,
+  readId,
   resetSolariSnapshotCache,
   sortEntries,
 } from "../../../../src/modules/players/leaderboard/solariLeaderboard";
@@ -30,7 +32,11 @@ function fakeApi(rows: Array<Record<string, unknown>>, balances: Record<string, 
     }
 
     const id = String(options?.routeParams?.playerId);
-    return failing.includes(id) ? Promise.reject(new Error("boom")) : Promise.resolve({ total: balances[id] });
+    if (failing.includes(id)) return Promise.reject(new Error("boom"));
+    // The bank holds Solari Credit; coins carried come from /solaris-coin. Here every character banks 100.
+    if (route === "/api/players/{playerId}/currency")
+      return Promise.resolve({ capabilities: { currency: true }, rows: [{ currency_id: 0, balance: "100", label: "Solari Credit" }, { currency_id: 1, balance: "7", label: "Scrip" }] });
+    return Promise.resolve({ capabilities: { solarisCoin: true }, total: balances[id] });
   });
 
   return { call } as unknown as Parameters<typeof fetchSolariSnapshot>[0] & { call: typeof call };
@@ -43,7 +49,8 @@ describe("solari leaderboard", () => {
     const command = data.toJSON();
 
     expect(command.name).toBe("leaderboard");
-    expect(command.options?.map((option) => option.name)).toEqual(["page"]);
+    expect(command.options?.map((option) => option.name)).toEqual(["solaris", "dungeons"]);
+    for (const subcommand of command.options ?? []) expect((subcommand as { options?: Array<{ name: string }> }).options?.map((option) => option.name)).toEqual(["page"]);
   });
 
   it("keeps balances as decimal strings and compares without precision loss", () => {
@@ -60,11 +67,21 @@ describe("solari leaderboard", () => {
     expect(formatSolari("0")).toBe("0");
   });
 
+  it("reads banked Solari Credit and the real directory id", () => {
+    expect(parseBankCredit({ rows: [{ currency_id: 0, balance: "12533524", label: "Solari Credit" }, { currency_id: 1, balance: "850", label: "House Credit" }] })).toBe("12533524");
+    expect(parseBankCredit({ rows: [{ currency_id: 0, balance: 5 }] })).toBe("5");
+    expect(parseBankCredit({ rows: [] })).toBe("0");
+    expect(parseBankCredit({ capabilities: { currency: false } })).toBeNull();
+    expect(readId({ actor_id: 42, player_controller_id: 9 })).toBe("42");
+    expect(readId({ player_pawn_id: "43" })).toBe("43");
+    expect(readId({ actor_id: 0 })).toBeNull();
+  });
+
   it("sorts descending with deterministic ties", () => {
     const sorted = sortEntries([
-      { id: "1", name: "Bravo", balance: "10" },
-      { id: "2", name: "Alpha", balance: "10" },
-      { id: "3", name: "Whale", balance: "9007199254740993" },
+      { id: "1", name: "Bravo", bank: "0", coins: "10", balance: "10" },
+      { id: "2", name: "Alpha", bank: "0", coins: "10", balance: "10" },
+      { id: "3", name: "Whale", bank: "0", coins: "9007199254740993", balance: "9007199254740993" },
     ]);
 
     expect(sorted.map((entry) => entry.name)).toEqual(["Whale", "Alpha", "Bravo"]);
@@ -77,7 +94,7 @@ describe("solari leaderboard", () => {
   });
 
   it("paginates with ranks across pages", () => {
-    const entries = Array.from({ length: 25 }, (_, index) => ({ id: String(index), name: `P${index}`, balance: String(1000 - index) }));
+    const entries = Array.from({ length: 25 }, (_, index) => ({ id: String(index), name: `P${index}`, bank: "0", coins: String(1000 - index), balance: String(1000 - index) }));
 
     expect(countPages(25, 10)).toBe(3);
     expect(countPages(0, 10)).toBe(1);
@@ -87,33 +104,36 @@ describe("solari leaderboard", () => {
   });
 
   it("pages through the player directory, ranks balances, and counts failures", async () => {
-    const rows = Array.from({ length: 150 }, (_, index) => ({ player_id: String(index), character_name: `P${index}` }));
-    const balances = Object.fromEntries(rows.map((row, index) => [row.player_id, String(index * 10)]));
-    const api = fakeApi([...rows, { garbage: true }, { player_id: "0", character_name: "Duplicate" }], balances, ["5"]);
+    // The real directory: one row per character, id in actor_id (no player_id at all).
+    const rows = Array.from({ length: 150 }, (_, index) => ({ actor_id: index + 1, player_pawn_id: index + 1, character_name: `P${index}` }));
+    const balances = Object.fromEntries(rows.map((row, index) => [String(row.actor_id), String(index * 10)]));
+    const api = fakeApi([...rows, { garbage: true }, { actor_id: 1, character_name: "Duplicate" }], balances, ["6"]);
 
     const snapshot = await fetchSolariSnapshot(api);
 
     expect(snapshot.entries).toHaveLength(149);
     expect(snapshot.failed).toBe(1);
-    expect(snapshot.entries[0]).toMatchObject({ name: "P149", balance: "1490" });
+    expect(snapshot.entries[0]).toMatchObject({ name: "P149", bank: "100", coins: "1490", balance: "1590" });
     expect(api.call).toHaveBeenCalledWith("GET", "/api/players", { query: { status: "all", page: 0, pageSize: 100 } });
     expect(api.call).toHaveBeenCalledWith("GET", "/api/players", { query: { status: "all", page: 1, pageSize: 100 } });
   });
 
   it("fails when no balance can be read or the directory is invalid", async () => {
-    await expect(fetchSolariSnapshot(fakeApi([{ player_id: "1", character_name: "A" }], {}, ["1"]))).rejects.toThrow("No Solari balances");
+    await expect(fetchSolariSnapshot(fakeApi([{ actor_id: 1, character_name: "A" }], {}, ["1"]))).rejects.toThrow("No Solari balances");
+    // Rows without any usable id mean the directory changed shape; never show an empty board as if it were real.
+    await expect(fetchSolariSnapshot(fakeApi([{ character_name: "A" }], {}))).rejects.toThrow("no player id");
     await expect(fetchSolariSnapshot({ call: vi.fn().mockResolvedValue({}) } as never)).rejects.toThrow("Invalid player directory");
   });
 
   it("caches the snapshot and shares simultaneous crawls", async () => {
-    const api = fakeApi([{ player_id: "1", character_name: "A" }], { "1": "5" });
+    const api = fakeApi([{ actor_id: 1, character_name: "A" }], { "1": "5" });
 
     await Promise.all([getSolariSnapshot(api, 1_000), getSolariSnapshot(api, 1_000)]);
     await getSolariSnapshot(api, 1_000 + CACHE_TTL_MS - 1);
-    expect(api.call).toHaveBeenCalledTimes(2);
+    expect(api.call).toHaveBeenCalledTimes(3);
 
     await getSolariSnapshot(api, 1_000 + CACHE_TTL_MS);
-    expect(api.call).toHaveBeenCalledTimes(4);
+    expect(api.call).toHaveBeenCalledTimes(6);
   });
 
   it("builds a bounded requester-bound card", () => {

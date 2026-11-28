@@ -44,6 +44,7 @@ class WebLookupClient {
   private readonly fetcher: typeof fetch;
   private readonly now: () => number;
   private readonly cache = new Map<string, { at: number; answer: WebAnswer | null }>();
+  private readonly researchCache = new Map<string, { at: number; answers: WebAnswer[] }>();
   private readonly recent: number[] = [];
   private readonly origins: ReadonlySet<string>;
   private readonly wikiUrl?: string;
@@ -95,6 +96,56 @@ class WebLookupClient {
     this.cache.set(key, { at: this.now(), answer });
     if (this.cache.size > MAX_CACHE) this.cache.delete(this.cache.keys().next().value!);
     return answer;
+  }
+
+  /**
+   * Several short sources about a question, for the chatbot's AI model to answer from: the best
+   * Wikipedia articles (opening paragraphs) and the game wiki's best hits. Unlike `lookup`, a result
+   * doesn't have to match a title; the model decides what is relevant. Empty when nothing is found.
+   */
+  public async research(rawQuery: string, limit = 3): Promise<WebAnswer[]> {
+    const query = researchQuery(rawQuery);
+    if (query.length < 2 || WebLookupClient.isBlocked(query)) return [];
+    const key = `research|${query}`.toLowerCase();
+    const cached = this.researchCache.get(key);
+    if (cached && this.now() - cached.at < CACHE_TTL_MS) return cached.answers.slice(0, limit);
+    if (!this.takeBudget()) throw new WebLookupBusyError();
+    const [articles, wiki] = await Promise.all([
+      this.wikipediaArticles(query, limit).catch(() => []),
+      this.wikiSnippets(query, 2).catch(() => []),
+    ]);
+    const answers = [...articles, ...wiki];
+    this.researchCache.delete(key);
+    this.researchCache.set(key, { at: this.now(), answers });
+    if (this.researchCache.size > MAX_CACHE) this.researchCache.delete(this.researchCache.keys().next().value!);
+    return answers.slice(0, limit + 2);
+  }
+
+  private async wikipediaArticles(query: string, limit: number): Promise<WebAnswer[]> {
+    const value = await this.getJson(`${WIKIPEDIA}/w/api.php?${params({
+      action: "query", generator: "search", gsrsearch: query, gsrlimit: String(limit), prop: "extracts|info",
+      exintro: "1", explaintext: "1", exchars: "900", exlimit: String(limit), inprop: "url", redirects: "1", format: "json", formatversion: "2",
+    })}`);
+    const pages = isRecord(value) && isRecord(value.query) && Array.isArray(value.query.pages) ? value.query.pages.filter(isRecord) : [];
+    return pages
+      .sort((left, right) => (typeof left.index === "number" ? left.index : 99) - (typeof right.index === "number" ? right.index : 99))
+      .flatMap((page) => {
+        if (typeof page.title !== "string" || typeof page.extract !== "string" || page.extract.trim().length < 40 || /may refer to:?\s*$/.test(page.extract.trim())) return [];
+        const url = typeof page.fullurl === "string" && page.fullurl.startsWith(`${WIKIPEDIA}/`) ? page.fullurl : `${WIKIPEDIA}/wiki/${encodeURIComponent(page.title.replace(/ /g, "_"))}`;
+        return [{ title: page.title, summary: page.extract.replace(/\s+/g, " ").trim(), url, source: "Wikipedia" }];
+      });
+  }
+
+  private async wikiSnippets(query: string, limit: number): Promise<WebAnswer[]> {
+    if (!this.wikiUrl) return [];
+    const wikiUrl = this.wikiUrl;
+    const value = await this.getJson(`${wikiUrl}/api.php?${params({ action: "query", list: "search", srsearch: query, srlimit: String(limit), srprop: "snippet", format: "json" })}`);
+    const hits = isRecord(value) && isRecord(value.query) && Array.isArray(value.query.search) ? value.query.search.filter(isRecord) : [];
+    return hits.flatMap((hit) => {
+      if (typeof hit.title !== "string" || typeof hit.snippet !== "string") return [];
+      const summary = decodeEntities(hit.snippet.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
+      return summary.length >= 30 ? [{ title: hit.title, summary, url: `${wikiUrl}/wiki/${encodeURIComponent(hit.title.replace(/ /g, "_"))}`, source: this.options.wikiName ?? new URL(wikiUrl).hostname }] : [];
+    });
   }
 
   private takeBudget(): boolean {
@@ -202,6 +253,16 @@ function matchScore(subject: string, title: string): number {
   return extra > subjectWords.length + 2 ? coverage * 0.6 : coverage;
 }
 
+/** Words that make a question a sentence but don't help a search engine find the page. */
+const QUESTION_NOISE = new Set([...FILLER, "do", "a", "an", "it", "its", "be", "will", "would", "going", "gonna", "come", "comes", "coming", "out", "yet", "still", "any", "know", "you", "me", "i", "we", "please", "pls", "plz", "anyone", "someone", "there", "next"]);
+
+/** A question cut down to the words a search needs: "when does new dune movie come out" becomes "new dune movie". */
+function researchQuery(value: string): string {
+  const cleaned = value.replace(/<@!?&?\d+>/g, " ").replace(/https?:\/\/\S+/g, " ").replace(/[\p{Cc}<>]/gu, " ");
+  const kept = cleaned.split(/\s+/).map((word) => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")).filter((word) => word && !QUESTION_NOISE.has(word.toLowerCase().replace(/['’]/g, "")));
+  return kept.join(" ").slice(0, MAX_QUERY);
+}
+
 /** The first real paragraph of a MediaWiki page section, as plain text. */
 function firstParagraph(html: string): string | null {
   const cleaned = html
@@ -230,5 +291,5 @@ function clip(text: string): string {
   return `${result.slice(0, MAX_SUMMARY - 1).replace(/\s+\S*$/, "")}…`;
 }
 
-export { WebLookupBusyError, WebLookupClient, firstParagraph, matchScore };
+export { WebLookupBusyError, WebLookupClient, firstParagraph, matchScore, researchQuery };
 export type { WebAnswer, WebLookupOptions };

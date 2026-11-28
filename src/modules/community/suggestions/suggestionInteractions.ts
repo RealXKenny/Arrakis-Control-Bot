@@ -11,6 +11,7 @@ import { STATUS_DEFINITIONS, isSuggestionStatus } from "./suggestionTags";
 const FEATURE_SESSION_MS = 15 * 60 * 1_000;
 const FEATURE_MENU_PATTERN = /^suggestion-feature:(\d{1,18}):(\d{17,20})$/;
 const STATUS_BUTTON_PATTERN = /^suggestion-status:([a-z_]+)$/;
+const STAFF_STATUS_PATTERN = /^suggestion-staff:([a-z_]+):(\d{17,20})$/;
 const UNAVAILABLE = "The suggestion assistant is not enabled. Set SUGGESTIONS_FORUM_CHANNEL_ID and DATABASE_URL, then restart the bot.";
 const STAFF_ONLY = "Only staff can change the status of a suggestion.";
 const NOT_A_POST = "Run this inside a suggestion post, or pick one with the `post` option.";
@@ -155,6 +156,33 @@ async function handleStatusButton(interaction: ButtonInteraction): Promise<void>
   }
 }
 
+/** A status button on a suggestion's panel in the staff channel: changes the post without opening it. */
+async function handleStaffStatusButton(interaction: ButtonInteraction): Promise<void> {
+  const service = interaction.client.suggestions;
+  const [, status = "", threadId = ""] = interaction.customId.match(STAFF_STATUS_PATTERN) ?? [];
+  if (!service || !isSuggestionStatus(status) || !service.config.staffChannelId) {
+    await interaction.reply({ content: UNAVAILABLE, flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (interaction.channelId !== service.config.staffChannelId || !isSuggestionStaff(interaction)) {
+    await interaction.reply({ content: STAFF_ONLY, flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const thread = await interaction.client.channels.fetch(threadId).catch(() => null);
+  if (!service.isSuggestionThread(thread)) {
+    await interaction.editReply({ content: "That suggestion post no longer exists." });
+    return;
+  }
+  try {
+    await service.setStatus(thread, status, { actorId: interaction.user.id });
+    await interaction.editReply({ content: `Done. <#${thread.id}> is now **${statusLabel(status)}**, and the suggester was told: ${STATUS_DEFINITIONS[status].notice}`, allowedMentions: { parse: [] } });
+  } catch (error: unknown) {
+    if (!(error instanceof SuggestionError)) interaction.client.logger.error("Suggestion staff panel button failed.", error);
+    await interaction.editReply({ content: safeMessage(error) });
+  }
+}
+
 async function handleToolButton(interaction: ButtonInteraction, tool: "summary" | "similar"): Promise<void> {
   const service = interaction.client.suggestions;
   const thread = interaction.channel;
@@ -203,6 +231,6 @@ async function handleFeatureMenu(interaction: StringSelectMenuInteraction): Prom
 }
 
 export {
-  FEATURE_MENU_PATTERN, FEATURE_MENU_PREFIX, FEATURE_SESSION_MS, STATUS_BUTTON_PATTERN, STATUS_BUTTON_PREFIX,
-  autocompleteSuggestionFeature, executeSuggestionsCommand, handleFeatureMenu, handleStatusButton, handleToolButton, parseReferenceUrl,
+  FEATURE_MENU_PATTERN, FEATURE_MENU_PREFIX, FEATURE_SESSION_MS, STAFF_STATUS_PATTERN, STATUS_BUTTON_PATTERN, STATUS_BUTTON_PREFIX,
+  autocompleteSuggestionFeature, executeSuggestionsCommand, handleFeatureMenu, handleStaffStatusButton, handleStatusButton, handleToolButton, parseReferenceUrl,
 };

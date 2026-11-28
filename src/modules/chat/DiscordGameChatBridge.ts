@@ -1,7 +1,8 @@
 import { Events, escapeMarkdown, type Client, type Message } from "discord.js";
 import type { ChatBridgeConfig } from "../../infrastructure/config/chatBridge";
 import { GameChatConnection } from "../../infrastructure/amqp/GameChatConnection";
-import { decodeGameChat, encodeMapChat, isProximityChannelType, peekChatChannelType, type GameChatMessage } from "./gameChatProtocol";
+import type { MessageProperties } from "amqplib";
+import { decodeGameChat, decodeProximityChat, encodeMapChat, isProximityChannelType, peekChatChannelType, PROXIMITY_EXCHANGE, type GameChatMessage } from "./gameChatProtocol";
 import { mapChatLabel } from "./mapChatLabel";
 
 const MAP_KEY = /^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/;
@@ -39,7 +40,7 @@ export class DiscordGameChatBridge {
     this.info(this.config.displayName ? "Chat bridge uses an explicit game display name; native player-name lookup is disabled in the payload." : "Chat bridge uses native game player-name lookup.");
     if (proximity) {
       const where = proximityRoutes.length ? `${new Set(proximityRoutes.map((route) => route.channelId)).size} dedicated Discord channel(s)` : "each map's bridge channel";
-      this.info(`Proximity chat relay is on (receive-only) and posts to ${where}${proximity.intercept ? "; also listening on chat.intercept" : ""}.`);
+      this.info(`Proximity chat relay is on (receive-only) and posts to ${where}${proximity.intercept ? "; listening on chat.intercept for chat.proximity" : ""}.`);
     }
     const maps = [...new Set([...routes.map((route) => route.map), ...proximityRoutes.flatMap((route) => route.map ? [route.map] : [])])];
     if (maps.length) {
@@ -48,7 +49,7 @@ export class DiscordGameChatBridge {
     }
     if (proximity?.intercept) {
       // Dev note: A refused intercept listener must never take map chat down with it.
-      this.interceptConnection = new GameChatConnection(this.config, (key, body) => this.sendInterceptToDiscord(key, body), this.warn, this.info, { kind: "intercept" });
+      this.interceptConnection = new GameChatConnection(this.config, (key, body, properties) => this.sendInterceptToDiscord(key, body, properties), this.warn, this.info, { kind: "intercept", exchanges: [PROXIMITY_EXCHANGE] });
       this.interceptConnection.start();
     }
     this.client.on(Events.MessageCreate, this.onMessage);
@@ -108,16 +109,23 @@ export class DiscordGameChatBridge {
     await this.deliver(routes, mapChatLabel(map), map, chat);
   }
 
-  /** Handles a message from the chat.intercept listener: only proximity chat is relayed, the map consumer covers map chat. */
-  public async sendInterceptToDiscord(routingKey: string, body: Buffer): Promise<void> {
+  /**
+   * Handles a copy from the chat.intercept listener. RabbitMQ already filtered
+   * it to chat.proximity; it is checked again here, and the speaker is the
+   * broker-authenticated AMQP user, not a payload field.
+   */
+  public async sendInterceptToDiscord(routingKey: string, body: Buffer, properties?: Partial<MessageProperties>): Promise<void> {
     this.noteChannelType("chat.intercept", routingKey, body);
     if (!this.config.proximity) return;
-    const chat = decodeGameChat(body, true);
-    if (!chat || chat.sender === this.config.funcomId || !isProximityChannelType(chat.channelType)) return;
-    await this.sendProximity(MAP_KEY.test(routingKey) ? routingKey : undefined, chat);
+    const chat = decodeProximityChat(body, properties);
+    if (!chat || chat.sender === this.config.username || chat.funcomId === this.config.funcomId) return;
+    const name = chat.funcomId ? await this.resolvePlayerName(chat.funcomId).catch(() => chat.funcomId!) : undefined;
+    const speaker = name && name !== chat.funcomId ? name : chat.displayName ?? chat.sender;
+    // Dev note: chat.proximity copies carry no trustworthy map, so the label stays plain.
+    await this.sendProximity(undefined, chat, speaker);
   }
 
-  private async sendProximity(map: string | undefined, chat: GameChatMessage): Promise<void> {
+  private async sendProximity(map: string | undefined, chat: GameChatMessage, speaker?: string): Promise<void> {
     const proximity = this.config.proximity;
     if (!proximity) return;
     const present = (route: { guildId: string }): boolean => this.client.guilds.cache.has(route.guildId);
@@ -128,7 +136,7 @@ export class DiscordGameChatBridge {
     const unique = [...new Map(destinations.map((route) => [route.channelId, route])).values()];
     const label = map ? `${mapChatLabel(map)} · Proximity` : "Proximity";
     // Dev note: One dedupe scope for both feeds, so a message heard twice is told once.
-    await this.deliver(unique, label, "proximity", chat);
+    await this.deliver(unique, label, "proximity", chat, speaker);
   }
 
   private noteChannelType(source: string, key: string, body: Buffer): void {
@@ -142,8 +150,8 @@ export class DiscordGameChatBridge {
     this.info(`Chat bridge first saw "${type}" chat on ${source}${where}.`);
   }
 
-  private async deliver(routes: { guildId: string; channelId: string }[], label: string, scope: string, chat: GameChatMessage): Promise<void> {
-    let playerName: string | undefined;
+  private async deliver(routes: { guildId: string; channelId: string }[], label: string, scope: string, chat: GameChatMessage, speaker?: string): Promise<void> {
+    let playerName: string | undefined = speaker;
     let deliveryFailed = false;
     for (const route of routes) {
       const key = `${route.channelId}:${scope}:${chat.id}`;

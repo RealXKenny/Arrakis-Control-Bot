@@ -950,7 +950,7 @@
     },
     {
       "name": "Chat Bridge Proximity Intercept",
-      "description": "on to also listen on the broker's chat.intercept feed for proximity chat (needs read permission on it).",
+      "description": "On by default with proximity: picks up chat.proximity copies from chat.intercept through a private filter. Set off to stop it.",
       "env_variable": "CHAT_BRIDGE_PROXIMITY_INTERCEPT",
       "default_value": "",
       "user_viewable": true,
@@ -1333,6 +1333,26 @@
       "description": "Optional bot setting (SUGGESTIONS_CATCHUP). See .env.example in the repository.",
       "env_variable": "SUGGESTIONS_CATCHUP",
       "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Lock Added",
+      "description": "Optional bot setting (SUGGESTIONS_LOCK_ADDED). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_LOCK_ADDED",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Staff Channel ID",
+      "description": "Optional bot setting (SUGGESTIONS_STAFF_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_STAFF_CHANNEL_ID",
+      "default_value": "",
       "user_viewable": true,
       "user_editable": true,
       "rules": "nullable|string",

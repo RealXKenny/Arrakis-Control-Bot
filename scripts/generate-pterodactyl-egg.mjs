@@ -209,7 +209,7 @@ const variables = [...template.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map(([, k
     CHAT_BRIDGE_ROUTES: "JSON array of {guildId, channelId, map} routes; required when RabbitMQ chat is enabled.",
     CHAT_BRIDGE_PROXIMITY: "on to relay proximity (nearby) game chat to Discord with a Proximity label. Off by default; receive-only.",
     CHAT_BRIDGE_PROXIMITY_ROUTES: "Optional JSON array of {guildId, channelId, map?} for proximity chat. Empty posts it in each map's bridge channel.",
-    CHAT_BRIDGE_PROXIMITY_INTERCEPT: "on to also listen on the broker's chat.intercept feed for proximity chat (needs read permission on it).",
+    CHAT_BRIDGE_PROXIMITY_INTERCEPT: "On by default with proximity: picks up chat.proximity copies from chat.intercept through a private filter. Set off to stop it.",
     VOICE_GUILD_ID: "Optional Discord server ID override for voice rooms; otherwise GUILD_ID is used.",
     MUSIC_GUILD_ID: "Optional Discord server ID override for music; otherwise GUILD_ID is used.",
     ALLOWED_GUILD_IDS: "Comma-separated Discord server IDs the bot may stay in. Defaults to GUILD_ID; the bot leaves any other server.",

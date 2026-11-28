@@ -2,7 +2,7 @@ import type { ReleaseAnnouncementChannel, ReleaseAnnouncementRecord, ReleaseAnno
 import { Collection, type Client } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { announceCurrentVersion, refreshReleaseAnnouncements, releaseType, repairReleaseAnnouncements, replayReleaseAnnouncements } from "../../../src/modules/changelog/changelogAnnouncements";
+import { RELEASE_LAYOUT_VERSION, announceCurrentVersion, refreshReleaseAnnouncements, releaseType, repairReleaseAnnouncements, replayReleaseAnnouncements } from "../../../src/modules/changelog/changelogAnnouncements";
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
 
 vi.mock("../../../src/shared/discord/imageFactory", () => ({
@@ -14,7 +14,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-function setup(markers: string[] = [], releaseBody = "Release changes") {
+function setup(markers: string[] = [], releaseBody = "Release changes", startLayout = RELEASE_LAYOUT_VERSION) {
   vi.stubEnv("DISCORD_SHARD_ID", "0");
   vi.stubEnv("ROLE_ANNOUNCEMENTS_ID", "");
   const fetchMock = vi.fn().mockResolvedValue({ stale: false, releases: [
@@ -46,6 +46,7 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
     send,
   };
   let imported = false;
+  let layout = startLayout;
   const records = new Map<string, ReleaseAnnouncementRecord>();
   const stored: ReleaseAnnouncementChannel = {
     isImported: vi.fn(() => Promise.resolve(imported)),
@@ -60,6 +61,9 @@ function setup(markers: string[] = [], releaseBody = "Release changes") {
       for (const [key, record] of records) if (repositories.includes(record.repository)) records.delete(key);
       return Promise.resolve();
     }),
+    forget: vi.fn((repository: string, version: string) => { records.delete(`${repository}:${version}`); return Promise.resolve(); }),
+    layoutVersion: vi.fn(() => Promise.resolve(layout)),
+    setLayoutVersion: vi.fn((version: number) => { layout = version; imported = true; return Promise.resolve(); }),
   };
   const storage: ReleaseAnnouncementStorage = { withChannel: async (_channelId, task) => { await task(stored); } };
   const client = { dashboardChangelog: { origin: "https://dashboard.example", getReleases: fetchMock }, releaseAnnouncements: storage, user: { id: "bot" }, channels: { fetch: vi.fn().mockResolvedValue(channel) } } as unknown as Client;
@@ -167,9 +171,9 @@ describe("version announcements", () => {
     expect(send).toHaveBeenCalledTimes(2);
     const cards = send.mock.calls.map(([payload]) => JSON.stringify(payload.components[0].toJSON()));
     expect(cards[0]).toContain("## Arrakis Control Bot v1.0.0");
-    expect(cards[0]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot"');
+    expect(cards[0]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.0.0"');
     expect(cards[1]).toContain("## Arrakis Control Dashboard v1.0.0");
-    expect(cards[1]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Dashboard"');
+    expect(cards[1]).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Dashboard/releases/tag/v1.0.0"');
   });
 
   it("does not announce when a project is missing", async () => {
@@ -179,14 +183,18 @@ describe("version announcements", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("tries the next release when an announcement fails, then reports the failure", async () => {
+  it("stops at a failed announcement so later releases never jump ahead, then resumes in order", async () => {
     const { client, send } = setup();
     send.mockRejectedValueOnce(new Error("Discord rejected the first release"));
 
     await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("1 release check operation");
+    expect(send).toHaveBeenCalledTimes(1);
 
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(JSON.stringify(send.mock.calls[1][0].components[0].toJSON())).toContain("## Arrakis Control Dashboard v1.0.0");
+    await announceCurrentVersion(client, "announcements");
+    const cards = send.mock.calls.slice(1).map(([payload]) => JSON.stringify(payload.components[0].toJSON()));
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toContain("## Arrakis Control Bot v1.0.0");
+    expect(cards[1]).toContain("## Arrakis Control Dashboard v1.0.0");
   });
 
   it("reports a failed check when dashboard release information is unavailable", async () => {
@@ -257,7 +265,7 @@ describe("version announcements", () => {
     const { client, send, stored } = setup();
     send.mockRejectedValueOnce(new Error("send failed"));
     await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow();
-    expect(stored.record).toHaveBeenCalledTimes(1);
+    expect(stored.record).not.toHaveBeenCalled();
     await announceCurrentVersion(client, "announcements");
     expect(send).toHaveBeenCalledTimes(3);
     expect(stored.record).toHaveBeenCalledTimes(2);
@@ -308,16 +316,16 @@ describe("version announcements", () => {
     expect(announcements[0]).toContain("## Arrakis Control Bot v1.0.0");
     expect(announcements[1]).toContain("## Arrakis Control Dashboard v1.0.0");
     for (const text of announcements) {
-      expect(text).toContain("Full release notes are in the thread below.");
+      expect(text).toContain("full release notes are in the thread below.");
       expect(text).not.toContain("very large release note");
     }
-    expect(threads.map((thread) => thread.name)).toEqual(["Bot v1.0.0 release notes", "Dashboard v1.0.0 release notes"]);
+    expect(threads.map((thread) => thread.name)).toEqual(["Bot v1.0.0 · Bot release", "Dashboard v1.0.0 · Dashboard release"]);
     const parts = threads[0].posted.map((message) => message.components[0]);
     const texts = parts.map(collectDisplayableText);
     expect(parts.length).toBeGreaterThan(3);
     for (const part of parts) expect(countDisplayableText(part)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
     for (const [index, text] of texts.entries()) {
-      expect(text).toMatch(new RegExp(`^-# Bot v1\\.0\\.0 release notes, part ${index + 1} of ${texts.length}`));
+      expect(text).toMatch(new RegExp(`-# Bot v1\\.0\\.0 release notes, part ${index + 1} of ${texts.length}$`));
       expect(text).not.toContain("## Arrakis Control");
     }
     expect(texts.join("")).not.toContain("Release notes shortened for Discord");
@@ -430,12 +438,64 @@ describe("version announcements", () => {
 
     expect(forum.setAvailableTags).toHaveBeenCalledOnce();
     expect(forum.availableTags.map((tag) => tag.name)).toEqual(["bot", "Dashboard", "Major", "Minor", "Patch"]);
-    expect(posts.map((post) => post.name)).toEqual(["Bot v1.0.0 release notes", "Dashboard v1.0.0 release notes"]);
+    expect(posts.map((post) => post.name)).toEqual(["Bot v1.0.0 · Bot release", "Dashboard v1.0.0 · Dashboard release"]);
     const id = (name: string) => forum.availableTags.find((tag) => tag.name === name)!.id;
     expect(posts[0].appliedTags).toEqual([id("bot"), id("Major")]);
     expect(posts[1].appliedTags).toEqual([id("Dashboard"), id("Major")]);
     for (const post of posts) expect(post.posted).toHaveLength(1);
     expect(stored.record).toHaveBeenNthCalledWith(1, { repository: "RealXKenny/Arrakis-Control-Bot", version: "1.0.0", messageId: "post-1" });
+  });
+
+  it("rebuilds once: deletes only the bot's own release posts, then reposts every release in version order", async () => {
+    const { client, stored, records, fetchMock } = setup([], "Release changes", 0);
+    fetchMock.mockResolvedValue({ stale: false, releases: [
+      { project: "dashboard", version: "2.0.1", title: "Dash fixes", date: "2026-11-26", sections: [{ title: "Fixed", items: ["x"] }] },
+      { project: "bot", version: "2.0.1", title: "Bot fixes", date: "2026-11-26", sections: [{ title: "Fixed", items: ["x"] }] },
+      { project: "dashboard", version: "2.0.0", title: "Dash launch", date: "2026-11-25", sections: [{ title: "Added", items: ["x"] }] },
+      { project: "bot", version: "2.0.0", title: "Bot launch", date: "2026-11-25", sections: [{ title: "Added", items: ["x"] }] },
+    ] });
+    const forum = fakeForum([
+      { id: "old-bot-200", name: "Bot v2.0.0 release notes", ownerId: "bot" },
+      { id: "old-dash-200", name: "Dashboard v2.0.0 release notes", ownerId: "bot", archived: true },
+      { id: "lost-bot-201", name: "Bot v2.0.1 release notes", ownerId: "bot", archived: true },
+      { id: "member-post", name: "Bot v2.0.0 is great", ownerId: "member" },
+      { id: "bot-other", name: "Weekly event", ownerId: "bot" },
+    ]);
+    vi.mocked(client.channels.fetch).mockResolvedValue(forum as never);
+    records.set("RealXKenny/Arrakis-Control-Bot:2.0.0", { repository: "RealXKenny/Arrakis-Control-Bot", version: "2.0.0", messageId: "old-bot-200" });
+    records.set("RealXKenny/Arrakis-Control-Dashboard:2.0.0", { repository: "RealXKenny/Arrakis-Control-Dashboard", version: "2.0.0", messageId: "old-dash-200" });
+
+    await announceCurrentVersion(client, "announcements");
+
+    expect(fetchMock).toHaveBeenCalledWith(true);
+    expect(forum.deleted.sort()).toEqual(["lost-bot-201", "old-bot-200", "old-dash-200"]);
+    expect(forum.created).toEqual(["Bot v2.0.0 · Bot launch", "Dashboard v2.0.0 · Dash launch", "Bot v2.0.1 · Bot fixes", "Dashboard v2.0.1 · Dash fixes"]);
+    expect(stored.setLayoutVersion).toHaveBeenCalledWith(RELEASE_LAYOUT_VERSION);
+    expect(forum.setDefaultSortOrder).toHaveBeenCalledOnce();
+
+    await announceCurrentVersion(client, "announcements");
+    expect(forum.created).toHaveLength(4);
+    expect(forum.deleted).toHaveLength(3);
+  });
+
+  it("posts nothing and keeps retrying the rebuild while an old post cannot be deleted", async () => {
+    const { client, stored, records } = setup([], "Release changes", 0);
+    const forum = fakeForum([{ id: "old-bot", name: "Bot v1.0.0 release notes", ownerId: "bot", failDelete: true }]);
+    vi.mocked(client.channels.fetch).mockResolvedValue(forum as never);
+    records.set("RealXKenny/Arrakis-Control-Bot:1.0.0", { repository: "RealXKenny/Arrakis-Control-Bot", version: "1.0.0", messageId: "old-bot" });
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("could not be deleted");
+    expect(forum.created).toEqual([]);
+    expect(stored.setLayoutVersion).not.toHaveBeenCalled();
+    expect(records.has("RealXKenny/Arrakis-Control-Bot:1.0.0")).toBe(true);
+  });
+
+  it("deletes nothing when fresh release notes cannot be loaded for the rebuild", async () => {
+    const { client, fetchMock } = setup([], "Release changes", 0);
+    const forum = fakeForum([{ id: "old-bot", name: "Bot v1.0.0 release notes", ownerId: "bot" }]);
+    vi.mocked(client.channels.fetch).mockResolvedValue(forum as never);
+    fetchMock.mockRejectedValue(new Error("dashboard unavailable"));
+    await expect(announceCurrentVersion(client, "announcements")).rejects.toThrow("dashboard unavailable");
+    expect(forum.deleted).toEqual([]);
   });
 
   it("classifies release types from the version", () => {
@@ -445,6 +505,50 @@ describe("version announcements", () => {
     expect(releaseType("next")).toBeNull();
   });
 });
+
+type ForumPostSeed = { id: string; name: string; ownerId: string; archived?: boolean; failDelete?: boolean };
+
+/** A forum with existing posts that records which posts get deleted and which are created, in order. */
+function fakeForum(seed: ForumPostSeed[]) {
+  const deleted: string[] = [];
+  const created: string[] = [];
+  const posts = new Map<string, Record<string, unknown>>();
+  const toPost = (post: ForumPostSeed) => ({
+    ...post, parentId: "forum", isThread: () => true,
+    delete: vi.fn(() => {
+      if (post.failDelete) return Promise.reject(Object.assign(new Error("Missing Permissions"), { code: 50013 }));
+      posts.delete(post.id);
+      deleted.push(post.id);
+      return Promise.resolve();
+    }),
+  });
+  for (const post of seed) posts.set(post.id, toPost(post));
+  const list = (archived: boolean) => new Collection([...posts.values()].filter((post) => Boolean(post.archived) === archived).map((post) => [post.id as string, post] as const));
+  const forum = {
+    id: "forum",
+    deleted, created,
+    isThreadOnly: () => true,
+    defaultSortOrder: null as number | null,
+    availableTags: ["Bot", "Dashboard", "Major", "Minor", "Patch"].map((name) => ({ id: `t-${name}`, name, moderated: false, emoji: null })),
+    setAvailableTags: vi.fn(() => Promise.resolve()),
+    setDefaultSortOrder: vi.fn((order: number) => { forum.defaultSortOrder = order; return Promise.resolve(forum); }),
+    threads: {
+      fetchActive: vi.fn(() => Promise.resolve({ threads: list(false) })),
+      fetchArchived: vi.fn(() => Promise.resolve({ threads: list(true), hasMore: false })),
+      fetch: vi.fn((id: string) => posts.has(id) ? Promise.resolve(posts.get(id)) : Promise.reject(Object.assign(new Error("Unknown Channel"), { code: 10003 }))),
+      create: vi.fn((options: { name: string }) => {
+        const id = `new-${created.length + 1}`;
+        created.push(options.name);
+        const thread = fakeThread(options.name);
+        const starter = { id, author: { id: "bot" }, webhookId: null, components: [], crosspostable: false, channel: thread };
+        Object.assign(thread, { id, ownerId: "bot", parentId: "forum", fetchStarterMessage: () => Promise.resolve(starter), delete: vi.fn() });
+        posts.set(id, thread as unknown as Record<string, unknown>);
+        return Promise.resolve(thread);
+      }),
+    },
+  };
+  return forum;
+}
 
 function collectDisplayableText(value: unknown): string {
   if (Array.isArray(value)) return value.map(collectDisplayableText).join("");

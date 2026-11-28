@@ -16,7 +16,7 @@ export interface ProximityRoute {
 export interface ProximityChatConfig {
   /** Dedicated destinations. Empty means proximity chat posts in each map's normal bridge channel(s). */
   routes: ProximityRoute[];
-  /** Also listen on the broker's chat.intercept feed (needs read permission on it). */
+  /** Listen on the broker's chat.intercept feed through a filter that only passes chat.proximity (on by default). */
   intercept: boolean;
 }
 
@@ -118,5 +118,5 @@ function loadProximityConfig(env: NodeJS.ProcessEnv, mapRoutes: ChatRoute[]): Pr
   // Dev note: Whispers carried on the wind stay off unless the owner asks for them.
   const enabled = parseSwitch("CHAT_BRIDGE_PROXIMITY", env.CHAT_BRIDGE_PROXIMITY) ?? routes.length > 0;
   if (!enabled) return undefined;
-  return { routes, intercept: parseSwitch("CHAT_BRIDGE_PROXIMITY_INTERCEPT", env.CHAT_BRIDGE_PROXIMITY_INTERCEPT) ?? false };
+  return { routes, intercept: parseSwitch("CHAT_BRIDGE_PROXIMITY_INTERCEPT", env.CHAT_BRIDGE_PROXIMITY_INTERCEPT) ?? true };
 }

@@ -1,7 +1,7 @@
 import type { Message } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { MAX_RELEASE_MESSAGES, buildReleaseCard, hasInlineNotes, parseReleaseMarker, releaseMarker, releaseNoteMessages, releaseThreadName, splitReleaseNotes } from "../../../src/modules/changelog/changelogCard";
+import { MAX_RELEASE_MESSAGES, buildReleaseCard, hasInlineNotes, isReleaseThreadName, parseReleaseMarker, releaseMarker, releaseNoteMessages, releaseThreadName, splitReleaseNotes } from "../../../src/modules/changelog/changelogCard";
 import type { ChangelogEntry } from "../../../src/modules/changelog/changelogEntries";
 import { CHANGELOG_PROJECTS } from "../../../src/modules/changelog/changelogProjects";
 import { DISCORD_LIMITS, countDisplayableText } from "../../../src/shared/discord/discordLimits";
@@ -17,15 +17,19 @@ describe("changelog card", () => {
   it("states the product on every card and gives each product its own accent", () => {
     const botCard = buildReleaseCard(entry(bot)).toJSON();
     const dashboardCard = buildReleaseCard(entry(dashboard)).toJSON();
-    expect(JSON.stringify(botCard)).toContain("-# Discord bot release • RealXKenny/Arrakis-Control-Bot");
-    expect(JSON.stringify(dashboardCard)).toContain("-# Web dashboard release • RealXKenny/Arrakis-Control-Dashboard");
+    expect(JSON.stringify(botCard)).toContain("-# 🤖 Discord bot  ·  Patch release  ·  <t:1767225600:D>");
+    expect(JSON.stringify(dashboardCard)).toContain("-# 🖥️ Web dashboard  ·  Patch release");
+    expect(JSON.stringify(botCard)).toContain("> Summary");
+    expect(JSON.stringify(botCard)).toContain("Fixed **1**");
+    expect(JSON.stringify(botCard)).toContain('"url":"https://github.com/RealXKenny/Arrakis-Control-Bot/releases/tag/v1.2.3"');
     expect(botCard.accent_color).not.toBe(dashboardCard.accent_color);
   });
 
   it("keeps the durable heading, points to the thread and leaves the notes out of the announcement", () => {
     const card = buildReleaseCard(entry(dashboard, "Long note. ".repeat(1000))).toJSON();
     expect(JSON.stringify(card)).toContain("## Arrakis Control Dashboard v1.2.3");
-    expect(JSON.stringify(card)).toContain("Full release notes are in the thread below.");
+    expect(JSON.stringify(card)).toContain("full release notes are in the thread below.");
+    expect(JSON.stringify(buildReleaseCard(entry(dashboard), "forum").toJSON())).toContain("full release notes follow in this post.");
     expect(JSON.stringify(card)).not.toContain("Long note.");
     expect(countDisplayableText(card)).toBeLessThanOrEqual(DISCORD_LIMITS.componentDisplayableText);
   });
@@ -35,8 +39,17 @@ describe("changelog card", () => {
     expect(hasInlineNotes(message(releaseMarker(entry(bot))))).toBe(false);
   });
 
-  it("names the notes thread after the product and version", () => {
-    expect(releaseThreadName(entry(dashboard))).toBe("Dashboard v1.2.3 release notes");
+  it("titles the post with the product, version and headline, and recognizes current and older titles", () => {
+    expect(releaseThreadName(entry(dashboard))).toBe("Dashboard v1.2.3 · Summary");
+    expect(releaseThreadName({ ...entry(bot), summary: "x".repeat(200) })).toHaveLength(100);
+    expect(isReleaseThreadName("Dashboard v1.2.3 · Summary")).toBe(true);
+    expect(isReleaseThreadName("Bot v2.0.0 release notes")).toBe(true);
+    expect(isReleaseThreadName("Bot vs dashboard discussion")).toBe(false);
+    expect(isReleaseThreadName("Suggestion: Bot v2 ideas")).toBe(false);
+  });
+
+  it("labels single-part notes without a part count and multi-part notes with one", () => {
+    expect(JSON.stringify(releaseNoteMessages(entry(bot))[0].components[0].toJSON())).toContain('"-# Bot v1.2.3 release notes"');
   });
 
   it("recognizes current and legacy headings and ignores unknown products", () => {

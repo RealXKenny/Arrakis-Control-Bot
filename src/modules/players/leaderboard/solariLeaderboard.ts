@@ -6,7 +6,11 @@ import { truncateDiscordText } from "../../../shared/discord/discordLimits";
 interface SolariEntry {
   id: string;
   name: string;
-  /** Decimal string; BIGINT-safe until formatting. */
+  /** Banked Solari Credit (the in-game bank), decimal string. */
+  bank: string;
+  /** Solaris coins carried in the character's inventories, decimal string. */
+  coins: string;
+  /** bank + coins; decimal string, BIGINT-safe until formatting. This is what the ranking uses. */
   balance: string;
 }
 
@@ -28,10 +32,18 @@ const UNKNOWN_NAME = "Unknown player";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 
+/**
+ * The Console's player directory is one row per character pawn and names its id `actor_id` (also `player_pawn_id`);
+ * every `/api/players/{playerId}/…` route takes that id. Reading only `player_id` (which the directory never sends)
+ * skipped every row, which is why the leaderboard came back empty. Older spellings are still accepted.
+ */
+const ID_KEYS = ["actor_id", "player_pawn_id", "pawn_id", "pawnId", "player_id", "playerId"] as const;
+
 function readId(row: Record<string, unknown>): string | null {
-  for (const key of ["player_id", "playerId", "pawn_id", "pawnId"]) {
+  for (const key of ID_KEYS) {
     const value = row[key];
-    if ((typeof value === "string" && value.trim()) || typeof value === "number" || typeof value === "bigint") return String(value).trim();
+    const text = typeof value === "string" || typeof value === "number" || typeof value === "bigint" ? String(value).trim() : "";
+    if (/^\d{1,20}$/.test(text) && text !== "0") return text;
   }
 
   return null;
@@ -62,7 +74,19 @@ function parseBalance(value: unknown): string | null {
 }
 
 function parseSolariTotal(response: unknown): string | null {
-  return isRecord(response) ? parseBalance(response.total) : null;
+  if (!isRecord(response) || response.supported === false || (isRecord(response.capabilities) && response.capabilities.solarisCoin === false)) return null;
+  return parseBalance(response.total);
+}
+
+/** Banked Solari Credit from `/currency`: the row labelled "Solari Credit", or currency 0 on builds without labels. */
+function parseBankCredit(response: unknown): string | null {
+  if (!isRecord(response) || response.supported === false || (isRecord(response.capabilities) && response.capabilities.currency === false)) return null;
+  if (!Array.isArray(response.rows)) return null;
+  const rows = response.rows.filter(isRecord);
+  const labelled = rows.filter((row) => typeof row.label === "string" && /solari/i.test(row.label));
+  const candidates = labelled.length ? labelled : rows.filter((row) => String(row.currency_id) === "0");
+  if (!candidates.length) return "0";
+  return candidates.length === 1 ? parseBalance(candidates[0].balance) : null;
 }
 
 function compareBalances(left: string, right: string): number {
@@ -99,12 +123,15 @@ function formatLeaderboardPage(entries: SolariEntry[], page: number, pageSize: n
 
   if (!rows.length) return "No players with a readable Solari balance were found.";
 
-  return rows.map((entry, index) => `${formatRank(start + index + 1)} ${formatEntryName(entry.name)} — **${formatSolari(entry.balance)}** Solari`).join("\n");
+  return rows
+    .map((entry, index) => `${formatRank(start + index + 1)} ${formatEntryName(entry.name)} — **${formatSolari(entry.balance)}** Solari\n-# ${formatSolari(entry.bank)} banked · ${formatSolari(entry.coins)} in coins`)
+    .join("\n");
 }
 
 async function listPlayers(api: DuneCaller): Promise<{ players: Map<string, string>; truncated: boolean }> {
   const players = new Map<string, string>();
   let truncated = false;
+  let listed = 0;
 
   for (let apiPage = 0; apiPage < MAX_PLAYER_PAGES; apiPage++) {
     const response = await api.call("GET", "/api/players", { query: { status: "all", page: apiPage, pageSize: PLAYER_PAGE_SIZE } });
@@ -113,6 +140,7 @@ async function listPlayers(api: DuneCaller): Promise<{ players: Map<string, stri
 
     for (const row of response.rows) {
       if (!isRecord(row)) continue;
+      listed++;
       const id = readId(row);
       if (id && !players.has(id)) players.set(id, readName(row));
     }
@@ -121,6 +149,8 @@ async function listPlayers(api: DuneCaller): Promise<{ players: Map<string, stri
     if (response.rows.length < PLAYER_PAGE_SIZE || (Number.isFinite(total) && (apiPage + 1) * PLAYER_PAGE_SIZE >= total)) break;
     if (apiPage === MAX_PLAYER_PAGES - 1) truncated = true;
   }
+
+  if (listed > 0 && players.size === 0) throw new Error("The player directory rows carry no player id.");
 
   return { players, truncated };
 }
@@ -136,9 +166,14 @@ async function fetchSolariSnapshot(api: DuneCaller, now = Date.now()): Promise<S
       const [id, name] = next;
 
       try {
-        const balance = parseSolariTotal(await api.call("GET", "/api/players/{playerId}/solaris-coin", { routeParams: { playerId: id } }));
-        if (balance === null) failed++;
-        else entries.push({ id, name, balance });
+        const [currency, coin] = await Promise.all([
+          api.call("GET", "/api/players/{playerId}/currency", { routeParams: { playerId: id } }),
+          api.call("GET", "/api/players/{playerId}/solaris-coin", { routeParams: { playerId: id } }),
+        ]);
+        const bank = parseBankCredit(currency);
+        const coins = parseSolariTotal(coin);
+        if (bank === null || coins === null) failed++;
+        else entries.push({ id, name, bank, coins, balance: (BigInt(bank) + BigInt(coins)).toString() });
       } catch {
         failed++;
       }
@@ -173,5 +208,5 @@ function resetSolariSnapshotCache(): void {
   pending = null;
 }
 
-export { CACHE_TTL_MS, compareBalances, countPages, fetchSolariSnapshot, formatEntryName, formatLeaderboardPage, formatSolari, getSolariSnapshot, parseBalance, parseSolariTotal, resetSolariSnapshotCache, sortEntries };
-export type { SolariSnapshot };
+export { CACHE_TTL_MS, compareBalances, countPages, fetchSolariSnapshot, formatEntryName, formatLeaderboardPage, formatSolari, getSolariSnapshot, parseBalance, parseBankCredit, parseSolariTotal, readId, resetSolariSnapshotCache, sortEntries };
+export type { SolariEntry, SolariSnapshot };

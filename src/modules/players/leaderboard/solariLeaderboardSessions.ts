@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 
+type LeaderboardKind = "solaris" | "dungeons";
+
 interface LeaderboardSession {
   id: string;
+  kind: LeaderboardKind;
   ownerId: string;
   requestedBy: string;
   page: number;
@@ -19,7 +22,7 @@ function sweepSessions(now = Date.now()): void {
   }
 }
 
-function createLeaderboardSession(options: { ownerId: string; requestedBy: string; page?: number }): LeaderboardSession {
+function createLeaderboardSession(options: { ownerId: string; requestedBy: string; page?: number; kind?: LeaderboardKind }): LeaderboardSession {
   sweepSessions();
   while (sessions.size >= MAX_SESSIONS) {
     const oldestId = sessions.keys().next().value;
@@ -29,6 +32,7 @@ function createLeaderboardSession(options: { ownerId: string; requestedBy: strin
 
   const session: LeaderboardSession = {
     id: randomBytes(9).toString("base64url"),
+    kind: options.kind ?? "solaris",
     ownerId: options.ownerId,
     requestedBy: options.requestedBy,
     page: Math.max(1, Math.floor(options.page ?? 1)),
@@ -56,4 +60,4 @@ function getLeaderboardSession(id: string): LeaderboardSession | null {
 }
 
 export { createLeaderboardSession, getLeaderboardSession };
-export type { LeaderboardSession };
+export type { LeaderboardKind, LeaderboardSession };

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { WebLookupBusyError, WebLookupClient, firstParagraph, matchScore } from "../../../../src/infrastructure/http/web/WebLookupClient";
+import { WebLookupBusyError, WebLookupClient, firstParagraph, matchScore, researchQuery } from "../../../../src/infrastructure/http/web/WebLookupClient";
 
 function json(value: unknown, url: string): Response {
   const response = new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -100,5 +100,34 @@ describe("WebLookupClient", () => {
     expect(matchScore("coriolis storm", "Coriolis Storm (Dune)")).toBe(1);
     expect(matchScore("spice", "Spice melange")).toBe(1);
     expect(firstParagraph("<table><p>in a table, ignore this paragraph please, it is long enough</p></table><p>Hi</p>")).toBeNull();
+  });
+});
+
+describe("WebLookupClient research", () => {
+  it("cuts a question down to what a search needs", () => {
+    expect(researchQuery("When does new dune movie come out")).toBe("new dune movie");
+    expect(researchQuery("<@123456789012345678> what's the capital of France?")).toBe("capital France");
+  });
+
+  it("reads several Wikipedia openings and game wiki hits, best first", async () => {
+    const fetcher = fakeFetch((url) => {
+      if (url.origin === "https://en.wikipedia.org" && url.searchParams.get("generator") === "search") {
+        expect(url.searchParams.get("gsrsearch")).toBe("new dune movie");
+        return { query: { pages: [
+          { title: "Dune (2021 film)", index: 2, extract: "Dune is a 2021 American epic science fiction film directed by Denis Villeneuve.", fullurl: "https://en.wikipedia.org/wiki/Dune_(2021_film)" },
+          { title: "Dune: Part Three", index: 1, extract: "Dune: Part Three is an upcoming film. It is scheduled to be released on December 18, 2026.", fullurl: "https://en.wikipedia.org/wiki/Dune:_Part_Three" },
+          { title: "Dune", index: 3, extract: "Dune may refer to:" },
+        ] } };
+      }
+      if (url.origin === WIKI) return { query: { search: [{ title: "Sandworm", snippet: "The <span class=\"searchmatch\">sandworm</span> is a giant creature of Arrakis &amp; more." }] } };
+      return undefined;
+    });
+    const client = new WebLookupClient({ wikiUrl: WIKI, wikiName: "Dune Wiki", perMinute: 10, userAgent: "test", fetcher });
+    const found = await client.research("When does new dune movie come out?");
+    expect(found.map((entry) => entry.title)).toEqual(["Dune: Part Three", "Dune (2021 film)", "Sandworm"]);
+    expect(found[2]).toMatchObject({ summary: "The sandworm is a giant creature of Arrakis & more.", source: "Dune Wiki", url: `${WIKI}/wiki/Sandworm` });
+    const calls = fetcher.mock.calls.length;
+    await client.research("when does new dune movie come out");
+    expect(fetcher.mock.calls.length).toBe(calls);
   });
 });

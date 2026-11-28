@@ -13,7 +13,7 @@ describe("external API clients", () => {
   it("ships the complete Dune endpoint catalog without external reference files", () => {
     const loadedCatalog = loadEndpointCatalog();
 
-    expect(ENDPOINT_CATALOG).toHaveLength(354);
+    expect(ENDPOINT_CATALOG).toHaveLength(355);
     expect(Object.isFrozen(ENDPOINT_CATALOG)).toBe(true);
     expect(loadedCatalog).toEqual(ENDPOINT_CATALOG);
     expect(loadedCatalog).not.toBe(ENDPOINT_CATALOG);

@@ -1,9 +1,9 @@
-import { MessageFlags, ThreadAutoArchiveDuration, type Client, type ForumChannel, type MediaChannel, type Message, type SendableChannels, type ThreadChannel } from "discord.js";
+import { MessageFlags, SortOrderType, ThreadAutoArchiveDuration, type Client, type ForumChannel, type MediaChannel, type Message, type SendableChannels, type ThreadChannel } from "discord.js";
 
 import { createLogger } from "../../client/logger";
 import type { ReleaseAnnouncementChannel } from "../../infrastructure/database/releases/ReleaseAnnouncementRepository";
 import { isPrimaryShard } from "../../shared/process/shardIdentity";
-import { hasInlineNotes, isNotesMessage, notesMessageText, parseReleaseMarker, releaseNoteMessages, releasePayload, releaseThreadName } from "./changelogCard";
+import { hasInlineNotes, isNotesMessage, isReleaseThreadName, notesMessageText, parseReleaseMarker, releaseNoteMessages, releasePayload, releaseThreadName, releaseType } from "./changelogCard";
 import { loadChangelogEntries, type ChangelogEntry } from "./changelogEntries";
 import { CHANGELOG_PROJECTS } from "./changelogProjects";
 
@@ -15,6 +15,13 @@ const NOTES_THREAD_ARCHIVE = ThreadAutoArchiveDuration.OneWeek;
 /** Forum tags the bot keeps on its changelog channel: one per product and one per release type. */
 const RELEASE_TYPE_TAGS = ["Major", "Minor", "Patch"] as const;
 const MAX_FORUM_TAGS = 20;
+const MAX_ARCHIVED_PAGES = 50;
+/**
+ * Version of the release post layout. When a channel was built with an older layout, the next check deletes
+ * every release post this bot made there and posts them all again, in version order, with the current layout.
+ * Bump it only when every post should be rebuilt.
+ */
+const RELEASE_LAYOUT_VERSION = 2;
 
 /** A text or announcement channel (announcement plus a notes thread), or a forum (one post per release). */
 type AnnouncementChannel = { kind: "text"; channel: SendableChannels } | { kind: "forum"; channel: ForumChannel | MediaChannel };
@@ -26,12 +33,19 @@ async function announceCurrentVersion(client: Client, channelId?: string | null)
 
   await storage.withChannel(channelId, async (stored) => {
     await importExistingAnnouncements(client, channel, stored);
-    const entries = await loadChangelogEntries(client.dashboardChangelog);
+    const rebuilding = (await stored.layoutVersion()) < RELEASE_LAYOUT_VERSION;
+    // Load fresh notes before deleting anything, so a dashboard outage never leaves the channel empty.
+    const entries = await loadChangelogEntries(client.dashboardChangelog, rebuilding);
+    if (rebuilding) {
+      const removed = await removeOwnReleasePosts(client, channel, stored);
+      await stored.setLayoutVersion(RELEASE_LAYOUT_VERSION);
+      logger.info(`Rebuilding release posts: removed ${removed} old post(s); posting ${entries.length} release(s) in version order.`);
+    }
     await sendUnannouncedReleases(channel, stored, entries);
   });
 }
 
-/** Operator action: forget this channel's receipts for every known product and post them all again. */
+/** Operator action: delete this bot's release posts in the channel and post every known release again, in order. */
 async function replayReleaseAnnouncements(client: Client, channelId: string): Promise<void> {
   if (!client.user) throw new Error("Cannot replay changelogs before the Discord client is ready.");
   const { storage, channel } = await prepare(client, channelId);
@@ -40,7 +54,9 @@ async function replayReleaseAnnouncements(client: Client, channelId: string): Pr
     acquired = true;
     // Refresh every product before changing durable state. An outage must not erase the ledger.
     const entries = await loadChangelogEntries(client.dashboardChangelog, true);
+    await removeOwnReleasePosts(client, channel, stored);
     await stored.reset(CHANGELOG_PROJECTS.map((project) => project.repository));
+    await stored.setLayoutVersion(RELEASE_LAYOUT_VERSION);
     await sendUnannouncedReleases(channel, stored, entries);
   });
   if (!acquired) throw new Error("Another release check holds the channel lock; retry the replay later.");
@@ -76,7 +92,7 @@ async function syncRecordedReleases(client: Client, channelId: string | null | u
       try {
         const message = await fetchAnnouncement(channel, record.messageId);
         if (message.author.id !== botId || message.webhookId) continue;
-        if (cards === "all" || hasInlineNotes(message)) await message.edit({ ...releasePayload(entry), attachments: [] });
+        if (cards === "all" || hasInlineNotes(message)) await message.edit({ ...releasePayload(entry, placeOf(channel)), attachments: [] });
         await syncNotesThread(channel, message, entry, botId);
       } catch (error) {
         // Deleted announcements stay recorded so deletion never triggers a repost.
@@ -96,6 +112,7 @@ async function prepare(client: Client, channelId: string) {
   if (fetched?.isThreadOnly()) {
     channel = { kind: "forum", channel: fetched };
     await ensureForumTags(fetched);
+    await ensureCreationOrder(fetched);
   }
   else if (fetched?.isSendable() && !fetched.isThread()) channel = { kind: "text", channel: fetched };
   else throw new Error(`Version announcement channel ${channelId} must be a text, announcement or forum channel.`);
@@ -113,8 +130,10 @@ async function sendUnannouncedReleases(channel: AnnouncementChannel, stored: Rel
     try {
       message = await postAnnouncement(channel, entry);
     } catch (error) {
+      // Stop here instead of skipping ahead: a later release must never be posted above an earlier one.
+      // The next check retries from this release.
       failures.push(error);
-      continue;
+      break;
     }
     // Save immediately after sending, before the notes, publication or the next release.
     // A failed database write aborts this batch instead of sending more untracked posts.
@@ -135,7 +154,7 @@ async function sendUnannouncedReleases(channel: AnnouncementChannel, stored: Rel
 
 /** Post the announcement: a channel message, or the starter message of a new forum post. */
 async function postAnnouncement(channel: AnnouncementChannel, entry: ChangelogEntry): Promise<Message> {
-  const payload = { ...releasePayload(entry), flags: MessageFlags.IsComponentsV2 } as const;
+  const payload = { ...releasePayload(entry, placeOf(channel)), flags: MessageFlags.IsComponentsV2 } as const;
   if (channel.kind === "text") return channel.channel.send(payload);
   const thread = await channel.channel.threads.create({ name: releaseThreadName(entry), autoArchiveDuration: NOTES_THREAD_ARCHIVE, message: payload, appliedTags: releaseTagIds(channel.channel, entry) });
   const starter = await thread.fetchStarterMessage();
@@ -191,14 +210,6 @@ async function notesThread(channel: AnnouncementChannel, message: Message, entry
   return message.startThread({ name: releaseThreadName(entry), autoArchiveDuration: NOTES_THREAD_ARCHIVE });
 }
 
-/** Major for x.0.0, minor for x.y.0, patch otherwise; anything unparseable gets no type tag. */
-function releaseType(version: string): (typeof RELEASE_TYPE_TAGS)[number] | null {
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
-  if (!match) return null;
-  if (match[3] !== "0") return "Patch";
-  return match[2] !== "0" ? "Minor" : "Major";
-}
-
 function wantedTagNames(): string[] {
   return [...CHANGELOG_PROJECTS.map((project) => project.name), ...RELEASE_TYPE_TAGS];
 }
@@ -227,6 +238,103 @@ async function ensureForumTags(forum: ForumChannel | MediaChannel): Promise<void
 function releaseTagIds(forum: ForumChannel | MediaChannel, entry: ChangelogEntry): string[] {
   const names = [entry.project.name, releaseType(entry.version)].filter((name): name is string => Boolean(name)).map((name) => name.toLowerCase());
   return forum.availableTags.filter((tag) => names.includes(tag.name.toLowerCase())).map((tag) => tag.id);
+}
+
+/**
+ * Forums list posts by latest activity unless told otherwise, which reshuffles releases whenever a post
+ * gets a new message. Creation order keeps them in the order they were posted. Without Manage Channels
+ * the forum keeps its setting and posts are still made.
+ */
+async function ensureCreationOrder(forum: ForumChannel | MediaChannel): Promise<void> {
+  if (forum.defaultSortOrder === SortOrderType.CreationDate) return;
+  try {
+    await forum.setDefaultSortOrder(SortOrderType.CreationDate, "Keep changelog posts in release order");
+  } catch (error) {
+    logger.warn(`Could not sort the changelog forum by creation date (the bot needs Manage Channels): ${describe(error)}`);
+  }
+}
+
+function placeOf(channel: AnnouncementChannel): "forum" | "thread" {
+  return channel.kind === "forum" ? "forum" : "thread";
+}
+
+/**
+ * Delete every release post this bot made in the channel, so the releases can be posted again in order.
+ * Only the bot's own posts are touched: receipted announcements it authored and, in a forum, posts it
+ * created whose title marks them as release posts (older posts whose receipts were lost). Anything else,
+ * including posts by people or other bots, is left alone. Receipts are dropped one by one as their posts
+ * go, so a run that stops part-way resumes cleanly. Any failure stops the rebuild before anything is posted.
+ */
+async function removeOwnReleasePosts(client: Client, channel: AnnouncementChannel, stored: ReleaseAnnouncementChannel): Promise<number> {
+  const botId = client.user!.id;
+  const known = new Set(CHANGELOG_PROJECTS.map((project) => project.repository));
+  const failures: unknown[] = [];
+  const handled = new Set<string>();
+  let removed = 0;
+
+  for (const record of (await stored.list()).filter((row) => known.has(row.repository))) {
+    try {
+      if (await deleteRecordedPost(channel, record.messageId, botId)) removed++;
+      handled.add(record.messageId);
+      await stored.forget(record.repository, record.version);
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (channel.kind === "forum") {
+    for (const post of await untrackedReleasePosts(channel.channel, botId, handled)) {
+      try {
+        await post.delete("Rebuilding changelog posts in release order");
+        removed++;
+      } catch (error) {
+        if (!isUnknownMessage(error)) failures.push(error);
+      }
+    }
+  }
+  if (failures.length) {
+    logger.error(`Could not delete ${failures.length} old release post(s); new release posts wait until they are gone. Give the bot Manage Threads and Manage Messages in the changelog channel.`);
+    throw new AggregateError(failures, `${failures.length} old release post(s) could not be deleted, so reposting is paused (the bot needs Manage Threads and Manage Messages): ${failures.map(describe).join("; ")}`);
+  }
+  return removed;
+}
+
+/** Delete one receipted post if it is still there and the bot made it. True when something was deleted. */
+async function deleteRecordedPost(channel: AnnouncementChannel, messageId: string, botId: string): Promise<boolean> {
+  try {
+    if (channel.kind === "forum") {
+      // A forum post's thread shares its ID with the starter message.
+      const post = await channel.channel.threads.fetch(messageId);
+      if (!post || post.ownerId !== botId) return false;
+      await post.delete("Rebuilding changelog posts in release order");
+      return true;
+    }
+    const message = await channel.channel.messages.fetch(messageId);
+    if (message.author.id !== botId || message.webhookId) return false;
+    const thread = message.thread ?? (message.hasThread ? await channel.channel.client.channels.fetch(message.id).catch(() => null) : null);
+    if (thread?.isThread() && thread.ownerId === botId) await thread.delete("Rebuilding changelog posts in release order");
+    await message.delete();
+    return true;
+  } catch (error) {
+    if (isUnknownMessage(error)) return false;
+    throw error;
+  }
+}
+
+/** Release posts in the forum, open or archived, that this bot created but holds no receipt for. */
+async function untrackedReleasePosts(forum: ForumChannel | MediaChannel, botId: string, handled: ReadonlySet<string>): Promise<ThreadChannel[]> {
+  const found = new Map<string, ThreadChannel>();
+  const consider = (thread: ThreadChannel) => {
+    if (thread.parentId === forum.id && thread.ownerId === botId && isReleaseThreadName(thread.name) && !handled.has(thread.id)) found.set(thread.id, thread);
+  };
+  for (const thread of (await forum.threads.fetchActive()).threads.values()) consider(thread);
+  let before: ThreadChannel | undefined;
+  for (let page = 0; page < MAX_ARCHIVED_PAGES; page++) {
+    const archived = await forum.threads.fetchArchived({ type: "public", limit: 100, ...(before ? { before } : {}) });
+    for (const thread of archived.threads.values()) consider(thread);
+    before = archived.threads.last();
+    if (!archived.hasMore || !before) break;
+  }
+  return [...found.values()];
 }
 
 function isUnknownMessage(error: unknown): boolean {
@@ -278,4 +386,4 @@ async function readChannelHistory(channel: SendableChannels): Promise<Message[]>
   return messages;
 }
 
-export { announceCurrentVersion, refreshReleaseAnnouncements, releaseType, repairReleaseAnnouncements, replayReleaseAnnouncements };
+export { RELEASE_LAYOUT_VERSION, announceCurrentVersion, refreshReleaseAnnouncements, releaseType, repairReleaseAnnouncements, replayReleaseAnnouncements };

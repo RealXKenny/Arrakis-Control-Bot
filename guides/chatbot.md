@@ -61,7 +61,7 @@ It is careful about it:
 The chatbot can run a real AI model inside the bot, so it can hold a conversation instead of only matching rules. It is still homemade in the sense that matters: the model runs on your server with llama.cpp, nothing is sent to an outside AI service, and there is no API key or bill. It is off until you turn it on.
 
 1. Give the bot's server enough memory (see the table), then set `CHATBOT_AI=true` and restart.
-2. On the first message in your server, the bot downloads the model from Hugging Face into `CHATBOT_AI_MODEL_DIR` (`models` by default). This takes a few minutes and happens once. The file is checked against its SHA-256; a bad download is deleted.
+2. When the bot starts, it downloads the model from Hugging Face if it isn't there yet into `CHATBOT_AI_MODEL_DIR` (`models` by default). This takes a few minutes and happens once; the bot is online and answers with its rules meanwhile, and later restarts just load the saved file. The file is checked against its SHA-256; a bad download is deleted.
 3. The console says `The chatbot's AI model is ready` when it can answer. Until then, and whenever the model can't answer, the chatbot uses its rules as before.
 
 | `CHATBOT_AI_MODEL` | Model | Download | Memory for the server | Reply time on 16 CPU threads |
@@ -69,17 +69,20 @@ The chatbot can run a real AI model inside the bot, so it can hold a conversatio
 | `small` (default) | Llama 3.2 3B Instruct, Q4_K_M | about 2 GB | 8 GB | roughly 4 to 10 seconds |
 | `large` | Qwen 2.5 7B Instruct, Q4_K_M | about 4.7 GB | 12 GB | roughly 12 to 30 seconds |
 
+If an AI setting is wrong, only the AI model stays off: the console shows a warning naming the setting, and the bot and the rest of the chatbot run normally.
+
 Reply times are estimates and depend on the host. The bot shows "typing…" while it thinks. You can also use any other GGUF model on Hugging Face with `CHATBOT_AI_MODEL=hf:owner/repo/file.gguf`; set `CHATBOT_AI_MODEL_SHA256` so the download is checked.
 
 How it answers with the model:
 
 - Staff-written answers (the FAQ and `/chat teach`) are still given word for word, and live lookups (levels, leaderboards, storms, server status, weather, Steam, currency) still come from the real sources, so the model can't make those up.
-- For everything else, the model gets notes from what the bot knows (close FAQ, taught and learned answers, and a web lookup for questions) plus the last few messages of your conversation, its mood and how it gets on with you. It is told to say when it doesn't know instead of guessing, but a model can still be wrong.
+- For everything else, the bot searches first: it reads the opening of the best few Wikipedia articles and the game wiki's best hits for your message, and gives them to the model together with close FAQ, taught and learned answers, the last few messages of your conversation, its mood and how it gets on with you. The model is told its own knowledge is out of date and to answer from those sources, and the sources are listed under its reply. It only says it doesn't know when the sources don't have the answer, but a model can still be wrong.
 - It answers one message at a time. If several people are waiting, or an answer takes longer than `CHATBOT_AI_TIMEOUT_SECONDS`, the chatbot answers with its rules instead.
 - Answers to questions nobody asked the bot (automatic answers) never use the model.
-- Before loading, the bot checks the server's memory limit and refuses to load a model that wouldn't fit, so it can't crash the bot by running out of memory.
+- The model stays fully in memory while the bot runs, so it is never slow to wake up. A message that arrives while it is still loading waits up to 45 seconds for it.
+- Before loading, the bot checks how much of the server's memory is still free and refuses to load a model that wouldn't fit, so it can't crash the bot by running out of memory.
 
-Only the shard that serves your server loads the model. With more than one shard serving the same guild set, each one loads its own copy.
+Shard 0 downloads and loads the model at startup. Any other shard that serves your server loads its own copy on its first message.
 
 ## Learning from chat
 
@@ -152,7 +155,7 @@ A taught answer wins over the FAQ and learned answers when both match, so you ca
 | `CHATBOT_WEB_PER_MINUTE` | `20` | Most web lookups a minute for the whole bot. |
 | `CHATBOT_WEB_AUTO` | `false` | Also use the internet for unasked answers. |
 | `CHATBOT_AI` | `false` | Run the chatbot's own AI model inside the bot. |
-| `CHATBOT_AI_MODEL` | `small` | `small`, `large`, or `hf:owner/repo/file.gguf`. |
+| `CHATBOT_AI_MODEL` | `small` | `small`, `large`, `hf:owner/repo/file.gguf` or `hf:owner/repo:quant`. |
 | `CHATBOT_AI_MODEL_SHA256` | empty | SHA-256 a custom model must match (the presets have theirs). |
 | `CHATBOT_AI_MODEL_DIR` | `models` | Folder the model is kept in. |
 | `CHATBOT_AI_THREADS` | `8` | CPU threads the model may use. |

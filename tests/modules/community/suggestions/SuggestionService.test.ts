@@ -9,9 +9,10 @@ const GUILD = "100000000000000001";
 const FORUM = "100000000000000002";
 const AUTHOR = "100000000000000003";
 const STAFF = "100000000000000004";
+const STAFF_CHANNEL = "100000000000000005";
 
 const config: SuggestionConfig = { guildId: GUILD, forumChannelId: FORUM, autoTag: true, panel: true, notifyAuthor: true, createMissingTags: true, duplicateThreshold: 0.2, autoSummaryMessages: 3, backfillLimit: 50,
-  catchUp: false, autopilot: true, githubRepos: ["RealXKenny/Arrakis-Control-Bot"], githubIntervalMinutes: 15, autopilotThreshold: 0.2 };
+  catchUp: false, lockAdded: false, staffChannelId: null, autopilot: true, githubRepos: ["RealXKenny/Arrakis-Control-Bot"], githubIntervalMinutes: 15, autopilotThreshold: 0.2 };
 
 function createForum(names = ["Idea", "Game", "Server", "Under Review", "Planned", "In Progress", "Back Burner", "Not Doing", "Implemented"]) {
   return {
@@ -26,12 +27,17 @@ function createForum(names = ["Idea", "Game", "Server", "Under Review", "Planned
 function createThread(forum: ReturnType<typeof createForum>, id: string, name: string, body: string, appliedTags: string[] = []) {
   const sent: { content?: string; allowedMentions?: unknown; components?: unknown[] }[] = [];
   const thread = {
-    id, name, guildId: GUILD, parentId: FORUM, parent: forum, ownerId: AUTHOR, createdAt: new Date("2026-11-01T00:00:00Z"), archived: false, messageCount: 0,
+    id, name, guildId: GUILD, parentId: FORUM, parent: forum, ownerId: AUTHOR, createdAt: new Date("2026-11-01T00:00:00Z"), archived: false, locked: false, messageCount: 0,
     appliedTags: [...appliedTags],
     isThread: () => true,
     fetchStarterMessage: vi.fn().mockResolvedValue({ content: body, author: { id: AUTHOR } }),
     setAppliedTags: vi.fn((tags: string[]) => { thread.appliedTags = [...tags]; return Promise.resolve(); }),
-    edit: vi.fn((options: { appliedTags?: string[] }) => { if (options.appliedTags) thread.appliedTags = [...options.appliedTags]; return Promise.resolve(); }),
+    edit: vi.fn((options: { appliedTags?: string[]; locked?: boolean; archived?: boolean }) => {
+      if (options.appliedTags) thread.appliedTags = [...options.appliedTags];
+      if (options.locked !== undefined) thread.locked = options.locked;
+      if (options.archived !== undefined) thread.archived = options.archived;
+      return Promise.resolve();
+    }),
     setArchived: vi.fn().mockResolvedValue(undefined),
     send: vi.fn((payload: (typeof sent)[number]) => { sent.push(payload); return Promise.resolve({ id: `msg-${sent.length}` }); }),
     messages: { fetch: vi.fn() },
@@ -53,6 +59,8 @@ function createStorage(): SuggestionStorage & { saved: Map<string, SuggestionPos
     upsertPost: vi.fn((post: SuggestionPost) => { saved.set(post.threadId, { ...post }); return Promise.resolve(); }),
     updatePostTags: vi.fn().mockResolvedValue(undefined),
     updatePanelMessage: vi.fn().mockResolvedValue(undefined),
+    updateStaffMessage: vi.fn().mockResolvedValue(undefined),
+    markClosed: vi.fn().mockResolvedValue(undefined),
     deletePost: vi.fn().mockResolvedValue(undefined),
     createFeature: vi.fn().mockResolvedValue(feature),
     feature: vi.fn().mockResolvedValue(feature),
@@ -68,11 +76,25 @@ function createStorage(): SuggestionStorage & { saved: Map<string, SuggestionPos
   };
 }
 
-function createService(forum = createForum(), threads: Record<string, unknown> = {}) {
+function createStaffChannel() {
+  const sent: { components?: unknown[]; allowedMentions?: unknown }[] = [];
+  const edits: { components?: unknown[] }[] = [];
+  return {
+    id: STAFF_CHANNEL, sent, edits,
+    isSendable: () => true, isDMBased: () => false, isThread: () => false,
+    send: vi.fn((payload: (typeof sent)[number]) => { sent.push(payload); return Promise.resolve({ id: `staff-${sent.length}` }); }),
+    messages: {
+      fetch: vi.fn(() => Promise.resolve({ edit: vi.fn((payload: (typeof edits)[number]) => { edits.push(payload); return Promise.resolve(); }) })),
+      delete: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+}
+
+function createService(forum = createForum(), threads: Record<string, unknown> = {}, overrides: Partial<SuggestionConfig> = {}) {
   const storage = createStorage();
   const client = { user: { id: "100000000000000099" }, channels: { cache: new Map([[FORUM, forum]]), fetch: vi.fn((id: string) => Promise.resolve(id === FORUM ? forum : threads[id] ?? null)) } };
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-  const service = new SuggestionService(client as never, config, storage, logger, () => Promise.resolve());
+  const service = new SuggestionService(client as never, { ...config, ...overrides }, storage, logger, () => Promise.resolve());
   return { service, storage, logger, client };
 }
 
@@ -294,6 +316,129 @@ describe("SuggestionService", () => {
       await service.handleMessage(second.message as never);
       expect(first.reply).toHaveBeenCalledTimes(1);
       expect(second.reply).not.toHaveBeenCalled();
+    });
+  });
+  describe("closing added suggestions", () => {
+    it("locks the post with a note when it is marked Added", async () => {
+      const forum = createForum();
+      const { service, storage } = createService(forum, {}, { lockAdded: true });
+      const thread = createThread(forum, "200000000000000201", "Heat toggle", "Turn the desert heat on");
+      await service.handleThreadCreate(thread as never, true);
+      await service.setStatus(thread as never, "implemented", { actorId: STAFF });
+      expect(thread.sent.at(-1)?.content).toContain("this post is now locked");
+      expect(thread.edit).toHaveBeenLastCalledWith(expect.objectContaining({ locked: true, archived: true }));
+      expect(thread.locked).toBe(true);
+      expect(storage.markClosed).toHaveBeenCalledWith(thread.id, expect.any(Date));
+    });
+
+    it("leaves Added posts open when locking is off", async () => {
+      const forum = createForum();
+      const { service } = createService(forum);
+      const thread = createThread(forum, "200000000000000202", "Heat toggle", "Turn the desert heat on");
+      await service.handleThreadCreate(thread as never, true);
+      await service.setStatus(thread as never, "implemented", { actorId: STAFF });
+      expect(thread.locked).toBe(false);
+      expect(thread.sent.some((message) => message.content?.includes("now locked"))).toBe(false);
+    });
+
+    it("reopens a post it locked when staff move it back, but never one staff locked", async () => {
+      const forum = createForum();
+      const { service, storage } = createService(forum, {}, { lockAdded: true });
+      const thread = createThread(forum, "200000000000000203", "Heat toggle", "Turn the desert heat on");
+      await service.handleThreadCreate(thread as never, true);
+      await service.setStatus(thread as never, "implemented", { actorId: STAFF });
+      await service.setStatus(thread as never, "in_progress", { actorId: STAFF });
+      expect(thread.locked).toBe(false);
+      expect(storage.markClosed).toHaveBeenLastCalledWith(thread.id, null);
+
+      const manual = createThread(forum, "200000000000000204", "Night cycle", "Longer nights");
+      await service.handleThreadCreate(manual as never, true);
+      manual.locked = true;
+      await service.setStatus(manual as never, "planned", { actorId: STAFF });
+      expect(manual.locked).toBe(true);
+    });
+
+    it("locks a post staff tag as Added by hand", async () => {
+      const forum = createForum();
+      const { service } = createService(forum, {}, { lockAdded: true });
+      const thread = createThread(forum, "200000000000000205", "Heat toggle", "Turn the desert heat on");
+      await service.handleThreadCreate(thread as never, true);
+      thread.appliedTags = ["tag-implemented"];
+      await service.handleThreadUpdate(thread as never);
+      expect(thread.sent.at(-1)?.content).toContain("now locked");
+      expect(thread.locked).toBe(true);
+      // The lock itself fires another update; nothing is posted twice.
+      await service.handleThreadUpdate(thread as never);
+      expect(thread.sent.filter((message) => message.content?.includes("now locked"))).toHaveLength(1);
+    });
+
+    it("closes older Added posts once at startup and respects staff locks", async () => {
+      const forum = createForum();
+      const added = createThread(forum, "200000000000000206", "Heat toggle", "x", ["tag-implemented"]);
+      const lockedByStaff = createThread(forum, "200000000000000207", "Night cycle", "y", ["tag-implemented"]);
+      lockedByStaff.locked = true;
+      const open = createThread(forum, "200000000000000208", "Maps", "z", ["tag-planned"]);
+      const { service, storage } = createService(forum, { [added.id]: added, [lockedByStaff.id]: lockedByStaff, [open.id]: open }, { lockAdded: true });
+      vi.mocked(storage.listPosts).mockResolvedValue([added, lockedByStaff, open].map((thread) => ({
+        threadId: thread.id, guildId: GUILD, forumId: FORUM, authorId: AUTHOR, title: thread.name, body: "", tagIds: [...thread.appliedTags], panelMessageId: "p", createdAt: new Date(),
+      })));
+      await service.initialize();
+      expect(await service.closeAddedPosts()).toBe(1);
+      expect(added.sent.at(-1)?.content).toContain("now locked");
+      expect(added.locked).toBe(true);
+      expect(lockedByStaff.sent).toHaveLength(0);
+      expect(storage.markClosed).toHaveBeenCalledWith(lockedByStaff.id, expect.any(Date));
+      expect(open.sent).toHaveLength(0);
+      expect(await service.closeAddedPosts()).toBe(0);
+    });
+  });
+
+  describe("staff channel panels", () => {
+    function withStaffChannel(forum: ReturnType<typeof createForum>, threads: Record<string, unknown> = {}) {
+      const staff = createStaffChannel();
+      const created = createService(forum, { ...threads, [STAFF_CHANNEL]: staff }, { staffChannelId: STAFF_CHANNEL, lockAdded: true });
+      return { ...created, staff };
+    }
+
+    it("posts a status panel for each new suggestion without pinging anyone", async () => {
+      const forum = createForum();
+      const { service, storage, staff } = withStaffChannel(forum);
+      const thread = createThread(forum, "200000000000000301", "Heat toggle", "Turn the desert heat on");
+      await service.handleThreadCreate(thread as never, true);
+      expect(staff.sent).toHaveLength(1);
+      expect(staff.sent[0]?.allowedMentions).toEqual({ parse: [] });
+      const json = JSON.stringify(staff.sent[0]?.components);
+      expect(json).toContain(`suggestion-staff:planned:${thread.id}`);
+      expect(json).toContain("Heat toggle");
+      expect(storage.updateStaffMessage).toHaveBeenCalledWith(thread.id, "staff-1");
+    });
+
+    it("updates the staff panel when the status changes", async () => {
+      const forum = createForum();
+      const { service, staff } = withStaffChannel(forum);
+      const thread = createThread(forum, "200000000000000302", "Heat toggle", "Turn the desert heat on");
+      await service.handleThreadCreate(thread as never, true);
+      await service.setStatus(thread as never, "implemented", { actorId: STAFF });
+      expect(staff.sent).toHaveLength(1);
+      const json = JSON.stringify(staff.edits.at(-1)?.components);
+      expect(json).toContain("locked");
+      expect(json).toContain(`<@${STAFF}>`);
+    });
+
+    it("catches up older suggestions and removes the panel when a post is deleted", async () => {
+      const forum = createForum();
+      const { service, storage, staff } = withStaffChannel(forum);
+      vi.mocked(storage.listPosts).mockResolvedValue([
+        { threadId: "200000000000000303", guildId: GUILD, forumId: FORUM, authorId: AUTHOR, title: "Newer", body: "", tagIds: [], panelMessageId: "p", createdAt: new Date("2026-11-02T00:00:00Z") },
+        { threadId: "200000000000000304", guildId: GUILD, forumId: FORUM, authorId: AUTHOR, title: "Older", body: "", tagIds: [], panelMessageId: "p", createdAt: new Date("2026-11-01T00:00:00Z") },
+      ]);
+      await service.initialize();
+      expect(await service.catchUpStaffPanels()).toBe(2);
+      expect(JSON.stringify(staff.sent[0]?.components)).toContain("Older");
+      expect(await service.catchUpStaffPanels()).toBe(0);
+      const thread = createThread(forum, "200000000000000303", "Newer", "");
+      await service.handleThreadDelete(thread as never);
+      expect(staff.messages.delete).toHaveBeenCalledWith("staff-2");
     });
   });
 });

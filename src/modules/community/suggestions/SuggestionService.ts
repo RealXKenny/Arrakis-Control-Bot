@@ -6,9 +6,9 @@ import { canAdvance, happenedAfter, referencedThreadIds, type WorkItem } from ".
 import { composeConversationReply, detectIntent } from "./suggestionConversation";
 import { STATUS_MARKERS, composeNewPostReply, composeStatusReply, type ReplyEvidence } from "./replyComposer";
 import { classifySuggestion } from "./suggestionClassifier";
-import { createAssistantPanel, createSummaryPanel, type FeatureCandidate, type LinkOutcome, type RelatedPost } from "./suggestionPanels";
+import { createAssistantPanel, createStaffPanel, createSummaryPanel, type FeatureCandidate, type LinkOutcome, type RelatedPost } from "./suggestionPanels";
 import {
-  STATUS_DEFINITIONS, currentStatus, missingStatusTagNames, resolveForumTags, sameTags, withCategories, withStatus,
+  CATEGORY_TAG_NAMES, STATUS_DEFINITIONS, currentStatus, missingStatusTagNames, resolveForumTags, sameTags, withCategories, withStatus,
   type ResolvedForumTags, type SuggestionCategory, type SuggestionStatus,
 } from "./suggestionTags";
 import { TfIdfIndex, tokenize } from "./textAnalysis";
@@ -56,6 +56,9 @@ const MIN_SHARED_TERMS = 2;
 const CONVERSATION_MEMBER_COOLDOWN_MS = 15_000;
 const CONVERSATION_THREAD_LIMIT = 5;
 const CONVERSATION_WINDOW_MS = 60_000;
+/** Posted when an Added suggestion is locked, so members know why they can't reply. */
+const LOCK_NOTE = "🔒 This suggestion has been added, so this post is now locked. Thanks to everyone who weighed in! To build on it, start a new suggestion.";
+const LOCK_REASON = "Suggestion added";
 
 class SuggestionService {
   private readonly index = new TfIdfIndex();
@@ -67,6 +70,7 @@ class SuggestionService {
   private companion?: SuggestionCompanion;
   private readonly lastAnswer = new Map<string, number>();
   private readonly threadAnswers = new Map<string, number[]>();
+  private staffChannelWarned = false;
 
   public constructor(
     private readonly client: Client,
@@ -147,20 +151,30 @@ class SuggestionService {
       }
     }
     await this.storage.upsertPost(post);
+    await this.syncStaffPanel(post, tags, { locked: thread.locked === true }).catch((error: unknown) => this.logger.warn(`Unable to post the staff panel for suggestion ${thread.id}. ${describe(error)}`));
   }
 
   public async handleThreadUpdate(thread: AnyThreadChannel): Promise<void> {
-    if (!this.isSuggestionThread(thread)) return;
+    // A status change made through the assistant saves, locks and syncs the post itself.
+    if (!this.isSuggestionThread(thread) || this.busyThreads.has(thread.id)) return;
     const post = this.posts.get(thread.id);
     if (!post) return;
     if (post.title === thread.name && sameTags(post.tagIds, thread.appliedTags)) return;
     const next = { ...post, title: thread.name, tagIds: [...thread.appliedTags] };
     this.remember(next);
     await this.storage.upsertPost(next);
+    const tags = this.cachedTags();
+    if (!tags) return;
+    // Staff added the Added tag by hand: close the post the same way the buttons do.
+    const closing = this.config.lockAdded && !thread.locked && currentStatus(next.tagIds, tags) === "implemented" && currentStatus(post.tagIds, tags) !== "implemented";
+    if (closing) await this.closePost(thread, next, true).catch((error: unknown) => this.logger.warn(`Unable to lock added suggestion ${thread.id}. ${describe(error)}`));
+    await this.syncStaffPanel(next, tags, { locked: closing || thread.locked === true }).catch((error: unknown) => this.logger.warn(`Unable to refresh the staff panel for suggestion ${thread.id}. ${describe(error)}`));
   }
 
   public async handleThreadDelete(thread: AnyThreadChannel): Promise<void> {
     if (!this.isSuggestionThread(thread) || !this.posts.has(thread.id)) return;
+    const staffMessageId = this.posts.get(thread.id)?.staffMessageId;
+    if (staffMessageId) await this.deleteStaffPanel(staffMessageId).catch(() => undefined);
     this.posts.delete(thread.id);
     this.index.remove(thread.id);
     this.summaryBuckets.delete(thread.id);
@@ -244,12 +258,16 @@ class SuggestionService {
 
     this.busyThreads.add(thread.id);
     try {
+      const post = this.posts.get(thread.id) ?? this.buildPost(thread, await this.fetchStarter(thread, [0]));
+      const closing = status === "implemented" && this.config.lockAdded;
+      // Only a post the assistant locked is reopened; a lock staff set by hand stays.
+      const reopening = !closing && thread.locked === true && Boolean(post.closedAt);
       const applied = withStatus(thread.appliedTags, status, tags);
       // Dev note: Even archived threads deserve news; the spice must flow, and so must the updates.
-      if (!sameTags(applied, thread.appliedTags)) await thread.edit({ appliedTags: applied, ...(thread.archived ? { archived: false } : {}), reason: `Suggestion status set to ${STATUS_DEFINITIONS[status].label}` });
-      else if (thread.archived) await thread.setArchived(false, "Suggestion status update");
+      if (!sameTags(applied, thread.appliedTags) || reopening) {
+        await thread.edit({ appliedTags: applied, ...(thread.archived ? { archived: false } : {}), ...(reopening ? { locked: false } : {}), reason: `Suggestion status set to ${STATUS_DEFINITIONS[status].label}` });
+      } else if (thread.archived) await thread.setArchived(false, "Suggestion status update");
 
-      const post = this.posts.get(thread.id) ?? this.buildPost(thread, await this.fetchStarter(thread, [0]));
       post.tagIds = applied;
       this.remember(post);
       await this.storage.upsertPost(post);
@@ -269,8 +287,15 @@ class SuggestionService {
         actorId: change.note ? change.actorId : undefined,
         evidence: change.evidence,
       });
-      await thread.send({ content, allowedMentions: this.config.notifyAuthor && post.authorId ? { parse: [], users: [post.authorId] } : { parse: [] } });
+      await thread.send({ content: closing ? `${content}\n\n-# ${LOCK_NOTE}` : content, allowedMentions: this.config.notifyAuthor && post.authorId ? { parse: [], users: [post.authorId] } : { parse: [] } });
       await this.refreshPanel(thread, post, tags, change.actorId, change.featureName);
+      if (closing) await this.closePost(thread, post, false);
+      else if (reopening) {
+        post.closedAt = null;
+        await this.storage.markClosed(thread.id, null);
+      }
+      await this.syncStaffPanel(post, tags, { actorId: change.actorId, locked: closing || (!reopening && thread.locked === true) })
+        .catch((error: unknown) => this.logger.warn(`Unable to refresh the staff panel for suggestion ${thread.id}. ${describe(error)}`));
     } finally {
       this.busyThreads.delete(thread.id);
     }
@@ -412,6 +437,117 @@ class SuggestionService {
     return done;
   }
 
+  /**
+   * One pass over posts already marked Added that the assistant has not closed yet: post the lock
+   * note and lock them. A post staff locked by hand is only recorded, and a post staff reopen after
+   * the assistant closed it is left open.
+   */
+  public async closeAddedPosts(limit = this.config.backfillLimit): Promise<number> {
+    const forum = await this.client.channels.fetch(this.config.forumChannelId).catch(() => null);
+    if (forum?.type !== ChannelType.GuildForum) return 0;
+    const tags = resolveForumTags(forum.availableTags);
+    const pending = [...this.posts.values()].filter((post) => !post.closedAt && currentStatus(post.tagIds, tags) === "implemented").slice(0, limit);
+    let done = 0;
+    for (const post of pending) {
+      if (this.stopped) break;
+      const channel = await this.client.channels.fetch(post.threadId).catch(() => null);
+      if (!this.isSuggestionThread(channel) || this.busyThreads.has(channel.id)) continue;
+      try {
+        if (channel.locked) {
+          post.closedAt = new Date();
+          await this.storage.markClosed(post.threadId, post.closedAt);
+          continue;
+        }
+        await this.closePost(channel, post, true);
+        await this.syncStaffPanel(post, tags, { locked: true }).catch(() => undefined);
+        done += 1;
+      } catch (error: unknown) {
+        this.logger.warn(`Unable to lock added suggestion ${post.threadId}. ${describe(error)}`);
+      }
+      await this.wait(CATCH_UP_DELAY_MS);
+    }
+    if (done) this.logger.info(`Locked ${done} older suggestion(s) that were already added.`);
+    return done;
+  }
+
+  /** Post a staff panel for every indexed suggestion that has none yet, oldest first so the newest end up at the bottom. */
+  public async catchUpStaffPanels(limit = this.config.backfillLimit): Promise<number> {
+    const tags = this.cachedTags();
+    if (!tags || !this.config.staffChannelId) return 0;
+    const pending = [...this.posts.values()].filter((post) => !post.staffMessageId).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(-limit);
+    let done = 0;
+    for (const post of pending) {
+      if (this.stopped) break;
+      try {
+        if (!await this.syncStaffPanel(post, tags, { locked: Boolean(post.closedAt) })) break;
+        done += 1;
+      } catch (error: unknown) {
+        this.logger.warn(`Unable to post the staff panel for suggestion ${post.threadId}. ${describe(error)}`);
+      }
+      await this.wait(CATCH_UP_DELAY_MS);
+    }
+    if (done) this.logger.info(`Posted ${done} suggestion panel(s) in the staff channel.`);
+    return done;
+  }
+
+  /** Lock and close an Added post, after a note that says why when `announce` is set. */
+  private async closePost(thread: AnyThreadChannel, post: SuggestionPost, announce: boolean): Promise<void> {
+    if (announce) await thread.send({ content: LOCK_NOTE, allowedMentions: { parse: [] } });
+    await thread.edit({ locked: true, archived: true, reason: LOCK_REASON });
+    post.closedAt = new Date();
+    await this.storage.markClosed(thread.id, post.closedAt);
+  }
+
+  /** Post or refresh a suggestion's panel in the staff channel. Returns false when there is no usable staff channel. */
+  private async syncStaffPanel(post: SuggestionPost, tags: ResolvedForumTags, options: { actorId?: string; locked?: boolean } = {}): Promise<boolean> {
+    const channel = await this.staffChannel();
+    if (!channel) return false;
+    const payload = {
+      components: [createStaffPanel({
+        threadId: post.threadId,
+        guildId: post.guildId,
+        title: post.title,
+        body: post.body,
+        authorId: post.authorId ?? undefined,
+        status: currentStatus(post.tagIds, tags),
+        categories: categoriesOf(post.tagIds, tags).map((category) => CATEGORY_TAG_NAMES[category]),
+        locked: options.locked ?? Boolean(post.closedAt),
+        createdAt: post.createdAt,
+        updatedBy: options.actorId || undefined,
+      })],
+      flags: MessageFlags.IsComponentsV2 as const,
+      allowedMentions: { parse: [] },
+    };
+    if (post.staffMessageId) {
+      try {
+        const message = await channel.messages.fetch({ message: post.staffMessageId, force: true });
+        await message.edit(payload);
+        return true;
+      } catch (error: unknown) {
+        // Only a deleted panel is replaced; any other failure must not produce a duplicate.
+        if (!(error instanceof DiscordAPIError && error.code === UNKNOWN_MESSAGE)) throw error;
+      }
+    }
+    const message = await channel.send(payload);
+    post.staffMessageId = message.id;
+    await this.storage.updateStaffMessage(post.threadId, message.id);
+    return true;
+  }
+
+  private async deleteStaffPanel(messageId: string): Promise<void> {
+    const channel = await this.staffChannel();
+    if (channel) await channel.messages.delete(messageId);
+  }
+
+  private async staffChannel() {
+    if (!this.config.staffChannelId) return null;
+    const channel = await this.client.channels.fetch(this.config.staffChannelId).catch(() => null);
+    if (channel?.isSendable() && "messages" in channel && !channel.isDMBased() && !channel.isThread()) return channel;
+    if (!this.staffChannelWarned) this.logger.warn("SUGGESTIONS_STAFF_CHANNEL_ID is not a text channel the bot can post in; staff panels are off.");
+    this.staffChannelWarned = true;
+    return null;
+  }
+
   private async applyToThread(threadId: string, status: SuggestionStatus, change: StatusChange): Promise<LinkOutcome> {
     try {
       const channel = await this.client.channels.fetch(threadId).catch(() => null);
@@ -530,6 +666,8 @@ class SuggestionService {
     if (this.config.createMissingTags) await this.ensureStatusTags(channel);
     await this.backfill(channel);
     if (this.config.catchUp) await this.catchUp();
+    if (this.config.lockAdded) await this.closeAddedPosts();
+    if (this.config.staffChannelId) await this.catchUpStaffPanels();
     return true;
   }
 
