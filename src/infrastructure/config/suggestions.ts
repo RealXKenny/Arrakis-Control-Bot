@@ -17,6 +17,10 @@ interface SuggestionConfig {
   backfillLimit: number;
   /** Post the assistant panel and missing tags under older posts once, without pinging anyone. */
   catchUp: boolean;
+  /** Lock and close a post once its suggestion is Added, and once at startup for older Added posts. */
+  lockAdded: boolean;
+  /** Optional staff channel that gets one status panel per suggestion. */
+  staffChannelId: string | null;
   /** Read the GitHub repositories and move statuses without staff input. */
   autopilot: boolean;
   /** `owner/name` repositories the autopilot reads. */
@@ -48,11 +52,20 @@ function loadSuggestionConfig(env: NodeJS.ProcessEnv): SuggestionConfig | undefi
     autoSummaryMessages: parseInteger(env.SUGGESTIONS_AUTO_SUMMARY_MESSAGES, 50, 0, 1_000, "SUGGESTIONS_AUTO_SUMMARY_MESSAGES"),
     backfillLimit: parseInteger(env.SUGGESTIONS_BACKFILL_LIMIT, 500, 0, 5_000, "SUGGESTIONS_BACKFILL_LIMIT"),
     catchUp: parseFlag(env.SUGGESTIONS_CATCHUP, true, "SUGGESTIONS_CATCHUP"),
+    lockAdded: parseFlag(env.SUGGESTIONS_LOCK_ADDED, true, "SUGGESTIONS_LOCK_ADDED"),
+    staffChannelId: parseChannelId(env.SUGGESTIONS_STAFF_CHANNEL_ID, "SUGGESTIONS_STAFF_CHANNEL_ID"),
     autopilot: parseFlag(env.SUGGESTIONS_AUTOPILOT, true, "SUGGESTIONS_AUTOPILOT"),
     githubRepos: Object.freeze(parseRepositories(env.SUGGESTIONS_GITHUB_REPOS)),
     githubIntervalMinutes: parseInteger(env.SUGGESTIONS_GITHUB_INTERVAL_MINUTES, 15, 5, 1_440, "SUGGESTIONS_GITHUB_INTERVAL_MINUTES"),
     autopilotThreshold: parseRange(env.SUGGESTIONS_AUTOPILOT_THRESHOLD, 0.3, 0.1, 0.95, "SUGGESTIONS_AUTOPILOT_THRESHOLD"),
   });
+}
+
+function parseChannelId(value: string | undefined, name: string): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (!DISCORD_ID.test(trimmed)) throw new Error(`${name} must be a valid Discord channel ID.`);
+  return trimmed;
 }
 
 function parseRepositories(value: string | undefined): string[] {

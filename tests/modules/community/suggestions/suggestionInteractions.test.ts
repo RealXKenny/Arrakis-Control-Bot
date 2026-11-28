@@ -1,6 +1,6 @@
 import { MessageFlags, PermissionsBitField } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
-import { FEATURE_SESSION_MS, handleFeatureMenu, handleStatusButton, parseReferenceUrl } from "../../../../src/modules/community/suggestions/suggestionInteractions";
+import { FEATURE_SESSION_MS, handleFeatureMenu, handleStaffStatusButton, handleStatusButton, parseReferenceUrl } from "../../../../src/modules/community/suggestions/suggestionInteractions";
 
 function button(customId: string, staff: boolean) {
   const service = { isSuggestionThread: () => true, setStatus: vi.fn().mockResolvedValue(undefined) };
@@ -35,6 +35,26 @@ describe("suggestion interactions", () => {
     const { interaction, service } = button("suggestion-status:launch_it", true);
     await handleStatusButton(interaction as never);
     expect(service.setStatus).not.toHaveBeenCalled();
+  });
+
+  it("changes a post from the staff channel panel, and only there", async () => {
+    const thread = { id: "200000000000000001" };
+    const staffButton = (channelId: string, staff: boolean) => {
+      const { interaction, service } = button(`suggestion-staff:implemented:${thread.id}`, staff);
+      Object.assign(service, { config: { staffChannelId: "300000000000000001" } });
+      Object.assign(interaction, { channelId, client: { ...interaction.client, channels: { fetch: vi.fn().mockResolvedValue(thread) } } });
+      return { interaction, service };
+    };
+    const outside = staffButton("300000000000000002", true);
+    await handleStaffStatusButton(outside.interaction as never);
+    expect(outside.service.setStatus).not.toHaveBeenCalled();
+    const member = staffButton("300000000000000001", false);
+    await handleStaffStatusButton(member.interaction as never);
+    expect(member.service.setStatus).not.toHaveBeenCalled();
+    const allowed = staffButton("300000000000000001", true);
+    await handleStaffStatusButton(allowed.interaction as never);
+    expect(allowed.service.setStatus).toHaveBeenCalledWith(thread, "implemented", { actorId: "user" });
+    expect(allowed.interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Added") }));
   });
 
   it("binds the feature menu to its requester and expires it", async () => {

@@ -1339,6 +1339,26 @@
       "field_type": "text"
     },
     {
+      "name": "Suggestions Lock Added",
+      "description": "Optional bot setting (SUGGESTIONS_LOCK_ADDED). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_LOCK_ADDED",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Suggestions Staff Channel ID",
+      "description": "Optional bot setting (SUGGESTIONS_STAFF_CHANNEL_ID). See .env.example in the repository.",
+      "env_variable": "SUGGESTIONS_STAFF_CHANNEL_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
       "name": "Suggestions Autopilot",
       "description": "Follow the GitHub repositories and move suggestion statuses automatically.",
       "env_variable": "SUGGESTIONS_AUTOPILOT",

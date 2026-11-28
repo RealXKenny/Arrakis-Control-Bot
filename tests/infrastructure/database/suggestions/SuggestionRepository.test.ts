@@ -27,6 +27,23 @@ describe("SuggestionRepository", () => {
     expect(query.mock.calls[0]?.[1]).toEqual(["g", "f", 10]);
   });
 
+  it("adds and maps the staff panel and lock columns", async () => {
+    query.mockResolvedValue({ rows: [] });
+    const repository = new SuggestionRepository(pool as never);
+    await repository.initialize();
+    const sql = String(query.mock.calls[0]?.[0]);
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS staff_message_id TEXT");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ");
+    query.mockResolvedValue({ rows: [{ thread_id: "t", guild_id: "g", forum_id: "f", author_id: null, title: "T", body: "", tag_ids: [], panel_message_id: null, staff_message_id: "s", closed_at: "2026-11-02T00:00:00Z", created_at: "2026-11-01T00:00:00Z" }] });
+    const [post] = await repository.listPosts("g", "f", 1);
+    expect(post).toMatchObject({ staffMessageId: "s" });
+    expect(post?.closedAt).toBeInstanceOf(Date);
+    query.mockClear();
+    await repository.updateStaffMessage("t", "s2");
+    await repository.markClosed("t", null);
+    expect(query.mock.calls.map((call) => call[1])).toEqual([["t", "s2"], ["t", null]]);
+  });
+
   it("bounds stored post text and keeps an existing panel id", async () => {
     query.mockResolvedValue({ rows: [] });
     await new SuggestionRepository(pool as never).upsertPost({ threadId: "t", guildId: "g", forumId: "f", authorId: "a", title: "x".repeat(300), body: "y".repeat(5_000), tagIds: [], panelMessageId: null, createdAt: new Date() });

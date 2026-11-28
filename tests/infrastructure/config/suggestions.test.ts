@@ -12,7 +12,7 @@ describe("suggestion assistant configuration", () => {
   it("uses sensible defaults", () => {
     expect(loadSuggestionConfig(env)).toEqual({
       guildId: env.GUILD_ID, forumChannelId: env.SUGGESTIONS_FORUM_CHANNEL_ID, autoTag: true, panel: true, notifyAuthor: true, createMissingTags: true,
-      duplicateThreshold: 0.35, autoSummaryMessages: 50, backfillLimit: 500, catchUp: true, autopilot: true,
+      duplicateThreshold: 0.35, autoSummaryMessages: 50, backfillLimit: 500, catchUp: true, lockAdded: true, staffChannelId: null, autopilot: true,
       githubRepos: ["RealXKenny/Arrakis-Control-Bot", "RealXKenny/Arrakis-Control-Dashboard"], githubIntervalMinutes: 15, autopilotThreshold: 0.3,
     });
   });
@@ -39,5 +39,11 @@ describe("suggestion assistant configuration", () => {
     expect(loadSuggestionConfig({
       ...env, SUGGESTIONS_AUTOPILOT: "false", SUGGESTIONS_CATCHUP: "false", SUGGESTIONS_GITHUB_REPOS: " a/b , a/b, c-d/e.f ", SUGGESTIONS_GITHUB_INTERVAL_MINUTES: "60", SUGGESTIONS_AUTOPILOT_THRESHOLD: "0.5",
     })).toMatchObject({ autopilot: false, catchUp: false, githubRepos: ["a/b", "c-d/e.f"], githubIntervalMinutes: 60, autopilotThreshold: 0.5 });
+  });
+
+  it("reads the lock and staff channel settings", () => {
+    expect(loadSuggestionConfig({ ...env, SUGGESTIONS_LOCK_ADDED: "false", SUGGESTIONS_STAFF_CHANNEL_ID: " 323456789012345678 " }))
+      .toMatchObject({ lockAdded: false, staffChannelId: "323456789012345678" });
+    expect(() => loadSuggestionConfig({ ...env, SUGGESTIONS_STAFF_CHANNEL_ID: "staff" })).toThrow("SUGGESTIONS_STAFF_CHANNEL_ID");
   });
 });

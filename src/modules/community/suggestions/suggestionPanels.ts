@@ -9,6 +9,7 @@ import { STATUS_MARKERS } from "./replyComposer";
 import { PANEL_STATUSES, STATUS_DEFINITIONS, type SuggestionStatus } from "./suggestionTags";
 
 const STATUS_BUTTON_PREFIX = "suggestion-status:";
+const STAFF_STATUS_PREFIX = "suggestion-staff:";
 const SUMMARY_BUTTON_ID = "suggestion-summary";
 const SIMILAR_BUTTON_ID = "suggestion-similar";
 const FEATURE_MENU_PREFIX = "suggestion-feature:";
@@ -75,6 +76,45 @@ function statusButtonRow(current: SuggestionStatus | undefined): ActionRowBuilde
     .setEmoji(STATUS_MARKERS[status])
     .setStyle(STATUS_BUTTON_STYLES[status])
     .setDisabled(status === current)));
+}
+
+interface StaffPanelInput {
+  threadId: string;
+  guildId: string;
+  title: string;
+  body: string;
+  authorId?: string;
+  status?: SuggestionStatus;
+  categories: readonly string[];
+  locked: boolean;
+  createdAt: Date;
+  updatedBy?: string;
+}
+
+/** The copy of a suggestion in the staff channel: what it asks for and the status buttons, without opening the post. */
+function createStaffPanel(input: StaffPanelInput): ContainerBuilder {
+  const status = input.status ?? "under_review";
+  const excerpt = input.body.trim() ? truncateDiscordText(input.body.trim(), 400, "…") : "_No description._";
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(PANEL_STATUSES.map((entry) => new ButtonBuilder()
+    .setCustomId(`${STAFF_STATUS_PREFIX}${entry}:${input.threadId}`)
+    .setLabel(STATUS_DEFINITIONS[entry].label)
+    .setEmoji(STATUS_MARKERS[entry])
+    .setStyle(STATUS_BUTTON_STYLES[entry])
+    .setDisabled(entry === status)));
+  const open = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Open post").setURL(`https://discord.com/channels/${input.guildId}/${input.threadId}`),
+  );
+  return new ContainerBuilder().setAccentColor(status === "not_doing" ? PANEL_COLORS.danger : status === "implemented" ? PANEL_COLORS.success : PANEL_COLORS.accent)
+    .addTextDisplayComponents((text) => text.setContent(truncateDiscordText([
+      panelHeading(escapeMarkdown(truncateDiscordText(input.title, 120, "…")), 3),
+      `<#${input.threadId}>${input.authorId ? ` · by <@${input.authorId}>` : ""} · posted <t:${Math.floor(input.createdAt.getTime() / 1_000)}:R>`,
+      `**Status:** ${statusLabel(status)}${input.locked ? " · 🔒 locked" : ""}${input.categories.length ? ` · ${input.categories.map((category) => escapeMarkdown(category)).join(", ")}` : ""}`,
+      "",
+      escapeMarkdown(excerpt),
+    ].join("\n"), 1_800)))
+    .addActionRowComponents(buttons)
+    .addActionRowComponents(open)
+    .addTextDisplayComponents((text) => text.setContent(panelFooter(undefined, input.updatedBy ? `Changes post in the suggestion • Last changed by <@${input.updatedBy}>` : "Changes post in the suggestion")));
 }
 
 function toolButtonRow(): ActionRowBuilder<ButtonBuilder> {
@@ -196,7 +236,7 @@ function isAssistantPanelContent(content: string): boolean {
 }
 
 export {
-  FEATURE_MENU_PREFIX, PANEL_HEADING, SIMILAR_BUTTON_ID, STATUS_BUTTON_PREFIX, STATUS_HELP, SUMMARY_BUTTON_ID,
-  createAssistantPanel, createFeatureListPanel, createFeatureMatchPanel, createOutcomePanel, createSimilarPanel, createSummaryPanel, isAssistantPanelContent, statusLabel,
+  FEATURE_MENU_PREFIX, PANEL_HEADING, SIMILAR_BUTTON_ID, STAFF_STATUS_PREFIX, STATUS_BUTTON_PREFIX, STATUS_HELP, SUMMARY_BUTTON_ID,
+  createAssistantPanel, createStaffPanel, createFeatureListPanel, createFeatureMatchPanel, createOutcomePanel, createSimilarPanel, createSummaryPanel, isAssistantPanelContent, statusLabel,
 };
-export type { AssistantPanelInput, FeatureCandidate, LinkOutcome, PanelWorkLink, RelatedPost };
+export type { AssistantPanelInput, FeatureCandidate, LinkOutcome, PanelWorkLink, RelatedPost, StaffPanelInput };

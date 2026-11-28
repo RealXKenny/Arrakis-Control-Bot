@@ -123,11 +123,12 @@ describe("Sapphire interaction-handler store", () => {
         "bot-control-button",
         "staff-application-button",
         "staff-application-modal",
+        "suggestion-staff-button",
         "suggestion-status-button",
         "suggestion-tool-button",
         "suggestion-feature-menu",
       ]),
     );
-    expect(handlers).toHaveLength(38);
+    expect(handlers).toHaveLength(39);
   });
 });

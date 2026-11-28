@@ -9,6 +9,10 @@ interface SuggestionPost {
   body: string;
   tagIds: string[];
   panelMessageId: string | null;
+  /** The post's panel in the staff channel, when one is set. */
+  staffMessageId?: string | null;
+  /** When the assistant locked the post because it was Added; a post staff reopen later stays open. */
+  closedAt?: Date | null;
   createdAt: Date;
 }
 
@@ -45,6 +49,8 @@ interface SuggestionStorage {
   upsertPost(post: SuggestionPost): Promise<void>;
   updatePostTags(threadId: string, tagIds: readonly string[]): Promise<void>;
   updatePanelMessage(threadId: string, messageId: string | null): Promise<void>;
+  updateStaffMessage(threadId: string, messageId: string | null): Promise<void>;
+  markClosed(threadId: string, closedAt: Date | null): Promise<void>;
   deletePost(threadId: string): Promise<void>;
   createFeature(guildId: string, name: string, keywords: string, referenceUrl: string | null, createdBy: string): Promise<SuggestionFeature>;
   feature(guildId: string, featureId: string): Promise<SuggestionFeature | null>;
@@ -69,6 +75,8 @@ interface PostRow extends QueryResultRow {
   body: string;
   tag_ids: string[] | null;
   panel_message_id: string | null;
+  staff_message_id?: string | null;
+  closed_at?: Date | string | null;
   created_at: Date | string;
 }
 
@@ -119,6 +127,8 @@ class SuggestionRepository implements SuggestionStorage {
         created_at TIMESTAMPTZ NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE suggestion_posts ADD COLUMN IF NOT EXISTS staff_message_id TEXT;
+      ALTER TABLE suggestion_posts ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
       CREATE INDEX IF NOT EXISTS suggestion_posts_forum ON suggestion_posts (guild_id, forum_id, created_at DESC);
       CREATE TABLE IF NOT EXISTS suggestion_features (
         id BIGSERIAL PRIMARY KEY,
@@ -159,7 +169,7 @@ class SuggestionRepository implements SuggestionStorage {
 
   public async listPosts(guildId: string, forumId: string, limit: number): Promise<SuggestionPost[]> {
     const result = await this.pool.query<PostRow>(
-      `SELECT thread_id, guild_id, forum_id, author_id, title, body, tag_ids, panel_message_id, created_at
+      `SELECT thread_id, guild_id, forum_id, author_id, title, body, tag_ids, panel_message_id, staff_message_id, closed_at, created_at
        FROM suggestion_posts WHERE guild_id = $1 AND forum_id = $2 ORDER BY created_at DESC LIMIT $3`,
       [guildId, forumId, limit],
     );
@@ -182,6 +192,14 @@ class SuggestionRepository implements SuggestionStorage {
 
   public async updatePanelMessage(threadId: string, messageId: string | null): Promise<void> {
     await this.pool.query("UPDATE suggestion_posts SET panel_message_id = $2, updated_at = NOW() WHERE thread_id = $1", [threadId, messageId]);
+  }
+
+  public async updateStaffMessage(threadId: string, messageId: string | null): Promise<void> {
+    await this.pool.query("UPDATE suggestion_posts SET staff_message_id = $2, updated_at = NOW() WHERE thread_id = $1", [threadId, messageId]);
+  }
+
+  public async markClosed(threadId: string, closedAt: Date | null): Promise<void> {
+    await this.pool.query("UPDATE suggestion_posts SET closed_at = $2, updated_at = NOW() WHERE thread_id = $1", [threadId, closedAt]);
   }
 
   public async deletePost(threadId: string): Promise<void> {
@@ -307,6 +325,8 @@ function mapPost(row: PostRow): SuggestionPost {
     body: row.body,
     tagIds: Array.isArray(row.tag_ids) ? row.tag_ids.filter((id): id is string => typeof id === "string") : [],
     panelMessageId: row.panel_message_id,
+    staffMessageId: row.staff_message_id ?? null,
+    closedAt: row.closed_at ? toDate(row.closed_at) : null,
     createdAt: toDate(row.created_at),
   };
 }
